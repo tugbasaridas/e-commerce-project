@@ -138,3 +138,4 @@ C:\Users\Tugba\Desktop\staj_proje\ECommerceApi\obj\Debug\net9.0\refint\ECommerce
 C:\Users\Tugba\Desktop\staj_proje\ECommerceApi\obj\Debug\net9.0\ECommerceApi.pdb
 C:\Users\Tugba\Desktop\staj_proje\ECommerceApi\obj\Debug\net9.0\ECommerceApi.genruntimeconfig.cache
 C:\Users\Tugba\Desktop\staj_proje\ECommerceApi\obj\Debug\net9.0\ref\ECommerceApi.dll
+C:\Users\Tugba\Desktop\staj_proje\ECommerceApi\obj\Debug\net9.0\ECommerceApi.sourcelink.json

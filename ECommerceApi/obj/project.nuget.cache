@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "hSeaXFfcAJQ=",
+  "dgSpecHash": "JdJTR7siRzw=",
   "success": true,
-  "projectFilePath": "c:\\Users\\Tugba\\Desktop\\staj_proje\\ECommerceApi\\ECommerceApi.csproj",
+  "projectFilePath": "C:\\Users\\Tugba\\Desktop\\staj_proje\\ECommerceApi\\ECommerceApi.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Tugba\\.nuget\\packages\\bcrypt.net-next\\4.2.0\\bcrypt.net-next.4.2.0.nupkg.sha512",
     "C:\\Users\\Tugba\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
