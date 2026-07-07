@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Tugba\\Desktop\\staj_proje\\ECommerceApi\\ECommerceApi.csproj": {}
+    "c:\\Users\\Tugba\\Desktop\\staj_proje\\ECommerceApi\\ECommerceApi.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Tugba\\Desktop\\staj_proje\\ECommerceApi\\ECommerceApi.csproj": {
+    "c:\\Users\\Tugba\\Desktop\\staj_proje\\ECommerceApi\\ECommerceApi.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Tugba\\Desktop\\staj_proje\\ECommerceApi\\ECommerceApi.csproj",
+        "projectUniqueName": "c:\\Users\\Tugba\\Desktop\\staj_proje\\ECommerceApi\\ECommerceApi.csproj",
         "projectName": "ECommerceApi",
-        "projectPath": "C:\\Users\\Tugba\\Desktop\\staj_proje\\ECommerceApi\\ECommerceApi.csproj",
+        "projectPath": "c:\\Users\\Tugba\\Desktop\\staj_proje\\ECommerceApi\\ECommerceApi.csproj",
         "packagesPath": "C:\\Users\\Tugba\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Tugba\\Desktop\\staj_proje\\ECommerceApi\\obj\\",
+        "outputPath": "c:\\Users\\Tugba\\Desktop\\staj_proje\\ECommerceApi\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
