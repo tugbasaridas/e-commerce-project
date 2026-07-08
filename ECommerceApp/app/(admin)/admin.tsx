@@ -143,7 +143,7 @@ export default function AdminDashboard() {
           <Ionicons name="chevron-forward" size={20} color="#BFBFBF" />
         </TouchableOpacity>
 
-        {/* DESTEK YÖNETİMİ (YENİ EKLENDİ) */}
+        {/* DESTEK YÖNETİMİ */}
         <TouchableOpacity 
           style={[styles.menuItem, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E5E5EA' }]}
           onPress={() => router.push('/(admin)/admindestek' as any)}
@@ -153,6 +153,20 @@ export default function AdminDashboard() {
               <Ionicons name="chatbubbles" size={22} color="#7B1FA2" />
             </View>
             <Text style={styles.menuItemText}>Destek Yönetimi</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#BFBFBF" />
+        </TouchableOpacity>
+
+        {/* KULLANICI YÖNETİMİ (YENİ EKLENDİ - SADECE LİSTELEME) */}
+        <TouchableOpacity 
+          style={[styles.menuItem, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E5E5EA' }]}
+          onPress={() => router.push('/admin-kullanicilar' as any)}
+        >
+          <View style={styles.menuItemLeft}>
+            <View style={[styles.menuIconBox, { backgroundColor: '#E1F5FE' }]}>
+              <Ionicons name="people" size={22} color="#4EA8DE" />
+            </View>
+            <Text style={styles.menuItemText}>Kullanıcı Yönetimi</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#BFBFBF" />
         </TouchableOpacity>
