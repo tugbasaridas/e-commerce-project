@@ -1,10 +1,13 @@
 import { urunleriGetir } from '@/services/UrunService';
 import { Kategori, Urun } from '@/types/Urun';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router'; // useFocusEffect eklendi
-import React, { useCallback, useState } from 'react'; // useCallback eklendi (useEffect kaldırıldı)
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+// YENİ EKLENEN: Sıralama tiplerini tanımlıyoruz
+type SiralamaTipi = 'fiyatArtan' | 'fiyatAzalan' | 'puanYuksek' | null;
 
 export default function Anasayfa() {
   const router = useRouter();
@@ -14,12 +17,13 @@ export default function Anasayfa() {
   const [kategoriler, setKategoriler] = useState<Kategori[]>([]);
   const [seciliKategori, setSeciliKategori] = useState<number | null>(null);
   const [aramaMetni, setAramaMetni] = useState('');
+  
+  // YENİ EKLENEN: Sıralama state'i
+  const [siralama, setSiralama] = useState<SiralamaTipi>(null);
   const [loading, setLoading] = useState(true);
 
-  // DEĞİŞEN KISIM: useEffect yerine useFocusEffect kullanıldı
   useFocusEffect(
     useCallback(() => {
-      // Arka planda veriler yenilenirken kısa bir yükleme animasyonu göstermek iyi bir UX sağlar
       setLoading(true); 
       
       urunleriGetir()
@@ -27,15 +31,8 @@ export default function Anasayfa() {
           if (!data) return;
           setTumUrunler(data);
           
-          // Eğer önceden seçili bir filtre veya arama varsa, veriler güncellenirken o filtreyi koruyoruz
-          let sonuc = data;
-          if (seciliKategori !== null) {
-            sonuc = sonuc.filter(u => u.kategoriId === seciliKategori);
-          }
-          if (aramaMetni) {
-            sonuc = sonuc.filter(u => u.ad?.toLowerCase().includes(aramaMetni.toLowerCase()));
-          }
-          setGorunenUrunler(sonuc);
+          // GÜNCELLENEN KISIM: Veri geldiğinde mevcut arama, kategori VE sıralamayı uygula
+          filtreleriUygula(data, aramaMetni, seciliKategori, siralama);
 
           const cikanKategoriler: Kategori[] = [];
           
@@ -60,12 +57,12 @@ export default function Anasayfa() {
         .finally(() => {
           setLoading(false);
         });
-    }, [aramaMetni, seciliKategori]) // Arama ve kategori statelerini bağımlılık olarak ekledik
+    }, [aramaMetni, seciliKategori, siralama]) // GÜNCELLEME: siralama eklendi
   );
 
-  // Ortak Filtreleme Fonksiyonu (Arama ve Kategori Birlikte Çalışır)
-  const filtreleriUygula = (aranan: string, kategoriId: number | null) => {
-    let sonuc = tumUrunler;
+  // GÜNCELLENEN ORTAK FİLTRELEME FONKSİYONU
+  const filtreleriUygula = (liste: Urun[], aranan: string, kategoriId: number | null, seciliSiralama: SiralamaTipi) => {
+    let sonuc = [...liste]; // Orijinal listeyi kopyala ki referans bozulmasın
 
     if (kategoriId !== null) {
       sonuc = sonuc.filter(u => u.kategoriId === kategoriId);
@@ -75,18 +72,34 @@ export default function Anasayfa() {
       sonuc = sonuc.filter(u => u.ad?.toLowerCase().includes(aranan.toLowerCase()));
     }
 
+    // YENİ EKLENEN: Sıralama mantığı
+    if (seciliSiralama === 'fiyatArtan') {
+      sonuc.sort((a, b) => a.fiyat - b.fiyat);
+    } else if (seciliSiralama === 'fiyatAzalan') {
+      sonuc.sort((a, b) => b.fiyat - a.fiyat);
+    } else if (seciliSiralama === 'puanYuksek') {
+      sonuc.sort((a, b) => (b.ortalamaPuan || 0) - (a.ortalamaPuan || 0));
+    }
+
     setGorunenUrunler(sonuc);
   };
 
   const aramaYap = (text: string) => {
     setAramaMetni(text);
-    filtreleriUygula(text, seciliKategori);
+    filtreleriUygula(tumUrunler, text, seciliKategori, siralama);
   };
 
   const kategoriSec = (id: number | null) => {
     const yeniKategori = seciliKategori === id ? null : id;
     setSeciliKategori(yeniKategori);
-    filtreleriUygula(aramaMetni, yeniKategori);
+    filtreleriUygula(tumUrunler, aramaMetni, yeniKategori, siralama);
+  };
+
+  // YENİ EKLENEN: Sıralama seçme fonksiyonu
+  const siralamaSec = (tip: SiralamaTipi) => {
+    const yeniSiralama = siralama === tip ? null : tip; // Zaten seçiliyse iptal et
+    setSiralama(yeniSiralama);
+    filtreleriUygula(tumUrunler, aramaMetni, seciliKategori, yeniSiralama);
   };
 
   if (loading && tumUrunler.length === 0) {
@@ -113,6 +126,37 @@ export default function Anasayfa() {
             onChangeText={aramaYap} 
           />
         </View>
+      </View>
+
+      {/* YENİ EKLENEN: SIRALAMA BUTONLARI (Kategorilerin Üstünde) */}
+      <View style={styles.siralamaAlani}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 15 }}>
+          
+          <TouchableOpacity 
+            style={[styles.siralamaHap, siralama === 'fiyatArtan' && styles.siralamaHapAktif]}
+            onPress={() => siralamaSec('fiyatArtan')}
+          >
+            <Ionicons name="arrow-up" size={14} color={siralama === 'fiyatArtan' ? '#fff' : '#666'} />
+            <Text style={[styles.siralamaYazi, siralama === 'fiyatArtan' && styles.siralamaYaziAktif]}>Ucuzdan</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.siralamaHap, siralama === 'fiyatAzalan' && styles.siralamaHapAktif]}
+            onPress={() => siralamaSec('fiyatAzalan')}
+          >
+            <Ionicons name="arrow-down" size={14} color={siralama === 'fiyatAzalan' ? '#fff' : '#666'} />
+            <Text style={[styles.siralamaYazi, siralama === 'fiyatAzalan' && styles.siralamaYaziAktif]}>Pahalıdan</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.siralamaHap, siralama === 'puanYuksek' && styles.siralamaHapAktif]}
+            onPress={() => siralamaSec('puanYuksek')}
+          >
+            <Ionicons name="star" size={14} color={siralama === 'puanYuksek' ? '#FFD700' : '#666'} />
+            <Text style={[styles.siralamaYazi, siralama === 'puanYuksek' && styles.siralamaYaziAktif]}>En Yüksek Puan</Text>
+          </TouchableOpacity>
+
+        </ScrollView>
       </View>
 
       {/* KATEGORİLER */}
@@ -167,7 +211,15 @@ export default function Anasayfa() {
             <View style={styles.bilgi}>
                 <Text style={styles.kategori}>{item.kategori?.ad || "Genel"}</Text>
                 <Text style={styles.baslik} numberOfLines={2}>{item.ad}</Text>
-                {/* Güvenli fiyat formatlama: fiyat null gelirse hata vermez */}
+                
+                {/* YENİ: Kart üzerine küçük yıldız göstergesi */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                  <Ionicons name="star" size={12} color="#FFD700" />
+                  <Text style={{ fontSize: 11, color: '#666', marginLeft: 3 }}>
+                    {item.ortalamaPuan ? item.ortalamaPuan.toFixed(1) : "0.0"}
+                  </Text>
+                </View>
+
                 <Text style={styles.fiyat}>{item.fiyat ? item.fiyat.toFixed(2) : '0.00'} TL</Text>
             </View>
           </TouchableOpacity>
@@ -195,6 +247,24 @@ const styles = StyleSheet.create({
     elevation: 2
   },
   aramaInput: { flex: 1, fontSize: 15, color: '#333' },
+
+  // --- YENİ SIRALAMA BUTON STİLLERİ ---
+  siralamaAlani: { marginBottom: 15 },
+  siralamaHap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#e0e0e0'
+  },
+  siralamaHapAktif: { backgroundColor: '#333', borderColor: '#333' },
+  siralamaYazi: { fontSize: 12, fontWeight: '600', color: '#666', marginLeft: 4 },
+  siralamaYaziAktif: { color: '#fff' },
+  // ------------------------------------
 
   kategoriAlani: { marginBottom: 15 },
   kategoriHap: { 
