@@ -18,12 +18,10 @@ public static class FavoriEndpoints
         // --- 1. FAVORİ EKLE ---
         group.MapPost("/", async (FavoriEkleDTO dto, HttpContext context, AppDbContext db) =>
         {
-            // Token'ın içinden giriş yapan kullanıcının ID'sini (Sub claim) çekiyoruz
             var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (userIdClaim == null) return Results.Unauthorized();
             int kullaniciId = int.Parse(userIdClaim);
 
-            // Veritabanı Şişmesini Önleme Kontrolü: Bu ürün zaten favorilerde var mı?
             var zatenVarMi = await db.Favoriler.AnyAsync(f => f.KullaniciId == kullaniciId && f.UrunId == dto.UrunId);
             if (zatenVarMi) return Results.BadRequest(new { Mesaj = "Bu ürün zaten favorilerinizde." });
 
@@ -39,29 +37,38 @@ public static class FavoriEndpoints
             return Results.Ok(new { Mesaj = "Ürün favorilere eklendi." });
         });
 
-        // --- 2. KULLANICININ KENDİ FAVORİLERİNİ LİSTELE ---
-    group.MapGet("/", async (HttpContext context, AppDbContext db) =>
-    {
-        var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userIdClaim == null) return Results.Unauthorized();
-        int kullaniciId = int.Parse(userIdClaim);
+        /// --- 2. KULLANICININ KENDİ FAVORİLERİNİ LİSTELE ---
+        group.MapGet("/", async (HttpContext context, AppDbContext db) =>
+        {
+            var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userIdClaim == null) return Results.Unauthorized();
+            int kullaniciId = int.Parse(userIdClaim);
 
-        var favoriler = await db.Favoriler
-            .Include(f => f.Urunler)
-            .Where(f => f.KullaniciId == kullaniciId)
-            .Select(f => new 
-            {
-                FavoriId = f.Id,
-                UrunId = f.UrunId, // Navigation property yerine doğrudan ID alanını kullanıyoruz
-                // Güvenli erişim: Eğer Urunler null ise "Bilgi Yok" yaz, değilse ismini getir
-                Ad = f.Urunler != null ? f.Urunler.Ad : "Ürün Silinmiş", 
-                Fiyat = f.Urunler != null ? f.Urunler.Fiyat : 0,
-                ResimUrl = f.Urunler != null ? f.Urunler.ResimUrl : ""
-            })
-            .ToListAsync();
+            var favoriler = await db.Favoriler
+                .Include(f => f.Urunler)
+                    // DİKKAT: .Include yerine .ThenInclude kullanıyoruz ve (!) operatörüyle derleyiciyi susturuyoruz
+                    .ThenInclude(u => u!.Oylamalar) 
+                .Where(f => f.KullaniciId == kullaniciId)
+                .Select(f => new 
+                {
+                    FavoriId = f.Id,
+                    UrunId = f.UrunId,
+                    Ad = f.Urunler != null ? f.Urunler.Ad : "Ürün Silinmiş", 
+                    Fiyat = f.Urunler != null ? f.Urunler.Fiyat : 0,
+                    ResimUrl = f.Urunler != null ? f.Urunler.ResimUrl : "",
+                    
+                    // Oylamalar nesnesinin de null olup olmadığını kontrol ederek tam güvenlik sağlıyoruz
+                    OrtalamaPuan = (f.Urunler != null && f.Urunler.Oylamalar != null && f.Urunler.Oylamalar.Any()) 
+                                   ? Math.Round(f.Urunler.Oylamalar.Average(o => o.Puan), 1) 
+                                   : 0.0,
+                    OylamaSayisi = (f.Urunler != null && f.Urunler.Oylamalar != null) 
+                                   ? f.Urunler.Oylamalar.Count() 
+                                   : 0
+                })
+                .ToListAsync();
 
-        return Results.Ok(favoriler);
-    });
+            return Results.Ok(favoriler);
+        });
 
         // --- 3. FAVORİDEN ÇIKAR (SİL) ---
         group.MapDelete("/{urunId}", async (int urunId, HttpContext context, AppDbContext db) =>

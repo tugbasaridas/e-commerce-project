@@ -34,15 +34,22 @@ public static class AdminEndpoints
             var tumSiparisler = await db.Siparisler
                 .Include(s => s.Detaylar)
                     .ThenInclude(d => d.Urunler)
-                .OrderByDescending(s => s.SiparisTarihi)
-                .Select(s => new
+                // Siparişler tablosu ile Kullanıcılar tablosunu ID üzerinden birleştiriyoruz
+                .Join(db.Kullanicilar,
+                      s => s.KullaniciId,
+                      k => k.Id,
+                      (s, k) => new { Siparis = s, Kullanici = k })
+                .OrderByDescending(x => x.Siparis.SiparisTarihi)
+                .Select(x => new
                 {
-                    s.Id,
-                    s.SiparisTarihi,
-                    s.ToplamTutar,
-                    s.Durum,
-                    KullaniciId = s.KullaniciId, 
-                    Urunler = s.Detaylar.Select(d => new
+                    Id = x.Siparis.Id,
+                    SiparisTarihi = x.Siparis.SiparisTarihi,
+                    ToplamTutar = x.Siparis.ToplamTutar,
+                    Durum = x.Siparis.Durum,
+                    KullaniciId = x.Siparis.KullaniciId, // Güvenlik için eski veriyi de tutuyoruz
+                    KullaniciAdSoyad = x.Kullanici.AdSoyad,
+                    KullaniciEmail = x.Kullanici.Email,
+                    Urunler = x.Siparis.Detaylar.Select(d => new
                     {
                         Ad = d.Urunler != null ? d.Urunler.Ad : "Silinmiş Ürün",
                         Adet = d.Adet,

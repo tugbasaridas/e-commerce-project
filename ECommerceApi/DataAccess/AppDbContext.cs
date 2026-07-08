@@ -18,4 +18,5 @@ public class AppDbContext : DbContext
     public DbSet<Siparis> Siparisler { get; set; }
     public DbSet<SiparisDetay> SiparisDetaylari { get; set; }
     public DbSet<DestekTalepleri> DestekTalepleri { get; set; }
+    public DbSet<Oylama> Oylamalar { get; set; }
 }
