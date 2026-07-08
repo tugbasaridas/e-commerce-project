@@ -3,12 +3,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput, TouchableOpacity,
-    View
+  ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput, TouchableOpacity,
+  View
 } from 'react-native';
 import api from '../../config/api';
 
@@ -32,17 +32,14 @@ export default function AdminUrunEkle() {
 
   const kategorileriGetir = async () => {
     try {
-      // Backend'deki KategoriEndpoints'ine istek atıyoruz
       const response = await api.get('/kategoriler');
       setKategoriler(response.data);
     } catch (error) {
       console.error("Kategoriler çekilemedi:", error);
-      // Kategoriler çekilemezse test için manuel ekleyebilirsin
     }
   };
 
   const kaydet = async () => {
-    
     if (!ad || !fiyat || !stok || !seciliKategoriId) {
       Alert.alert("Uyarı", "Lütfen zorunlu alanları (Ad, Fiyat, Stok, Kategori) doldurun.");
       return;
@@ -78,7 +75,7 @@ export default function AdminUrunEkle() {
   return (
     <KeyboardAvoidingView 
       style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
     >
       {/* Üst Bilgi ve Geri Tuşu */}
       <View style={styles.header}>
@@ -89,7 +86,11 @@ export default function AdminUrunEkle() {
         <View style={{ width: 26 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.formContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={styles.formContainer} 
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         
         {/* Ürün Adı */}
         <View style={styles.inputGrup}>
@@ -127,7 +128,7 @@ export default function AdminUrunEkle() {
           </View>
         </View>
 
-        {/* Kategori Seçimi (Modern Chip Tasarımı) */}
+        {/* Kategori Seçimi */}
         <View style={styles.inputGrup}>
           <Text style={styles.label}>Kategori <Text style={styles.zorunlu}>*</Text></Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.kategoriScroll}>
@@ -220,7 +221,7 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     padding: 20,
-    paddingBottom: 50,
+    paddingBottom: 30, 
   },
   inputGrup: {
     marginBottom: 20,

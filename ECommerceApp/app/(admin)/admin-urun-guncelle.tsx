@@ -3,12 +3,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput, TouchableOpacity,
-    View
+  ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput, TouchableOpacity,
+  View
 } from 'react-native';
 import api from '../../config/api';
 
@@ -111,6 +111,7 @@ export default function AdminUrunGuncelle() {
     <KeyboardAvoidingView 
       style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0} // iOS için ufak bir itme payı
     >
       {/* Üst Bilgi Başlığı */}
       <View style={styles.header}>
@@ -121,7 +122,11 @@ export default function AdminUrunGuncelle() {
         <View style={{ width: 26 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.formContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={styles.formContainer} 
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled" // Klavye açıkken dışarıya tıklandığında klavyeyi kapatır
+      >
         
         {/* Ürün Adı */}
         <View style={styles.inputGrup}>
@@ -258,7 +263,7 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     padding: 20,
-    paddingBottom: 50,
+    paddingBottom: 150, 
   },
   inputGrup: {
     marginBottom: 20,

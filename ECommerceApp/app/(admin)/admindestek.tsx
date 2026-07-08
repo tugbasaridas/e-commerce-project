@@ -1,23 +1,19 @@
 import { API_CONFIG } from '@/config/api';
+import { DestekTalebi } from '@/types/DestekTalebi';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator, Alert, FlatList, KeyboardAvoidingView,
+  Modal, Platform, ScrollView, StyleSheet, Text,
+  TextInput, TouchableOpacity, View
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-interface DestekTalebi {
-  id: number;
-  kullaniciAdi: string;
-  kullaniciEmail: string;
-  konu: string;
-  mesaj: string;
-  adminCevabi: string | null;
-  durum: string;
-  olusturulmaTarihi: string;
-}
+
 
 export default function AdminDestekPanel() {
   const router = useRouter();
@@ -66,7 +62,6 @@ export default function AdminDestekPanel() {
 
       Alert.alert('Başarılı', 'Cevabınız iletildi.');
       
-      // Arayüzü güncelle: Bekleyen talebi "Cevaplandı" olarak işaretle
       setTalepler(prev => prev.map(t => 
         t.id === seciliTalep?.id ? { ...t, durum: 'Cevaplandı', adminCevabi: cevapMetni } : t
       ));
@@ -126,49 +121,63 @@ export default function AdminDestekPanel() {
 
       {/* MODAL */}
       <Modal visible={modalGörünür} animationType="slide" transparent={true}>
-        <View style={styles.modalArkaPlan}>
+        {/* Modal içindeki klavye yönetimi için KeyboardAvoidingView */}
+        <KeyboardAvoidingView 
+          style={styles.modalArkaPlan} 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={styles.modalKutu}>
             <View style={styles.modalCizgi} />
             <View style={styles.modalBaslikSatiri}>
               <Text style={styles.modalBaslik}>Talep Detayı</Text>
               <TouchableOpacity onPress={() => setModalGörünür(false)}><Ionicons name="close" size={24} color="#555" /></TouchableOpacity>
             </View>
+            
             {seciliTalep && (
-              <View style={styles.modalIcerik}>
+              /* İçeriklerin ekrandan taşmaması ve kaydırılabilmesi için ScrollView */
+              <ScrollView 
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ flexGrow: 1 }}
+              >
                 <View style={styles.musteriKart}>
-                  <Text style={styles.modalBilgiDeger}>{seciliTalep.kullaniciAdi} ({seciliTalep.kullaniciEmail})</Text>
+                  <Text style={styles.modalBilgiDeger}>{seciliTalep.kullaniciAdi}</Text>
+                  <Text style={styles.modalBilgiEmail}>{seciliTalep.kullaniciEmail}</Text>
+                  <View style={{ height: 8 }} />
                   <Text style={styles.modalBilgiBaslik}>{seciliTalep.konu}</Text>
                 </View>
-                <View style={styles.musteriMesajKutu}><Text style={styles.mesajMetni}>{seciliTalep.mesaj}</Text></View>
+                
+                <View style={styles.musteriMesajKutu}>
+                  <Text style={styles.mesajMetni}>{seciliTalep.mesaj}</Text>
+                </View>
                 
                 <Text style={styles.cevapEtiketi}>Cevabınız:</Text>
-                <TextInput style={styles.inputArea} multiline textAlignVertical="top" value={cevapMetni} onChangeText={setCevapMetni} />
+                <TextInput 
+                  style={styles.inputArea} 
+                  multiline 
+                  textAlignVertical="top" 
+                  value={cevapMetni} 
+                  onChangeText={setCevapMetni}
+                  placeholder="Müşteriye iletilecek cevabı buraya yazın..."
+                />
                 
                 <TouchableOpacity style={styles.gonderButon} onPress={cevapGonder} disabled={gonderiliyor}>
                   {gonderiliyor ? <ActivityIndicator color="#fff" /> : <Text style={styles.gonderButonYazi}>Cevabı Gönder</Text>}
                 </TouchableOpacity>
-              </View>
+              </ScrollView>
             )}
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
 }
-// (Styles aynı kalıyor, zaten iyiydi)
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },
-  merkez: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 },
-  yukleniyorMetin: { marginTop: 10, color: '#888', fontSize: 15 },
-  
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#F0F0F0' },
-  geriButon: { width: 40, alignItems: 'flex-start' },
   baslik: { fontSize: 20, fontWeight: 'bold', color: '#111' },
   
-  bosDurum: { alignItems: 'center', marginTop: 80, paddingHorizontal: 30 },
-  bosMetin: { textAlign: 'center', marginTop: 15, color: '#888', fontSize: 16, lineHeight: 24 },
-
   // Liste Kartları
   kart: { 
     backgroundColor: '#fff', 
@@ -204,26 +213,52 @@ const styles = StyleSheet.create({
 
   // Modal (Pencere)
   modalArkaPlan: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalKutu: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40, minHeight: '65%' },
-  modalCizgi: { width: 40, height: 4, backgroundColor: '#E0E0E0', borderRadius: 2, alignSelf: 'center', marginBottom: 15 },
   
+  modalKutu: { 
+    backgroundColor: '#fff', 
+    borderTopLeftRadius: 24, 
+    borderTopRightRadius: 24, 
+    padding: 20, 
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20, 
+    maxHeight: '90%' 
+  },
+  
+  modalCizgi: { width: 40, height: 4, backgroundColor: '#E0E0E0', borderRadius: 2, alignSelf: 'center', marginBottom: 15 },
   modalBaslikSatiri: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalBaslik: { fontSize: 20, fontWeight: 'bold', color: '#111' },
-  kapatButon: { width: 36, height: 36, backgroundColor: '#F5F5F5', borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-  
-  modalIcerik: { flex: 1 },
   
   musteriKart: { backgroundColor: '#F8F9FA', padding: 15, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#EFEFEF' },
-  modalBilgiBaslik: { fontSize: 12, color: '#888', textTransform: 'uppercase', fontWeight: '600', marginBottom: 4 },
+  modalBilgiBaslik: { fontSize: 12, color: '#888', textTransform: 'uppercase', fontWeight: '700', marginTop: 4 },
   modalBilgiDeger: { fontSize: 15, fontWeight: 'bold', color: '#333' },
-  modalBilgiEmail: { fontSize: 14, fontWeight: 'normal', color: '#666' },
+  modalBilgiEmail: { fontSize: 13, color: '#666', marginTop: 2 },
   
-  musteriMesajKutu: { backgroundColor: '#FFF9C4', padding: 15, borderRadius: 12, marginBottom: 25, borderLeftWidth: 4, borderLeftColor: '#FFB800' },
-  mesajMetni: { fontSize: 15, color: '#333', lineHeight: 24 },
+  musteriMesajKutu: { backgroundColor: '#FFF9C4', padding: 15, borderRadius: 12, marginBottom: 20, borderLeftWidth: 4, borderLeftColor: '#FFB800' },
+  mesajMetni: { fontSize: 15, color: '#333', lineHeight: 22 },
   
-  cevapEtiketi: { fontSize: 14, fontWeight: 'bold', color: '#FFB800', marginBottom: 10, textTransform: 'uppercase' },
-  inputArea: { backgroundColor: '#FAFAFA', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 16, padding: 15, height: 130, fontSize: 15, color: '#333' },
+  cevapEtiketi: { fontSize: 13, fontWeight: 'bold', color: '#FFB800', marginBottom: 8, textTransform: 'uppercase' },
+  inputArea: { 
+    backgroundColor: '#FAFAFA', 
+    borderWidth: 1, 
+    borderColor: '#E0E0E0', 
+    borderRadius: 16, 
+    padding: 15, 
+    height: 110, 
+    fontSize: 15, 
+    color: '#333' 
+  },
   
-  gonderButon: { backgroundColor: '#FFB800', paddingVertical: 16, borderRadius: 14, alignItems: 'center', marginTop: 20, shadowColor: '#FFB800', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  gonderButon: { 
+    backgroundColor: '#FFB800', 
+    paddingVertical: 14, 
+    borderRadius: 14, 
+    alignItems: 'center', 
+    marginTop: 15, 
+    marginBottom: 10,
+    shadowColor: '#FFB800', 
+    shadowOffset: { width: 0, height: 4 }, 
+    shadowOpacity: 0.3, 
+    shadowRadius: 8, 
+    elevation: 4 
+  },
   gonderButonYazi: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
 });

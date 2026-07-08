@@ -13,4 +13,6 @@ export interface Urun {
   resimUrl?: string;
   kategoriId: number;
   kategori: Kategori; 
+  ortalamaPuan?: number;
+  oylamaSayisi?: number;
 }

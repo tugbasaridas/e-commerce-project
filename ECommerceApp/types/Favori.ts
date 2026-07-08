@@ -4,4 +4,6 @@ export interface FavoriUrun {
   ad: string;
   fiyat: number;
   resimUrl: string;
+  ortalamaPuan?: number;
+  oylamaSayisi?: number;
 }
