@@ -8,8 +8,11 @@ public class Siparis
     public int KullaniciId { get; set; }
     public DateTime SiparisTarihi { get; set; } = DateTime.UtcNow;
     public decimal ToplamTutar { get; set; }
-    public string Durum { get; set; } = "Hazırlanıyor"; // Varsayılan
+    public string Durum { get; set; } = "Hazırlanıyor"; 
+    public string OdemeYontemi { get; set; } = "Kredi Kartı";
+    public string TeslimatAdresi { get; set; } = string.Empty;
     public List<SiparisDetay> Detaylar { get; set; } = new();
+
 }
 
 public class SiparisDetay

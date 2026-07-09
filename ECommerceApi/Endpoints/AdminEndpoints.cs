@@ -46,7 +46,11 @@ public static class AdminEndpoints
                     SiparisTarihi = x.Siparis.SiparisTarihi,
                     ToplamTutar = x.Siparis.ToplamTutar,
                     Durum = x.Siparis.Durum,
-                    KullaniciId = x.Siparis.KullaniciId, // Güvenlik için eski veriyi de tutuyoruz
+                    
+                    OdemeYontemi = x.Siparis.OdemeYontemi,
+                    TeslimatAdresi = x.Siparis.TeslimatAdresi,
+                    
+                    KullaniciId = x.Siparis.KullaniciId, 
                     KullaniciAdSoyad = x.Kullanici.AdSoyad,
                     KullaniciEmail = x.Kullanici.Email,
                     Urunler = x.Siparis.Detaylar.Select(d => new

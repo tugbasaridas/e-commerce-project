@@ -6,21 +6,26 @@ using System.Security.Claims;
 
 namespace ECommerceApi.Endpoints;
 
+// Frontend'den gelecek ödeme verilerini karşılayacak DTO
+public class SiparisOlusturDto
+{
+    public string OdemeYontemi { get; set; } = "Kredi Kartı";
+    public string TeslimatAdresi { get; set; } = string.Empty;
+}
+
 public static class SiparisEndpoints
 {
     public static void MapSiparisEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/siparisler");
 
-        // --- 1. SEPETTEN SİPARİŞ OLUŞTUR (SADECE GİRİŞ YAPAN KULLANICILAR) ---
-        group.MapPost("/olustur", [Authorize] async (HttpContext context, AppDbContext db, ILogger<Program> logger) =>
+        // --- 1. SEPETTEN SİPARİŞ OLUŞTUR ---
+        group.MapPost("/olustur", [Authorize] async (SiparisOlusturDto dto, HttpContext context, AppDbContext db, ILogger<Program> logger) =>
         {
-            // Token'dan ID çekme standardizasyonu
             var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (userIdClaim == null) return Results.Unauthorized();
             int userId = int.Parse(userIdClaim);
 
-            // Kullanıcının sepetindeki ürünleri çek (Kategori ilişkisi olmadan, sade)
             var sepetUrunleri = await db.SepetUrunleri
                 .Include(k => k.Urunler)
                 .Where(k => k.KullaniciId == userId)
@@ -29,7 +34,6 @@ public static class SiparisEndpoints
             if (!sepetUrunleri.Any())
                 return Results.BadRequest(new { Mesaj = "Sepetiniz boş, sipariş oluşturulamaz." });
 
-            // Transaction Başlat
             using var transaction = await db.Database.BeginTransactionAsync();
 
             try
@@ -40,14 +44,9 @@ public static class SiparisEndpoints
                 foreach (var sepetItem in sepetUrunleri)
                 {
                     var urun = sepetItem.Urunler;
-
                     if (urun == null || urun.Stok < sepetItem.Miktar)
-                    {
-                        
-                        throw new Exception($"{urun?.Ad ?? "Bilinmeyen Ürün"} için yeterli stok bulunmuyor!");
-                    }
+                        throw new Exception($"{urun?.Ad ?? "Bilinmeyen Ürün"} için stok yetersiz!");
 
-                    // Tutar Hesaplama ve Stok Düşme
                     decimal satirTutari = urun.Fiyat * sepetItem.Miktar;
                     toplamTutar += satirTutari;
                     urun.Stok -= sepetItem.Miktar;
@@ -60,12 +59,15 @@ public static class SiparisEndpoints
                     });
                 }
 
+                // Yeni siparişi DTO'dan gelen bilgilerle oluşturuyoruz
                 var yeniSiparis = new Siparis
                 {
                     KullaniciId = userId,
                     ToplamTutar = toplamTutar,
-                    Durum = "Hazırlanıyor", 
+                    Durum = "Hazırlanıyor",
                     SiparisTarihi = DateTime.UtcNow,
+                    OdemeYontemi = dto.OdemeYontemi,      // Frontend'den gelen yöntem
+                    TeslimatAdresi = dto.TeslimatAdresi,  // Frontend'den gelen adres
                     Detaylar = siparisDetaylari
                 };
 
@@ -80,10 +82,7 @@ public static class SiparisEndpoints
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                
-                logger.LogError(ex, "Sipariş oluşturulurken bir hata oluştu. Kullanıcı: {UserId}", userId);
-                
-                
+                logger.LogError(ex, "Sipariş hatası. Kullanıcı: {UserId}", userId);
                 return Results.BadRequest(new { Mesaj = ex.Message });
             }
         });
@@ -104,6 +103,8 @@ public static class SiparisEndpoints
                     s.SiparisTarihi,
                     s.ToplamTutar,
                     s.Durum,
+                    s.OdemeYontemi,      // Geçmişte de görmek için ekledik
+                    s.TeslimatAdresi,    // Geçmişte de görmek için ekledik
                     Urunler = s.Detaylar.Select(d => new
                     {
                         Ad = d.Urunler != null ? d.Urunler.Ad : "Ürün Silinmiş",
