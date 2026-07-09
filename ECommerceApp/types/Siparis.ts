@@ -1,5 +1,3 @@
-
-
 export interface SiparisUrun {
   ad: string;
   resimUrl: string;
@@ -12,6 +10,9 @@ export interface Siparis {
   siparisTarihi: string;
   toplamTutar: number;
   durum: string;
+  // Yeni eklenen alanlar
+  odemeYontemi: string;
+  teslimatAdresi: string;
   urunler: SiparisUrun[];
 }
 
@@ -20,5 +21,7 @@ export interface AdminSiparis {
   siparisTarihi: string;
   toplamTutar: number;
   durum: string;
+  odemeYontemi?: string;
+  teslimatAdresi?: string;
   urunler: any[]; 
 }

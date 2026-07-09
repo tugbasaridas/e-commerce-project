@@ -31,7 +31,7 @@ export default function Anasayfa() {
           if (!data) return;
           setTumUrunler(data);
           
-          // GÜNCELLENEN KISIM: Veri geldiğinde mevcut arama, kategori VE sıralamayı uygula
+          
           filtreleriUygula(data, aramaMetni, seciliKategori, siralama);
 
           const cikanKategoriler: Kategori[] = [];
@@ -57,12 +57,12 @@ export default function Anasayfa() {
         .finally(() => {
           setLoading(false);
         });
-    }, [aramaMetni, seciliKategori, siralama]) // GÜNCELLEME: siralama eklendi
+    }, [aramaMetni, seciliKategori, siralama]) 
   );
 
   // GÜNCELLENEN ORTAK FİLTRELEME FONKSİYONU
   const filtreleriUygula = (liste: Urun[], aranan: string, kategoriId: number | null, seciliSiralama: SiralamaTipi) => {
-    let sonuc = [...liste]; // Orijinal listeyi kopyala ki referans bozulmasın
+    let sonuc = [...liste]; 
 
     if (kategoriId !== null) {
       sonuc = sonuc.filter(u => u.kategoriId === kategoriId);

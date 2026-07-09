@@ -1,4 +1,5 @@
 import { API_CONFIG } from '@/config/api';
+import { Siparis } from '@/types/Siparis';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -6,8 +7,6 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Siparis,SiparisUrun} from '@/types/Siparis';
-
 
 export default function Siparislerim() {
   const router = useRouter();
@@ -76,7 +75,6 @@ export default function Siparislerim() {
     );
   }
 
-  // --- MİSAFİR KULLANICI EKRANI ---
   if (!isLogged) {
     return (
       <View style={styles.merkez}>
@@ -89,13 +87,11 @@ export default function Siparislerim() {
     );
   }
 
-  // --- SİPARİŞ KARTI TASARIMI ---
   const siparisKartiCiz = ({ item }: { item: Siparis }) => {
     const durumStil = getDurumStili(item.durum);
 
     return (
       <View style={styles.kart}>
-        {/* Kart Başlığı (Sipariş No ve Tarih) */}
         <View style={styles.kartUst}>
           <View>
             <Text style={styles.siparisNo}>Sipariş No: #{item.id}</Text>
@@ -107,7 +103,6 @@ export default function Siparislerim() {
           </View>
         </View>
 
-        {/* Ürünler Listesi */}
         <View style={styles.urunlerAlani}>
           {item.urunler.map((urun, index) => (
             <View key={index} style={styles.urunSatiri}>
@@ -128,10 +123,16 @@ export default function Siparislerim() {
           ))}
         </View>
 
-        {/* Kart Altı (Toplam Tutar) */}
+        {/* GÜNCELLENEN KISIM: Ödeme Yöntemi ve Adres eklendi */}
         <View style={styles.kartAlt}>
-          <Text style={styles.toplamYazi}>Toplam Tutar:</Text>
-          <Text style={styles.toplamFiyat}>{item.toplamTutar.toFixed(2)} TL</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.toplamYazi}>Ödeme: {item.odemeYontemi}</Text>
+            <Text style={styles.adresYazi} numberOfLines={1}>{item.teslimatAdresi}</Text>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={styles.toplamYazi}>Toplam:</Text>
+            <Text style={styles.toplamFiyat}>{item.toplamTutar.toFixed(2)} TL</Text>
+          </View>
         </View>
       </View>
     );
@@ -140,7 +141,6 @@ export default function Siparislerim() {
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.sayfaBaslik}>Siparişlerim</Text>
-      
       {siparisler.length === 0 ? (
         <View style={styles.bosDurum}>
           <Ionicons name="receipt-outline" size={80} color="#ccc" />
@@ -166,7 +166,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FAFAFA', paddingTop: 10 },
   merkez: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
   sayfaBaslik: { fontSize: 26, fontWeight: 'bold', color: '#333', marginBottom: 15, paddingHorizontal: 15 },
-  
   altMetin: { fontSize: 16, color: '#888', textAlign: 'center', marginTop: 15, marginBottom: 25 },
   bosDurum: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 30 },
   bosMetin: { fontSize: 16, color: '#888', textAlign: 'center', marginTop: 15, marginBottom: 25 },
@@ -174,49 +173,20 @@ const styles = StyleSheet.create({
   girisButonYazi: { fontWeight: 'bold', fontSize: 16, color: '#fff' },
   alisveriseBaslaButon: { backgroundColor: '#FFB800', paddingVertical: 12, paddingHorizontal: 30, borderRadius: 10 },
   alisveriseBaslaYazi: { fontWeight: 'bold', fontSize: 16, color: '#fff' },
-
-  kart: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#eee',
-    overflow: 'hidden',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  kartUst: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
-  },
+  kart: { backgroundColor: '#fff', borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#eee', overflow: 'hidden' },
+  kartUst: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 15, borderBottomWidth: 1, borderBottomColor: '#f5f5f5' },
   siparisNo: { fontSize: 14, fontWeight: 'bold', color: '#333', marginBottom: 4 },
   tarih: { fontSize: 12, color: '#888' },
   durumRozeti: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   durumYazi: { fontSize: 12, fontWeight: '600' },
-  
   urunlerAlani: { padding: 15, paddingBottom: 5 },
   urunSatiri: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   urunResim: { width: 40, height: 40, borderRadius: 6, resizeMode: 'cover' },
   urunBilgi: { flex: 1, marginLeft: 12 },
   urunAd: { fontSize: 13, fontWeight: '500', color: '#444' },
   urunAdetFiyat: { fontSize: 12, color: '#777', marginTop: 2 },
-
-  kartAlt: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 15,
-    backgroundColor: '#FAFAFA',
-    borderTopWidth: 1,
-    borderTopColor: '#f5f5f5',
-  },
-  toplamYazi: { fontSize: 14, fontWeight: '600', color: '#555' },
+  kartAlt: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, backgroundColor: '#FAFAFA', borderTopWidth: 1, borderTopColor: '#f5f5f5' },
+  toplamYazi: { fontSize: 12, fontWeight: '600', color: '#555' },
   toplamFiyat: { fontSize: 16, fontWeight: 'bold', color: '#111' },
+  adresYazi: { fontSize: 11, color: '#888', marginTop: 3, fontStyle: 'italic' }
 });

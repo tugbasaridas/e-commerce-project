@@ -107,7 +107,7 @@ export default function Detay() {
 
       Alert.alert("Başarılı", "Değerlendirmeniz başarıyla iletildi! ⭐");
       setOylamaModalGorunur(false);
-      setSecilenPuan(0); // Temizlik
+      setSecilenPuan(0); 
       
       // Oylama sonrası güncel puanı ekrana yansıtmak için ürünü tekrar çekiyoruz
       const guncelUrun = await axios.get(`${API_CONFIG.BASE_URL}/urunler/${id}`);

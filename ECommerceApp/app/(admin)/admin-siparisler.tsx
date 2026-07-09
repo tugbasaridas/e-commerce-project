@@ -98,7 +98,6 @@ export default function AdminSiparisler() {
                 <View style={{ flex: 1, paddingRight: 10 }}>
                   <Text style={styles.siparisNo}>Sipariş #{item.id}</Text>
                   
-                  {/* BURASI GÜNCELLENDİ: ID yerine İsim ve E-posta */}
                   <View style={styles.kullaniciBilgiSatiri}>
                     <Ionicons name="person" size={12} color="#8E8E93" />
                     <Text style={styles.kullaniciYazi}>{item.kullaniciAdSoyad || 'İsimsiz Kullanıcı'}</Text>
@@ -117,6 +116,7 @@ export default function AdminSiparisler() {
               </View>
 
               <View style={styles.ayiriciCizgi} />
+              
               <View style={styles.urunlerKutusu}>
                 {item.urunler && item.urunler.map((urun: any, index: number) => (
                   <Text key={index} style={styles.urunDetayYazi}>
@@ -125,6 +125,19 @@ export default function AdminSiparisler() {
                   </Text>
                 ))}
               </View>
+              
+              {/* YENİ EKLENEN KISIM: ADRES VE ÖDEME YÖNTEMİ */}
+              <View style={styles.kargoKutusu}>
+                <View style={styles.kargoSatiri}>
+                  <Ionicons name="location-outline" size={14} color="#8E8E93" />
+                  <Text style={styles.kargoAdresYazi}>{item.teslimatAdresi || 'Adres bilgisi yok.'}</Text>
+                </View>
+                <View style={styles.kargoSatiri}>
+                  <Ionicons name="card-outline" size={14} color="#8E8E93" />
+                  <Text style={styles.kargoOdemeYazi}>{item.odemeYontemi || 'Belirtilmemiş'}</Text>
+                </View>
+              </View>
+
               <View style={styles.ayiriciCizgi} />
 
               <View style={styles.kartAlt}>
@@ -244,10 +257,16 @@ const styles = StyleSheet.create({
   
   ayiriciCizgi: { height: 1, backgroundColor: '#F2F2F7', marginVertical: 12 },
   
-  urunlerKutusu: { paddingLeft: 4 },
+  urunlerKutusu: { paddingLeft: 4, marginBottom: 8 },
   urunDetayYazi: { fontSize: 13, color: '#48484A', marginBottom: 6 },
   urunAdet: { fontWeight: '700', color: '#1C1C1E' },
   urunFiyat: { color: '#BFBFBF', fontSize: 12 },
+
+  // YENİ: Kargo ve Adres Kısımları İçin Stiller
+  kargoKutusu: { backgroundColor: '#F8F9FA', padding: 10, borderRadius: 8, marginTop: 4 },
+  kargoSatiri: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 },
+  kargoAdresYazi: { fontSize: 12, color: '#48484A', marginLeft: 6, flex: 1, lineHeight: 18 },
+  kargoOdemeYazi: { fontSize: 12, color: '#1C1C1E', marginLeft: 6, fontWeight: '600' },
 
   kartAlt: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
   fiyatAlan: { fontSize: 13, color: '#8E8E93' },

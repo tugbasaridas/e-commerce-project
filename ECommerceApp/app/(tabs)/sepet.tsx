@@ -12,7 +12,6 @@ export default function Sepet() {
   const router = useRouter();
   const [sepet, setSepet] = useState<SepetUrun[]>([]);
   const [loading, setLoading] = useState(true);
-  const [siparisVeriliyor, setSiparisVeriliyor] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -44,18 +43,15 @@ export default function Sepet() {
       await axios.delete(`${API_CONFIG.BASE_URL}/sepet/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      // Arayüzden anında kaldır (Hızlı UX için)
       setSepet(prev => prev.filter(item => item.id !== id));
     } catch (error) {
       Alert.alert("Hata", "Silme işlemi başarısız.");
     }
   };
 
-  // YENİ: Miktar Güncelleme Fonksiyonu (+ / - Butonları İçin)
   const miktarGuncelle = async (item: SepetUrun, islem: 'artir' | 'azalt') => {
     const yeniMiktar = islem === 'artir' ? item.miktar + 1 : item.miktar - 1;
 
-   
     if (yeniMiktar < 1) {
       Alert.alert(
         "Ürünü Sil",
@@ -68,12 +64,10 @@ export default function Sepet() {
       return;
     }
 
-    // Arayüzü bekletmeden anında güncelle (Optimistic UI)
     setSepet(prev => prev.map(s => s.id === item.id ? { ...s, miktar: yeniMiktar } : s));
 
     try {
       const token = await AsyncStorage.getItem('userToken');
-      // Backend'deki PUT endpointine yeni miktarı gönderiyoruz
       await axios.put(`${API_CONFIG.BASE_URL}/sepet/${item.id}`, { miktar: yeniMiktar }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -83,65 +77,36 @@ export default function Sepet() {
     }
   };
 
+  // GÜNCELLENEN KISIM: Doğrudan ödeme ekranına yönlendirme yapılıyor
   const handleSatinAl = async () => {
     if (sepet.length === 0) {
       Alert.alert('Hata', 'Sepetiniz boş!');
       return;
     }
 
-    setSiparisVeriliyor(true);
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      if (!token) {
-        Alert.alert('Uyarı', 'Sipariş vermek için giriş yapmalısınız.');
-        router.push('/(auth)/giris' as any);
-        return;
-      }
-
-      const response = await axios.post(`${API_CONFIG.BASE_URL}/siparisler/olustur`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      Alert.alert('Başarılı', response.data.Mesaj || 'Siparişiniz oluşturuldu.');
-      
-      setSepet([]); 
-      router.replace('/(tabs)/siparislerim' as any); 
-
-    } catch (error: any) {
-      console.log("BACKEND'DEN GELEN SİPARİŞ HATASI:", error.response?.data);
-
-      let hataMesaji = 'Sipariş oluşturulurken bir hata meydana geldi.';
-      const veri = error.response?.data;
-
-      // .NET'in gönderebileceği tüm farklı hata senaryolarını kontrol ediyoruz
-      if (veri) {
-        if (typeof veri === 'string') {
-          hataMesaji = veri; 
-        } else if (veri.mesaj) {
-          hataMesaji = veri.mesaj;
-        } else if (veri.Mesaj) {
-          hataMesaji = veri.Mesaj;
-        } else if (veri.title) {
-          hataMesaji = veri.title; 
-        }
-      }
-      
-      Alert.alert('İşlem Başarısız', hataMesaji);
-    } finally {
-      setSiparisVeriliyor(false);
+    const token = await AsyncStorage.getItem('userToken');
+    if (!token) {
+      Alert.alert('Uyarı', 'Sipariş vermek için giriş yapmalısınız.');
+      router.push('/(auth)/giris' as any);
+      return;
     }
+
+    // Toplam tutarı kuruşu kuruşuna yeni ekrana paslıyoruz
+    router.push({
+      pathname: '/odeme',
+      params: { tutar: toplamTutar.toFixed(2) }
+    });
   };
 
   const toplamTutar = sepet.reduce((total, item) => {
     return total + ((item.urunler?.fiyat || 0) * item.miktar);
   }, 0);
-  
 
   if (loading) return <View style={styles.merkez}><ActivityIndicator size="large" color="#FFB800" /></View>;
 
   return (
     <SafeAreaView style={styles.container}>
-    <Text style={styles.sayfaBaslik}>Sepetim </Text>
+      <Text style={styles.sayfaBaslik}>Sepetim</Text>
       {sepet.length === 0 ? (
         <View style={styles.merkez}>
           <Ionicons name="cart-outline" size={80} color="#ccc" />
@@ -158,7 +123,6 @@ export default function Sepet() {
             contentContainerStyle={{ padding: 15 }}
             renderItem={({ item }) => (
               <View style={styles.kart}>
-                {/* Sol Taraf: Ürün Resmi */}
                 {item.urunler?.resimUrl ? (
                   <Image source={{ uri: item.urunler.resimUrl }} style={styles.resim} />
                 ) : (
@@ -167,14 +131,11 @@ export default function Sepet() {
                   </View>
                 )}
 
-                {/* Sağ Taraf: Bilgiler ve Aksiyonlar */}
                 <View style={styles.bilgiAlani}>
                   <Text style={styles.urunAd} numberOfLines={2}>{item.urunler?.ad}</Text>
-                  {/* Varyant veya kategori alanı (Opsiyonel) */}
                   <Text style={styles.varyantText}>Standart / Tek Ebat</Text> 
                   <Text style={styles.fiyat}>{item.urunler?.fiyat?.toFixed(2)} TL</Text>
 
-                  {/* Alt Kısım: Miktar Ayarlayıcı ve Çöp Kutusu */}
                   <View style={styles.aksiyonSatiri}>
                     <View style={styles.miktarAyarlayici}>
                       <TouchableOpacity onPress={() => miktarGuncelle(item, 'azalt')} style={styles.miktarButon}>
@@ -195,23 +156,17 @@ export default function Sepet() {
             )}
           />
 
-          {/* Alt Sabit Alan: Toplam Tutar ve Ödeme Butonu */}
           <View style={styles.altSabitAlan}>
             <View style={styles.toplamSatiri}>
               <Text style={styles.toplamEtiket}>Toplam</Text>
               <Text style={styles.toplamFiyat}>{toplamTutar.toFixed(2)} TL</Text>
             </View>
             <TouchableOpacity 
-            style={[styles.odemeButon, siparisVeriliyor && { opacity: 0.7 }]}
-            onPress={handleSatinAl}
-            disabled={siparisVeriliyor}
-          >
-            {siparisVeriliyor ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
+              style={styles.odemeButon}
+              onPress={handleSatinAl}
+            >
               <Text style={styles.odemeButonYazi}>Satın Al</Text>
-            )}
-          </TouchableOpacity>
+            </TouchableOpacity>
           </View>
         </>
       )}
@@ -220,14 +175,12 @@ export default function Sepet() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFA',paddingTop: 10,paddingHorizontal: 10 },
+  container: { flex: 1, backgroundColor: '#FAFAFA', paddingTop: 10, paddingHorizontal: 10 },
   merkez: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
   altMetin: { fontSize: 16, color: '#888', textAlign: 'center', marginTop: 15, marginBottom: 25 },
   alisveriseBaslaButon: { backgroundColor: '#FFB800', paddingVertical: 12, paddingHorizontal: 30, borderRadius: 10 },
   alisveriseBaslaYazi: { fontWeight: 'bold', fontSize: 16, color: '#fff' },
   sayfaBaslik: { fontSize: 26, fontWeight: 'bold', color: '#333', marginBottom: 5 },
-  
-  // Kart Tasarımı (Görseldeki gibi)
   kart: { 
     flexDirection: 'row', 
     backgroundColor: '#fff', 
@@ -242,15 +195,11 @@ const styles = StyleSheet.create({
   urunAd: { fontSize: 15, fontWeight: '600', color: '#333' },
   varyantText: { fontSize: 12, color: '#888', marginTop: 2, marginBottom: 5 },
   fiyat: { fontSize: 16, fontWeight: 'bold', color: '#111' },
-  
-  // Artı/Eksi Butonları ve Çöp Kutusu Satırı
   aksiyonSatiri: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
   miktarAyarlayici: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F5F5', borderRadius: 20 },
   miktarButon: { paddingHorizontal: 12, paddingVertical: 6 },
   miktarYazi: { fontSize: 16, fontWeight: '600', paddingHorizontal: 8 },
   silButon: { padding: 5 },
-
-  // Alt Sabit Ödeme Alanı
   altSabitAlan: { 
     backgroundColor: '#fff', 
     padding: 20, 
