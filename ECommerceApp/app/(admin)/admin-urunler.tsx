@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import api from '../../config/api';
 
 interface Urun {
@@ -16,8 +16,12 @@ export default function AdminUrunler() {
   const router = useRouter();
   const [urunler, setUrunler] = useState<Urun[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Arama ve Kategori State'leri
+  const [aramaMetni, setAramaMetni] = useState('');
+  const [secilenKategori, setSecilenKategori] = useState('Tümü');
 
- useFocusEffect(
+  useFocusEffect(
     useCallback(() => {
       urunleriGetir();
     }, [])
@@ -57,6 +61,19 @@ export default function AdminUrunler() {
     );
   };
 
+  // DİNAMİK KATEGORİ LİSTELEME: Mevcut ürünlerden benzersiz kategorileri çeker
+  const benzersizKategoriler = [
+    'Tümü',
+    ...Array.from(new Set(urunler.map(u => u.kategori?.ad).filter(Boolean)))
+  ];
+
+  // HEM ARAMA HEM KATEGORİYE GÖRE FİLTRELEME MANTIĞI
+  const filtrelenmisUrunler = urunler.filter(urun => {
+    const adUyumlu = urun.ad.toLowerCase().includes(aramaMetni.toLowerCase());
+    const kategoriUyumlu = secilenKategori === 'Tümü' || urun.kategori?.ad === secilenKategori;
+    return adUyumlu && kategoriUyumlu;
+  });
+
   const renderUrun = ({ item }: { item: Urun }) => (
     <View style={styles.urunKart}>
       <Image 
@@ -91,6 +108,7 @@ export default function AdminUrunler() {
 
   return (
    <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.geriButon} 
@@ -102,24 +120,80 @@ export default function AdminUrunler() {
         <View style={{ width: 26 }} />
       </View>
 
+      {/* Üst Alan: Arama Çubuğu */}
+      <View style={styles.ustFiltreAlani}>
+        <View style={styles.aramaKutusu}>
+          <Ionicons name="search-outline" size={20} color="#8E8E93" />
+          <TextInput
+            style={styles.aramaInput}
+            placeholder="Ürün adı ile ara..."
+            placeholderTextColor="#8E8E93"
+            value={aramaMetni}
+            onChangeText={setAramaMetni}
+            autoCorrect={false}
+          />
+          {aramaMetni.length > 0 && (
+            <TouchableOpacity onPress={() => setAramaMetni('')}>
+              <Ionicons name="close-circle" size={20} color="#8E8E93" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* YENİ EKLENEN: Yatay Kargo/Kategori Filtreleme Butonları  */}
+      {!loading && urunler.length > 0 && (
+        <View style={styles.kategoriKapsayici}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.kategoriScroll}
+          >
+            {benzersizKategoriler.map((kat: any, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.kategoriChip,
+                  secilenKategori === kat && styles.aktifKategoriChip
+                ]}
+                onPress={() => setSecilenKategori(kat)}
+              >
+                <Text 
+                  style={[
+                    styles.kategoriChipYazi,
+                    secilenKategori === kat && styles.aktifKategoriChipYazi
+                  ]}
+                >
+                  {kat}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#FF9F00" />
         </View>
       ) : (
         <FlatList
-          data={urunler}
+          data={filtrelenmisUrunler}
           keyExtractor={(item) => item.id.toString()}
           renderItem={renderUrun}
           contentContainerStyle={styles.listeKapsayici}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <Text style={styles.bosListeMetni}>Henüz hiç ürün eklenmemiş.</Text>
+            <Text style={styles.bosListeMetni}>
+              {aramaMetni.length > 0 || secilenKategori !== 'Tümü' 
+                ? 'Aradığınız kriterlere uygun ürün bulunamadı.' 
+                : 'Henüz hiç ürün eklenmemiş.'}
+            </Text>
           }
         />
       )}
 
-      <TouchableOpacity style={styles.ekleButon}onPress={() => router.push('/admin-urun-ekle')}>
+      {/* Sabit Yeni Ürün Ekleme Butonu */}
+      <TouchableOpacity style={styles.ekleButon} onPress={() => router.push('/admin-urun-ekle')}>
         <Ionicons name="add" size={24} color="#FFF" />
         <Text style={styles.ekleButonYazi}>Yeni Ürün Ekle</Text>
       </TouchableOpacity>
@@ -138,10 +212,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: 50,
-    paddingBottom: 20,
+    paddingBottom: 15,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
   },
   geriButon: {
     padding: 5,
@@ -151,6 +223,57 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1C1C1E',
   },
+  ustFiltreAlani: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+  },
+  aramaKutusu: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F2F2F7',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 44,
+  },
+  aramaInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 15,
+    color: '#1C1C1E',
+  },
+  
+  kategoriKapsayici: {
+    backgroundColor: '#FFFFFF',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  kategoriScroll: {
+    paddingHorizontal: 15,
+  },
+  kategoriChip: {
+    backgroundColor: '#F2F2F7',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginHorizontal: 5,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+  },
+  aktifKategoriChip: {
+    backgroundColor: '#FF9F00',
+    borderColor: '#FF9F00',
+  },
+  kategoriChipYazi: {
+    fontSize: 13,
+    color: '#48484A',
+    fontWeight: '600',
+  },
+  aktifKategoriChipYazi: {
+    color: '#FFFFFF',
+  },
+
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

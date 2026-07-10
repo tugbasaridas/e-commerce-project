@@ -22,10 +22,16 @@ export default function OdemeEkrani() {
   const router = useRouter();
   const { tutar } = useLocalSearchParams<{ tutar: string }>();
 
-  // YENİ STATE'LER: Ödeme Yöntemi ve Teslimat Adresi
+  // Ödeme Yöntemi
   const [odemeYontemi, setOdemeYontemi] = useState<'Kredi Kartı' | 'Kapıda Ödeme'>('Kredi Kartı');
-  const [teslimatAdresi, setTeslimatAdresi] = useState('');
+  
+  // Detaylı Adres State'leri
+  const [adresBaslik, setAdresBaslik] = useState('');
+  const [il, setIl] = useState('');
+  const [ilce, setIlce] = useState('');
+  const [acikAdres, setAcikAdres] = useState('');
 
+  // Kredi Kartı State'leri
   const [kartNo, setKartNo] = useState('');
   const [kartSahibi, setKartSahibi] = useState('');
   const [skt, setSkt] = useState('');
@@ -42,8 +48,27 @@ export default function OdemeEkrani() {
     }
   };
 
+  // GERÇEKÇİ AY VE FORMAT KONTROLÜ (AA/YY)
   const handleSktChange = (text: string) => {
-    const cleaned = text.replace(/\D/g, '');
+    let cleaned = text.replace(/\D/g, '');
+    
+    if (cleaned.length > 0) {
+      // Kullanıcı ilk rakam olarak 2-9 arası bir şey girerse otomatik başına '0' koy (Örn: 5 girdiyse '05' yap)
+      if (cleaned.length === 1 && parseInt(cleaned, 10) > 1) {
+        cleaned = `0${cleaned}`;
+      }
+      
+      // İlk iki rakam (Ay) kontrolü: 12'den büyük veya 00 olamaz
+      if (cleaned.length >= 2) {
+        const ay = parseInt(cleaned.substring(0, 2), 10);
+        if (ay < 1 || ay > 12) {
+          
+          return;
+        }
+      }
+    }
+
+    // Araya otomatik eğik çizgi (/) ekleme formatı
     if (cleaned.length >= 2) {
       setSkt(`${cleaned.substring(0, 2)}/${cleaned.substring(2, 4)}`);
     } else {
@@ -53,10 +78,12 @@ export default function OdemeEkrani() {
 
   const handleOdemeYap = async () => {
     // 1. ADRES ZORUNLULUĞU KONTROLÜ
-    if (teslimatAdresi.trim().length < 10) {
-      Alert.alert('Hata', 'Lütfen detaylı bir teslimat adresi girin (En az 10 karakter).');
+    if (il.trim() === '' || ilce.trim() === '' || acikAdres.trim().length < 10) {
+      Alert.alert('Hata', 'Lütfen İl, İlçe and Açık Adres bilgilerini eksiksiz girin.');
       return;
     }
+
+    const tamTeslimatAdresi = `${adresBaslik ? adresBaslik + ' - ' : ''}${acikAdres}, ${ilce}/${il}`;
 
     // 2. KART SEÇİLİYSE BİLGİ KONTROLÜ
     if (odemeYontemi === 'Kredi Kartı') {
@@ -78,12 +105,11 @@ export default function OdemeEkrani() {
         return;
       }
 
-      // SİPARİŞİ VE SEÇİMLERİ BACKEND'E GÖNDERME
       const response = await axios.post(
         `${API_CONFIG.BASE_URL}/siparisler/olustur`,
         {
           odemeYontemi: odemeYontemi,
-          teslimatAdresi: teslimatAdresi
+          teslimatAdresi: tamTeslimatAdresi
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -132,7 +158,6 @@ export default function OdemeEkrani() {
       >
         <ScrollView contentContainerStyle={{ paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
           
-          {/* YENİ: ÖDEME YÖNTEMİ SEKMELERİ */}
           <View style={styles.tabContainer}>
             <TouchableOpacity 
               style={[styles.tabButon, odemeYontemi === 'Kredi Kartı' && styles.aktifTab]}
@@ -151,20 +176,17 @@ export default function OdemeEkrani() {
             </TouchableOpacity>
           </View>
 
-          {/* SADECE KREDİ KARTI SEÇİLİYSE GÖRÜNEN KISIM */}
+          {/* KREDİ KARTI FORMU */}
           {odemeYontemi === 'Kredi Kartı' && (
             <View>
+              {/* Pembe Sanal Kart */}
               <View style={styles.sanalKartContainer}>
                 <View style={styles.sanalKart}>
                   <View style={styles.kartUstSatir}>
                     <View style={styles.kartCip} />
                     <Ionicons name="wifi-outline" size={24} color="#FFF" style={{ transform: [{ rotate: '90deg' }] }} />
                   </View>
-
-                  <Text style={styles.kartNoYazi}>
-                    {kartNo || '•••• •••• •••• ••••'}
-                  </Text>
-
+                  <Text style={styles.kartNoYazi}>{kartNo || '•••• •••• •••• ••••'}</Text>
                   <View style={styles.kartAltSatir}>
                     <View style={{ flex: 1, marginRight: 10 }}>
                       <Text style={styles.kartEtiket}>KART SAHİBİ</Text>
@@ -172,12 +194,10 @@ export default function OdemeEkrani() {
                         {kartSahibi ? kartSahibi.toUpperCase() : 'İSİM SOYİSİM'}
                       </Text>
                     </View>
-
                     <View style={{ marginRight: 20 }}>
                       <Text style={styles.kartEtiket}>SKT</Text>
                       <Text style={styles.kartDeger}>{skt || 'AA/YY'}</Text>
                     </View>
-
                     <View>
                       <Text style={styles.kartEtiket}>CVV</Text>
                       <Text style={styles.kartDeger}>{cvv || '•••'}</Text>
@@ -240,18 +260,48 @@ export default function OdemeEkrani() {
             </View>
           )}
 
-          {/* HER DURUMDA GÖRÜNEN ADRES ALANI */}
+          {/* TESLİMAT ADRESİ FORMU */}
           <View style={[styles.formContainer, { marginTop: odemeYontemi === 'Kapıda Ödeme' ? 20 : 10 }]}>
-            <Text style={styles.inputEtiket}>Teslimat Adresi *</Text>
+            <Text style={[styles.headerBaslik, { fontSize: 16, marginBottom: 15 }]}>Teslimat Adresi</Text>
+            
+            <TextInput
+              style={styles.input}
+              placeholder="Adres Başlığı (Örn: Ev, İş vb.)"
+              placeholderTextColor="#aaa"
+              value={adresBaslik}
+              onChangeText={setAdresBaslik}
+            />
+
+            <View style={styles.ikiliSatir}>
+              <View style={{ flex: 1, marginRight: 10 }}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="İl *"
+                  placeholderTextColor="#aaa"
+                  value={il}
+                  onChangeText={setIl}
+                />
+              </View>
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="İlçe *"
+                  placeholderTextColor="#aaa"
+                  value={ilce}
+                  onChangeText={setIlce}
+                />
+              </View>
+            </View>
+
             <TextInput
               style={[styles.input, { height: 90, paddingTop: 12 }]}
-              placeholder="Mahalle, cadde, sokak, kapı no ve il/ilçe bilgilerini eksiksiz yazınız..."
+              placeholder="Açık Adres (Mahalle, Cadde, Sokak, No) *"
               placeholderTextColor="#aaa"
               multiline={true}
               numberOfLines={4}
               textAlignVertical="top"
-              value={teslimatAdresi}
-              onChangeText={setTeslimatAdresi}
+              value={acikAdres}
+              onChangeText={setAcikAdres}
             />
           </View>
 
@@ -272,7 +322,7 @@ export default function OdemeEkrani() {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color="#000" />
           ) : (
             <Text style={styles.odemeButonYazi}>
                 {odemeYontemi === 'Kredi Kartı' ? 'Ödemeyi Güvenli Tamamla' : 'Siparişi Onayla'}
@@ -299,12 +349,11 @@ const styles = StyleSheet.create({
   geriButon: { padding: 5 },
   headerBaslik: { fontSize: 20, fontWeight: 'bold', color: '#333' },
   
-  // YENİ: SEKME STİLLERİ
   tabContainer: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 15, justifyContent: 'space-between' },
   tabButon: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#eee', paddingVertical: 12, borderRadius: 10, marginHorizontal: 5 },
   aktifTab: { backgroundColor: '#FFB800', borderColor: '#FFB800' },
   tabYazi: { marginLeft: 8, fontSize: 14, fontWeight: '600', color: '#666' },
-  aktifTabYazi: { color: '#FFF' },
+  aktifTabYazi: { color: '#000' },
 
   sanalKartContainer: { alignItems: 'center', marginVertical: 20, paddingHorizontal: 15 },
   sanalKart: {
@@ -328,18 +377,20 @@ const styles = StyleSheet.create({
   kartDeger: { color: '#FFF', fontSize: 14, fontWeight: 'bold', letterSpacing: 1 },
   
   formContainer: { paddingHorizontal: 20, marginTop: 10 },
-  inputEtiket: { fontSize: 14, fontWeight: '600', color: '#444', marginBottom: 8, marginTop: 15 },
+  inputEtiket: { fontSize: 14, fontWeight: '600', color: '#444', marginBottom: 8, marginTop: 10 },
   input: {
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#eee',
-    borderRadius: 10,
+    borderColor: '#E5E5EA', 
+    borderRadius: 12, 
     paddingHorizontal: 15,
-    paddingVertical: 12,
+    paddingVertical: 14,
     fontSize: 15,
-    color: '#333'
+    color: '#333',
+    marginBottom: 10 
   },
-  ikiliSatir: { flexDirection: 'row', justifyContent: 'space-between' },
+  ikiliSatir: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 },
+  
   altSabitAlan: {
     backgroundColor: '#fff',
     padding: 20,
@@ -349,7 +400,7 @@ const styles = StyleSheet.create({
   },
   toplamSatiri: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   toplamEtiket: { fontSize: 16, color: '#666', fontWeight: '500' },
-  toplamFiyat: { fontSize: 22, fontWeight: 'bold', color: '#111' },
-  odemeButon: { backgroundColor: '#FFB800', paddingVertical: 16, borderRadius: 8, alignItems: 'center' },
-  odemeButonYazi: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
+  toplamFiyat: { fontSize: 24, fontWeight: 'bold', color: '#111' },
+  odemeButon: { backgroundColor: '#FFB800', paddingVertical: 16, borderRadius: 14, alignItems: 'center' },
+  odemeButonYazi: { color: '#000', fontSize: 16, fontWeight: '800' }
 });

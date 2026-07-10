@@ -3,14 +3,16 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
   Modal,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
   View
@@ -24,6 +26,10 @@ export default function AdminSiparisler() {
   
   const [modalGorunur, setModalGorunur] = useState(false);
   const [seciliSiparis, setSeciliSiparis] = useState<number | null>(null);
+
+  // YENİ STATE'LER: Arama ve Filtreleme
+  const [aramaMetni, setAramaMetni] = useState('');
+  const [seciliDurum, setSeciliDurum] = useState('Tümü');
 
   useFocusEffect(
     useCallback(() => {
@@ -73,6 +79,26 @@ export default function AdminSiparisler() {
     }
   };
 
+  // YENİ: ARAMA VE FİLTRELEME MANTIĞI
+  const filtrelenmisSiparisler = useMemo(() => {
+    return siparisler.filter(siparis => {
+      // Durum Filtresi
+      const durumUyar = seciliDurum === 'Tümü' || siparis.durum === seciliDurum;
+      
+      // Arama Filtresi (Sipariş ID, İsim, E-posta veya Adres içinde arar)
+      const aramaKucukHarf = aramaMetni.toLowerCase();
+      const aramaUyar = 
+        siparis.id.toString().includes(aramaKucukHarf) ||
+        (siparis.kullaniciAdSoyad && siparis.kullaniciAdSoyad.toLowerCase().includes(aramaKucukHarf)) ||
+        (siparis.kullaniciEmail && siparis.kullaniciEmail.toLowerCase().includes(aramaKucukHarf)) ||
+        (siparis.teslimatAdresi && siparis.teslimatAdresi.toLowerCase().includes(aramaKucukHarf));
+
+      return durumUyar && aramaUyar;
+    });
+  }, [siparisler, aramaMetni, seciliDurum]);
+
+  const durumSecenekleri = ['Tümü', 'Hazırlanıyor', 'Kargoya Verildi', 'Tamamlandı', 'İptal'];
+
   if (loading) return <View style={styles.merkez}><ActivityIndicator size="large" color="#FF9F00" /></View>;
 
   return (
@@ -84,11 +110,65 @@ export default function AdminSiparisler() {
         <Text style={styles.baslik}>Sipariş Yönetimi</Text>
       </View>
 
+      {/* YENİ: ARAMA ÇUBUĞU */}
+      <View style={styles.aramaKutusuContainer}>
+        <View style={styles.aramaKutusu}>
+          <Ionicons name="search-outline" size={20} color="#8E8E93" />
+          <TextInput
+            style={styles.aramaInput}
+            placeholder="Sipariş No, İsim veya E-posta ara..."
+            placeholderTextColor="#8E8E93"
+            value={aramaMetni}
+            onChangeText={setAramaMetni}
+            autoCorrect={false}
+          />
+          {aramaMetni.length > 0 && (
+            <TouchableOpacity onPress={() => setAramaMetni('')}>
+              <Ionicons name="close-circle" size={20} color="#8E8E93" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* YENİ: YATAY DURUM FİLTRELERİ */}
+      <View style={styles.filtreKapsayici}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filtreScroll}
+        >
+          {durumSecenekleri.map((durum, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[
+                styles.filtreChip,
+                seciliDurum === durum && styles.aktifFiltreChip
+              ]}
+              onPress={() => setSeciliDurum(durum)}
+            >
+              <Text 
+                style={[
+                  styles.filtreChipYazi,
+                  seciliDurum === durum && styles.aktifFiltreChipYazi
+                ]}
+              >
+                {durum}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       <FlatList
-        data={siparisler}
+        data={filtrelenmisSiparisler}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <Text style={styles.bosListeMetni}>
+            Aradığınız kriterlere uygun sipariş bulunamadı.
+          </Text>
+        }
         renderItem={({ item }) => {
           const renkler = getDurumRenkleri(item.durum);
           return (
@@ -126,7 +206,6 @@ export default function AdminSiparisler() {
                 ))}
               </View>
               
-              {/* YENİ EKLENEN KISIM: ADRES VE ÖDEME YÖNTEMİ */}
               <View style={styles.kargoKutusu}>
                 <View style={styles.kargoSatiri}>
                   <Ionicons name="location-outline" size={14} color="#8E8E93" />
@@ -225,13 +304,72 @@ const styles = StyleSheet.create({
     alignItems: 'center', 
     paddingHorizontal: 20, 
     paddingTop: 10,
-    paddingBottom: 20,
+    paddingBottom: 15,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
   },
   backBtn: { padding: 5 },
   baslik: { fontSize: 20, fontWeight: 'bold', marginLeft: 15, color: '#1C1C1E' },
+  
+  // YENİ: Arama Çubuğu Stilleri
+  aramaKutusuContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+  },
+  aramaKutusu: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F2F2F7',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 44,
+  },
+  aramaInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 15,
+    color: '#1C1C1E',
+  },
+
+ 
+  filtreKapsayici: {
+    backgroundColor: '#FFFFFF',
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  filtreScroll: {
+    paddingHorizontal: 15,
+  },
+  filtreChip: {
+    backgroundColor: '#F2F2F7',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginHorizontal: 5,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+  },
+  aktifFiltreChip: {
+    backgroundColor: '#4EA8DE',
+    borderColor: '#4EA8DE',
+  },
+  filtreChipYazi: {
+    fontSize: 13,
+    color: '#48484A',
+    fontWeight: '600',
+  },
+  aktifFiltreChipYazi: {
+    color: '#FFFFFF',
+  },
+  
+  bosListeMetni: {
+    textAlign: 'center',
+    color: '#8E8E93',
+    marginTop: 50,
+    fontSize: 15,
+  },
+
   listContainer: { padding: 20, paddingBottom: 100 },
   
   kart: { 
@@ -262,7 +400,6 @@ const styles = StyleSheet.create({
   urunAdet: { fontWeight: '700', color: '#1C1C1E' },
   urunFiyat: { color: '#BFBFBF', fontSize: 12 },
 
-  // YENİ: Kargo ve Adres Kısımları İçin Stiller
   kargoKutusu: { backgroundColor: '#F8F9FA', padding: 10, borderRadius: 8, marginTop: 4 },
   kargoSatiri: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 },
   kargoAdresYazi: { fontSize: 12, color: '#48484A', marginLeft: 6, flex: 1, lineHeight: 18 },
