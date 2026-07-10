@@ -7,8 +7,6 @@ public class Favori
 {
     public int Id { get; set; }
 
-    // ForeignKey belirterek EF Core'un KullanicilarId kolonunu 
-    // otomatik oluşturmasını ve doğru eşleştirmesini sağlıyoruz.
     public int KullaniciId { get; set; }
     
     [ForeignKey(nameof(KullaniciId))]

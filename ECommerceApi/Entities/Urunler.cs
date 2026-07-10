@@ -13,7 +13,5 @@ public class Urunler
     public int KategoriId { get; set; } 
     public Kategori Kategori { get; set; } = null!;
 
-    // --- BU İLİŞKİ HİÇBİR ŞEYİ BOZMAZ, SADECE BAĞLANTI KURAR ---
-    // Bu koleksiyon, ürün ile oylamalar arasında "Bire-Çok" bir ilişki kurar.
     public ICollection<Oylama> Oylamalar { get; set; } = new List<Oylama>();
 }
