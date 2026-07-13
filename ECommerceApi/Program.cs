@@ -1,29 +1,44 @@
 using ECommerceApi.DataAccess;
-using ECommerceApi.Endpoints;
+using ECommerceApi.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer; 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens; 
-using System.Text; 
+using System.Text;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-
+// --- 1. CORS AYARLARI ---
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy => 
         policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 });
 
-builder.Services.ConfigureHttpJsonOptions(options =>
-{
-    options.SerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
-});
-
+// --- 2. VERİTABANI BAĞLANTISI (PostgreSQL) ---
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// --- 1. JWT GÜVENLİK SERVİSİNİ EKLEME ---
+// --- 3. CONTROLLER VE JSON AYARLARI ---
+// Senin yazdığın IgnoreCycles ayarını Controller yapısına entegre ettik
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+    });
+
+// --- 4. DEPENDENCY INJECTION (SERVİS KAYITLARI) ---
+builder.Services.AddScoped<IUrunService, UrunService>();
+builder.Services.AddScoped<ISiparisService, SiparisService>();
+builder.Services.AddScoped<IKullaniciService, KullaniciService>();
+builder.Services.AddScoped<IKategoriService, KategoriService>();
+builder.Services.AddScoped<IKartService, KartService>();
+builder.Services.AddScoped<IFavoriService, FavoriService>();
+builder.Services.AddScoped<IDestekService, DestekService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
+
+// --- 5. JWT GÜVENLİK SERVİSİ ---
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -39,16 +54,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-// --- 2. YETKİLENDİRME (AUTHORIZATION) SERVİSİNİ EKLEME ---
+// --- 6. YETKİLENDİRME ---
 builder.Services.AddAuthorization();
 
+// --- 7. SWAGGER ---
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// --- CORS'U AKTİF ETTİK ---
-app.UseCors("AllowAll");
+// --- 8. HTTP İSTEK BORU HATTI (MIDDLEWARE) ---
+app.UseCors("AllowAll"); // Cors en üstte olmalı
 
 if (app.Environment.IsDevelopment())
 {
@@ -56,17 +72,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// --- 3. GÜVENLİK MIDDLEWARE'LERİ (Sıralama Çok Önemli!) ---
-app.UseAuthentication(); // Önce kimlik doğrulama (Sen kimsin?)
-app.UseAuthorization();  // Sonra yetki kontrolü (Bunu yapmaya iznin var mı?)
+app.UseAuthentication(); // Önce kimlik doğrulama
+app.UseAuthorization();  // Sonra yetki kontrolü
 
-app.MapKategoriEndpoints();
-app.MapUrunEndpoints();
-app.MapKartEndpoints();
-app.MapKullaniciEndpoints();
-app.MapFavoriEndpoints();
-app.MapAdminEndpoints();
-app.MapSiparisEndpoints();
-app.MapDestekEndpoints();
+// Eski app.Map...Endpoints(); satırlarının yerini tek bir satır aldı:
+app.MapControllers(); 
 
 app.Run();
