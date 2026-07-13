@@ -5,7 +5,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  LayoutAnimation,
+  Linking,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Siparislerim() {
@@ -13,6 +25,10 @@ export default function Siparislerim() {
   const [siparisler, setSiparisler] = useState<Siparis[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLogged, setIsLogged] = useState(false);
+
+  // ARAMA SİSTEMİ STATE'LERİ
+  const [aramaAktif, setAramaAktif] = useState(false);
+  const [aramaMetni, setAramaMetni] = useState('');
 
   useFocusEffect(
     useCallback(() => {
@@ -43,6 +59,31 @@ export default function Siparislerim() {
     }
   };
 
+  // GERÇEKÇİ KARGO TAKİP YÖNLENDİRMESİ
+  const kargoTakipBaslat = async (siparisId: number) => {
+    const kargoNo = `ARS${Math.floor(100000000 + Math.random() * 900000000)}`;
+    const kargoUrl = `https://www.araskargo.com.tr/kargo-takip`;
+
+    Alert.alert(
+      "Kargo Takip Bilgisi", 
+      `Siparişiniz yola çıkmıştır.\nTakip No: ${kargoNo}\n\nKargo firmasının takip sayfasına yönlendirilmek ister misiniz?`,
+      [
+        { text: "Vazgeç", style: "cancel" },
+        { 
+          text: "Siteye Git", 
+          onPress: async () => {
+            const supported = await Linking.canOpenURL(kargoUrl);
+            if (supported) {
+              await Linking.openURL(kargoUrl);
+            } else {
+              Alert.alert("Hata", "Takip sayfası açılamadı.");
+            }
+          } 
+        }
+      ]
+    );
+  };
+
   const tarihFormatla = (tarihString: string) => {
     const tarih = new Date(tarihString);
     return tarih.toLocaleDateString('tr-TR', {
@@ -67,13 +108,20 @@ export default function Siparislerim() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.merkez}>
-        <ActivityIndicator size="large" color="#FFB800" />
-      </View>
-    );
-  }
+  const toggleArama = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setAramaAktif(!aramaAktif);
+    if (aramaAktif) setAramaMetni('');
+  };
+
+  const filtrelenmisSiparisler = siparisler.filter(item => {
+    const aramaKucuk = aramaMetni.toLowerCase();
+    const noEslesiyorMu = item.id.toString().includes(aramaKucuk);
+    const urunEslesiyorMu = item.urunler.some(u => u.ad.toLowerCase().includes(aramaKucuk));
+    return noEslesiyorMu || urunEslesiyorMu;
+  });
+
+  if (loading) return <View style={styles.merkez}><ActivityIndicator size="large" color="#FFB800" /></View>;
 
   if (!isLogged) {
     return (
@@ -106,13 +154,6 @@ export default function Siparislerim() {
         <View style={styles.urunlerAlani}>
           {item.urunler.map((urun, index) => (
             <View key={index} style={styles.urunSatiri}>
-              {urun.resimUrl ? (
-                <Image source={{ uri: urun.resimUrl }} style={styles.urunResim} />
-              ) : (
-                <View style={[styles.urunResim, { backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }]}>
-                  <Ionicons name="image-outline" size={16} color="#ccc" />
-                </View>
-              )}
               <View style={styles.urunBilgi}>
                 <Text style={styles.urunAd} numberOfLines={1}>{urun.ad}</Text>
                 <Text style={styles.urunAdetFiyat}>
@@ -123,70 +164,97 @@ export default function Siparislerim() {
           ))}
         </View>
 
-        {/* GÜNCELLENEN KISIM: Ödeme Yöntemi ve Adres eklendi */}
         <View style={styles.kartAlt}>
           <View style={{ flex: 1 }}>
             <Text style={styles.toplamYazi}>Ödeme: {item.odemeYontemi}</Text>
             <Text style={styles.adresYazi} numberOfLines={1}>{item.teslimatAdresi}</Text>
+            {(item as any).telefon ? (
+              <Text style={[styles.adresYazi, { color: '#00529B', fontWeight: 'bold' }]}>Tel: {(item as any).telefon}</Text>
+            ) : null}
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={styles.toplamYazi}>Toplam:</Text>
             <Text style={styles.toplamFiyat}>{item.toplamTutar.toFixed(2)} TL</Text>
           </View>
         </View>
+
+        {item.durum === 'Kargoya Verildi' && (
+          <TouchableOpacity style={styles.kargoButon} onPress={() => kargoTakipBaslat(item.id)}>
+            <Image 
+              source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Aras_Kargo_logo.svg/1200px-Aras_Kargo_logo.svg.png' }} 
+              style={styles.kargoLogo} resizeMode="contain"
+            />
+            <Text style={styles.kargoButonYazi}>Kargom Nerede?</Text>
+            <Ionicons name="chevron-forward" size={16} color="#00529B" />
+          </TouchableOpacity>
+        )}
       </View>
     );
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.sayfaBaslik}>Siparişlerim</Text>
-      {siparisler.length === 0 ? (
-        <View style={styles.bosDurum}>
-          <Ionicons name="receipt-outline" size={80} color="#ccc" />
-          <Text style={styles.bosMetin}>Henüz hiçbir siparişiniz bulunmamaktadır.</Text>
-          <TouchableOpacity style={styles.alisveriseBaslaButon} onPress={() => router.replace('/(tabs)')}>
-            <Text style={styles.alisveriseBaslaYazi}>Alışverişe Başla</Text>
+      <View style={styles.headerSatiri}>
+        <Text style={styles.sayfaBaslik}>Siparişlerim</Text>
+        {siparisler.length > 0 && (
+          <TouchableOpacity onPress={toggleArama} style={styles.aramaIkonButon}>
+            <Ionicons name={aramaAktif ? "close" : "search"} size={26} color="#333" />
           </TouchableOpacity>
+        )}
+      </View>
+
+      {aramaAktif && (
+        <View style={styles.aramaKutusu}>
+          <TextInput
+            style={styles.aramaInput}
+            placeholder="Sipariş no veya ürün ara..."
+            value={aramaMetni}
+            onChangeText={setAramaMetni}
+            autoFocus={true}
+          />
         </View>
-      ) : (
-        <FlatList
-          data={siparisler}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={siparisKartiCiz}
-          contentContainerStyle={{ paddingHorizontal: 15, paddingBottom: 20 }}
-          showsVerticalScrollIndicator={false}
-        />
       )}
+
+      <FlatList
+        data={filtrelenmisSiparisler}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={siparisKartiCiz}
+        contentContainerStyle={{ paddingHorizontal: 15, paddingBottom: 20 }}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFA', paddingTop: 10 },
-  merkez: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
-  sayfaBaslik: { fontSize: 26, fontWeight: 'bold', color: '#333', marginBottom: 15, paddingHorizontal: 15 },
-  altMetin: { fontSize: 16, color: '#888', textAlign: 'center', marginTop: 15, marginBottom: 25 },
-  bosDurum: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 30 },
-  bosMetin: { fontSize: 16, color: '#888', textAlign: 'center', marginTop: 15, marginBottom: 25 },
-  girisButon: { backgroundColor: 'orange', paddingVertical: 12, paddingHorizontal: 30, borderRadius: 10 },
-  girisButonYazi: { fontWeight: 'bold', fontSize: 16, color: '#fff' },
-  alisveriseBaslaButon: { backgroundColor: '#FFB800', paddingVertical: 12, paddingHorizontal: 30, borderRadius: 10 },
-  alisveriseBaslaYazi: { fontWeight: 'bold', fontSize: 16, color: '#fff' },
-  kart: { backgroundColor: '#fff', borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#eee', overflow: 'hidden' },
-  kartUst: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 15, borderBottomWidth: 1, borderBottomColor: '#f5f5f5' },
-  siparisNo: { fontSize: 14, fontWeight: 'bold', color: '#333', marginBottom: 4 },
+  container: { flex: 1, backgroundColor: '#FAFAFA' },
+  merkez: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  headerSatiri: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20 },
+  sayfaBaslik: { fontSize: 26, fontWeight: 'bold' },
+  aramaIkonButon: { padding: 8, backgroundColor: '#eee', borderRadius: 20 },
+  aramaKutusu: { flexDirection: 'row', backgroundColor: '#F0F0F5', padding: 12, marginHorizontal: 15, borderRadius: 12, marginBottom: 10 },
+  aramaInput: { flex: 1, fontSize: 16 },
+  kart: { backgroundColor: '#fff', borderRadius: 12, marginBottom: 15, padding: 15, borderWidth: 1, borderColor: '#eee' },
+  kartUst: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+  siparisNo: { fontWeight: 'bold' },
   tarih: { fontSize: 12, color: '#888' },
   durumRozeti: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   durumYazi: { fontSize: 12, fontWeight: '600' },
-  urunlerAlani: { padding: 15, paddingBottom: 5 },
-  urunSatiri: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  urunResim: { width: 40, height: 40, borderRadius: 6, resizeMode: 'cover' },
-  urunBilgi: { flex: 1, marginLeft: 12 },
-  urunAd: { fontSize: 13, fontWeight: '500', color: '#444' },
-  urunAdetFiyat: { fontSize: 12, color: '#777', marginTop: 2 },
-  kartAlt: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, backgroundColor: '#FAFAFA', borderTopWidth: 1, borderTopColor: '#f5f5f5' },
-  toplamYazi: { fontSize: 12, fontWeight: '600', color: '#555' },
-  toplamFiyat: { fontSize: 16, fontWeight: 'bold', color: '#111' },
-  adresYazi: { fontSize: 11, color: '#888', marginTop: 3, fontStyle: 'italic' }
+  urunlerAlani: { marginBottom: 10 },
+  urunSatiri: { marginBottom: 5 },
+  urunAd: { fontSize: 13, fontWeight: '500' },
+  urunAdetFiyat: { fontSize: 12, color: '#777' },
+  kartAlt: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, paddingTop: 10, borderColor: '#eee' },
+  toplamYazi: { fontSize: 12, color: '#555' },
+  toplamFiyat: { fontSize: 16, fontWeight: 'bold' },
+  adresYazi: { fontSize: 11, color: '#888', fontStyle: 'italic' },
+  kargoButon: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E6F2FF', padding: 12, borderRadius: 8, marginTop: 10 },
+  kargoLogo: { width: 60, height: 20 },
+  kargoButonYazi: { flex: 1, marginLeft: 10, fontWeight: 'bold', color: '#00529B' },
+  girisButon: { backgroundColor: 'orange', padding: 15, borderRadius: 10, marginTop: 20 },
+  girisButonYazi: { color: '#fff', fontWeight: 'bold' },
+  altMetin: { fontSize: 16, color: '#888' },
+  urunBilgi: { 
+    flex: 1, 
+    marginLeft: 12 
+  },
 });

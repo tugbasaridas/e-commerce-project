@@ -5,13 +5,22 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, LayoutAnimation, Platform, StyleSheet, Text, TextInput, TouchableOpacity, UIManager, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+// Android için animasyon izni
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export default function Sepet() {
   const router = useRouter();
   const [sepet, setSepet] = useState<SepetUrun[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // ARAMA SİSTEMİ STATE'LERİ
+  const [aramaAktif, setAramaAktif] = useState(false);
+  const [aramaMetni, setAramaMetni] = useState('');
 
   useFocusEffect(
     useCallback(() => {
@@ -77,7 +86,6 @@ export default function Sepet() {
     }
   };
 
-  // GÜNCELLENEN KISIM: Doğrudan ödeme ekranına yönlendirme yapılıyor
   const handleSatinAl = async () => {
     if (sepet.length === 0) {
       Alert.alert('Hata', 'Sepetiniz boş!');
@@ -91,13 +99,25 @@ export default function Sepet() {
       return;
     }
 
-    // Toplam tutarı kuruşu kuruşuna yeni ekrana paslıyoruz
     router.push({
       pathname: '/odeme',
       params: { tutar: toplamTutar.toFixed(2) }
     });
   };
 
+  // ARAMA BUTONUNA BASILINCA (Animasyonlu açılış)
+  const toggleArama = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setAramaAktif(!aramaAktif);
+    if (aramaAktif) setAramaMetni('');
+  };
+
+  // FİLTRELENMİŞ LİSTEYİ HESAPLA
+  const filtrelenmisSepet = sepet.filter(item => 
+    item.urunler?.ad?.toLowerCase().includes(aramaMetni.toLowerCase())
+  );
+
+  // TOPLAM TUTAR HER ZAMAN TÜM SEPETİ HESAPLAR
   const toplamTutar = sepet.reduce((total, item) => {
     return total + ((item.urunler?.fiyat || 0) * item.miktar);
   }, 0);
@@ -106,7 +126,32 @@ export default function Sepet() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.sayfaBaslik}>Sepetim</Text>
+      
+      {/* ÜST BAŞLIK VE ARAMA BUTONU EKLENDİ */}
+      <View style={styles.headerSatiri}>
+        <Text style={styles.sayfaBaslik}>Sepetim</Text>
+        
+        {sepet.length > 0 && (
+          <TouchableOpacity onPress={toggleArama} style={styles.aramaIkonButon}>
+            <Ionicons name={aramaAktif ? "close" : "search"} size={26} color="#333" />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* ARAMA ÇUBUĞU (Sadece aktifse görünür) */}
+      {aramaAktif && (
+        <View style={styles.aramaKutusu}>
+          <Ionicons name="search" size={20} color="#888" style={{ marginRight: 10 }} />
+          <TextInput
+            style={styles.aramaInput}
+            placeholder="Sepette ürün ara..."
+            value={aramaMetni}
+            onChangeText={setAramaMetni}
+            autoFocus={true}
+          />
+        </View>
+      )}
+
       {sepet.length === 0 ? (
         <View style={styles.merkez}>
           <Ionicons name="cart-outline" size={80} color="#ccc" />
@@ -117,44 +162,52 @@ export default function Sepet() {
         </View>
       ) : (
         <>
-          <FlatList
-            data={sepet}
-            keyExtractor={(item) => item.id.toString()}
-            contentContainerStyle={{ padding: 15 }}
-            renderItem={({ item }) => (
-              <View style={styles.kart}>
-                {item.urunler?.resimUrl ? (
-                  <Image source={{ uri: item.urunler.resimUrl }} style={styles.resim} />
-                ) : (
-                  <View style={[styles.resim, { backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }]}>
-                    <Ionicons name="image-outline" size={24} color="#ccc" />
-                  </View>
-                )}
+          {filtrelenmisSepet.length === 0 && aramaMetni !== '' ? (
+             <View style={[styles.merkez, { flex: 1 }]}>
+               <Ionicons name="search-outline" size={60} color="#ccc" />
+               <Text style={styles.altMetin}>Sepetinizde aradığınız ürün bulunamadı.</Text>
+             </View>
+          ) : (
+            <FlatList
+              data={filtrelenmisSepet}
+              keyExtractor={(item) => item.id.toString()}
+              contentContainerStyle={{ padding: 15 }}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => (
+                <View style={styles.kart}>
+                  {item.urunler?.resimUrl ? (
+                    <Image source={{ uri: item.urunler.resimUrl }} style={styles.resim} />
+                  ) : (
+                    <View style={[styles.resim, { backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }]}>
+                      <Ionicons name="image-outline" size={24} color="#ccc" />
+                    </View>
+                  )}
 
-                <View style={styles.bilgiAlani}>
-                  <Text style={styles.urunAd} numberOfLines={2}>{item.urunler?.ad}</Text>
-                  <Text style={styles.varyantText}>Standart / Tek Ebat</Text> 
-                  <Text style={styles.fiyat}>{item.urunler?.fiyat?.toFixed(2)} TL</Text>
+                  <View style={styles.bilgiAlani}>
+                    <Text style={styles.urunAd} numberOfLines={2}>{item.urunler?.ad}</Text>
+                    <Text style={styles.varyantText}>Standart / Tek Ebat</Text> 
+                    <Text style={styles.fiyat}>{item.urunler?.fiyat?.toFixed(2)} TL</Text>
 
-                  <View style={styles.aksiyonSatiri}>
-                    <View style={styles.miktarAyarlayici}>
-                      <TouchableOpacity onPress={() => miktarGuncelle(item, 'azalt')} style={styles.miktarButon}>
-                        <Ionicons name="remove" size={20} color="#333" />
-                      </TouchableOpacity>
-                      <Text style={styles.miktarYazi}>{item.miktar}</Text>
-                      <TouchableOpacity onPress={() => miktarGuncelle(item, 'artir')} style={styles.miktarButon}>
-                        <Ionicons name="add" size={20} color="#333" />
+                    <View style={styles.aksiyonSatiri}>
+                      <View style={styles.miktarAyarlayici}>
+                        <TouchableOpacity onPress={() => miktarGuncelle(item, 'azalt')} style={styles.miktarButon}>
+                          <Ionicons name="remove" size={20} color="#333" />
+                        </TouchableOpacity>
+                        <Text style={styles.miktarYazi}>{item.miktar}</Text>
+                        <TouchableOpacity onPress={() => miktarGuncelle(item, 'artir')} style={styles.miktarButon}>
+                          <Ionicons name="add" size={20} color="#333" />
+                        </TouchableOpacity>
+                      </View>
+
+                      <TouchableOpacity onPress={() => sepettenSil(item.id)} style={styles.silButon}>
+                        <Ionicons name="trash" size={22} color="#ccc" />
                       </TouchableOpacity>
                     </View>
-
-                    <TouchableOpacity onPress={() => sepettenSil(item.id)} style={styles.silButon}>
-                      <Ionicons name="trash" size={22} color="#ccc" />
-                    </TouchableOpacity>
                   </View>
                 </View>
-              </View>
-            )}
-          />
+              )}
+            />
+          )}
 
           <View style={styles.altSabitAlan}>
             <View style={styles.toplamSatiri}>
@@ -175,12 +228,19 @@ export default function Sepet() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFA', paddingTop: 10, paddingHorizontal: 10 },
+  container: { flex: 1, backgroundColor: '#FAFAFA', paddingHorizontal: 10 },
   merkez: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
   altMetin: { fontSize: 16, color: '#888', textAlign: 'center', marginTop: 15, marginBottom: 25 },
   alisveriseBaslaButon: { backgroundColor: '#FFB800', paddingVertical: 12, paddingHorizontal: 30, borderRadius: 10 },
   alisveriseBaslaYazi: { fontWeight: 'bold', fontSize: 16, color: '#fff' },
-  sayfaBaslik: { fontSize: 26, fontWeight: 'bold', color: '#333', marginBottom: 5 },
+  
+  // Header ve Arama Stilleri
+  headerSatiri: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 15, marginBottom: 10, paddingHorizontal: 10 },
+  sayfaBaslik: { fontSize: 28, fontWeight: 'bold', color: '#333' },
+  aramaIkonButon: { padding: 8, backgroundColor: '#eee', borderRadius: 20 },
+  aramaKutusu: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0F0F5', borderRadius: 12, paddingHorizontal: 15, paddingVertical: 10, marginHorizontal: 10, marginBottom: 10 },
+  aramaInput: { flex: 1, fontSize: 16, color: '#333' },
+
   kart: { 
     flexDirection: 'row', 
     backgroundColor: '#fff', 

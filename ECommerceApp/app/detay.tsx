@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function Detay() {
   const { id } = useLocalSearchParams(); 
@@ -14,11 +14,12 @@ export default function Detay() {
   const [loading, setLoading] = useState(true);
   const [girisYapildiMi, setGirisYapildiMi] = useState(false);
   
-  // Eklentiler
+  // Miktar ve Bildirimler
   const [miktar, setMiktar] = useState(1);
   const [toastGorunur, setToastGorunur] = useState(false);
   const [toastMesaj, setToastMesaj] = useState('');
 
+  // Oylama Sistemi State'leri
   const [oylamaModalGorunur, setOylamaModalGorunur] = useState(false);
   const [secilenPuan, setSecilenPuan] = useState<number>(0); 
   const [oyGonderiliyor, setOyGonderiliyor] = useState(false);
@@ -52,10 +53,7 @@ export default function Detay() {
 
   const favoriButonunaBasildi = async () => {
     if (!girisYapildiMi) {
-      Alert.alert("Giriş Gerekli", "Favorilere eklemek için giriş yapmalısınız.", [
-        { text: "İptal", style: "cancel" },
-        { text: "Giriş Yap", onPress: () => router.push('/(auth)/giris' as any) }
-      ]);
+      Alert.alert("Giriş Gerekli", "Favorilere eklemek için giriş yapmalısınız.");
       return; 
     } 
     try {
@@ -81,14 +79,38 @@ export default function Detay() {
     }
   };
 
+  // OYLAMA İŞLEMİ BURADA ÇALIŞIR
+  const oyGonder = async () => {
+    if (secilenPuan === 0) {
+      Alert.alert("Uyarı", "Lütfen bir puan seçin.");
+      return;
+    }
+    setOyGonderiliyor(true);
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      // Backend'e POST isteği gönder
+      await axios.post(`${API_CONFIG.BASE_URL}/urunler/${id}/oyla?puan=${secilenPuan}`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      
+      Alert.alert("Başarılı", "Teşekkürler!");
+      setOylamaModalGorunur(false);
+      setSecilenPuan(0);
+      
+      // Güncel puanı göstermek için ürünü tekrar çek
+      const guncelUrun = await axios.get(`${API_CONFIG.BASE_URL}/urunler/${id}`);
+      setUrun(guncelUrun.data);
+    } catch (error: any) {
+      Alert.alert("Hata", error.response?.data?.mesaj || "Oylama kaydedilemedi.");
+    } finally {
+      setOyGonderiliyor(false);
+    }
+  };
+
   if (loading) return <ActivityIndicator size="large" color="#FFD700" style={{ marginTop: 100 }} />;
   if (!urun) return <Text style={{ textAlign: 'center', marginTop: 50 }}>Ürün bulunamadı.</Text>;
 
   return (
     <ScrollView style={styles.container}>
-      {toastGorunur && (
-        <View style={styles.toastKutusu}><Text style={styles.toastYazi}>{toastMesaj}</Text></View>
-      )}
+      {toastGorunur && <View style={styles.toastKutusu}><Text style={styles.toastYazi}>{toastMesaj}</Text></View>}
 
       <View>
         <Image source={{ uri: urun.resimUrl }} style={styles.buyukResim} />
@@ -101,28 +123,46 @@ export default function Detay() {
         <Text style={styles.baslik}>{urun.ad}</Text>
         <Text style={styles.fiyat}>{urun.fiyat.toFixed(2)} TL</Text>
         
-        <TouchableOpacity style={styles.degerlendirmeSatiri} onPress={() => girisYapildiMi ? setOylamaModalGorunur(true) : Alert.alert("Giriş Gerekli")}>
+        <TouchableOpacity style={styles.degerlendirmeSatiri} onPress={() => girisYapildiMi ? setOylamaModalGorunur(true) : Alert.alert("Giriş Gerekli", "Puanlamak için giriş yapın.")}>
           <View style={styles.yildizGrup}><Ionicons name="star" size={18} color="#FFD700" /><Text style={styles.yildizPuanYazi}>{urun.ortalamaPuan?.toFixed(1) || "0.0"}</Text></View>
           <Text style={styles.oyVerLinkYazi}>({urun.oylamaSayisi || 0} Değerlendirme)</Text>
         </TouchableOpacity>
 
         <Text style={styles.aciklama}>{urun.aciklama}</Text>
 
-        {/* Sadece giriş yapıldığında görünen miktar seçici */}
         {girisYapildiMi && (
-            <View style={styles.miktarAlani}>
+          <View style={styles.miktarAlani}>
             <TouchableOpacity style={styles.miktarBtn} onPress={miktarAzalt}><Ionicons name="remove" size={20} /></TouchableOpacity>
             <Text style={styles.miktarText}>{miktar}</Text>
             <TouchableOpacity style={styles.miktarBtn} onPress={miktarArtir}><Ionicons name="add" size={20} /></TouchableOpacity>
-            </View>
+          </View>
         )}
 
         <TouchableOpacity style={[styles.buton, !girisYapildiMi && styles.butonPasif]} onPress={sepeteEkle}><Text style={styles.butonYazi}>Sepete Ekle</Text></TouchableOpacity>
       </View>
+
+      {/* OYLAMA MODALI BURADA */}
+      <Modal visible={oylamaModalGorunur} transparent={true} animationType="fade">
+        <View style={styles.modalArkaPlan}>
+          <View style={styles.modalKutu}>
+            <Text style={styles.modalBaslik}>Ürünü Puanla</Text>
+            <View style={styles.yildizSecici}>
+              {[1, 2, 3, 4, 5].map((p) => (
+                <TouchableOpacity key={p} onPress={() => setSecilenPuan(p)}>
+                  <Ionicons name={p <= secilenPuan ? "star" : "star-outline"} size={40} color="#FFD700" />
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity style={styles.modalGonderButon} onPress={oyGonder} disabled={oyGonderiliyor}>
+              {oyGonderiliyor ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalGonderButonYazi}>Gönder</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setOylamaModalGorunur(false)} style={{marginTop:15}}><Text>İptal</Text></TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   toastKutusu: { position: 'absolute', top: 50, left: 20, right: 20, backgroundColor: '#28A745', padding: 15, borderRadius: 10, zIndex: 999, alignItems: 'center' },
@@ -144,5 +184,13 @@ const styles = StyleSheet.create({
   butonYazi: { fontWeight: 'bold', fontSize: 16 },
   geriButon: { position: 'absolute', top: 50, left: 20, backgroundColor: 'rgba(255,255,255,0.8)', padding: 8, borderRadius: 20 },
   kalpButon: { position: 'absolute', top: 50, right: 20, backgroundColor: 'rgba(255,255,255,0.8)', padding: 8, borderRadius: 20 },
-  butonPasif: { backgroundColor: '#ccc', opacity: 0.5 }
+  butonPasif: { backgroundColor: '#ccc', opacity: 0.5 },
+  modalArkaPlan: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalKutu: { width: '85%', backgroundColor: '#fff', borderRadius: 24, padding: 25, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 10 },
+  kapatIkonu: { position: 'absolute', top: 15, right: 15, padding: 5 },
+  modalBaslik: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 8, marginTop: 5 },
+  yildizSecici: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', width: '100%', marginBottom: 25 },
+  secimYildizi: { marginHorizontal: 6 },
+  modalGonderButon: { backgroundColor: '#FFD700', width: '100%', paddingVertical: 15, borderRadius: 12, alignItems: 'center' },
+  modalGonderButonYazi: { color: '#000', fontSize: 16, fontWeight: 'bold' }
 });

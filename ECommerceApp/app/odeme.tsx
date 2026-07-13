@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -30,6 +30,7 @@ export default function OdemeEkrani() {
   const [il, setIl] = useState('');
   const [ilce, setIlce] = useState('');
   const [acikAdres, setAcikAdres] = useState('');
+  const [telefon, setTelefon] = useState('');
 
   // Kredi Kartı State'leri
   const [kartNo, setKartNo] = useState('');
@@ -37,6 +38,42 @@ export default function OdemeEkrani() {
   const [skt, setSkt] = useState('');
   const [cvv, setCvv] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // BİLGİLERİ KAYDETME STATE'İ
+  const [bilgileriKaydet, setBilgileriKaydet] = useState(false);
+
+  // SAYFA AÇILDIĞINDA KAYITLI BİLGİLERİ GETİR (KULLANICIYA ÖZEL)
+  useEffect(() => {
+    const kayitliBilgileriGetir = async () => {
+      try {
+        // Giriş yapan kullanıcının ID'sini alıyoruz (Yoksa 'ortak' klasörüne bakar)
+        const userId = await AsyncStorage.getItem('userId') || 'ortak';
+
+        // Verileri kullanıcıya özel isimlerle (key) arıyoruz
+        const adresVeri = await AsyncStorage.getItem(`@kayitliAdres_${userId}`);
+        const kartVeri = await AsyncStorage.getItem(`@kayitliKart_${userId}`);
+
+        if (adresVeri) {
+          const adres = JSON.parse(adresVeri);
+          setAdresBaslik(adres.baslik || '');
+          setIl(adres.il || '');
+          setIlce(adres.ilce || '');
+          setAcikAdres(adres.acikAdres || '');
+          setTelefon(adres.telefon || '');
+        }
+
+        if (kartVeri) {
+          const kart = JSON.parse(kartVeri);
+          setKartNo(kart.kartNo || '');
+          setKartSahibi(kart.kartSahibi || '');
+          setSkt(kart.skt || '');
+        }
+      } catch (error) {
+        console.log("Kayıtlı bilgiler okunamadı.");
+      }
+    };
+    kayitliBilgileriGetir();
+  }, []);
 
   const handleKartNoChange = (text: string) => {
     const cleaned = text.replace(/\D/g, '');
@@ -48,27 +85,19 @@ export default function OdemeEkrani() {
     }
   };
 
-  // GERÇEKÇİ AY VE FORMAT KONTROLÜ (AA/YY)
   const handleSktChange = (text: string) => {
     let cleaned = text.replace(/\D/g, '');
     
     if (cleaned.length > 0) {
-      // Kullanıcı ilk rakam olarak 2-9 arası bir şey girerse otomatik başına '0' koy (Örn: 5 girdiyse '05' yap)
       if (cleaned.length === 1 && parseInt(cleaned, 10) > 1) {
         cleaned = `0${cleaned}`;
       }
-      
-      // İlk iki rakam (Ay) kontrolü: 12'den büyük veya 00 olamaz
       if (cleaned.length >= 2) {
         const ay = parseInt(cleaned.substring(0, 2), 10);
-        if (ay < 1 || ay > 12) {
-          
-          return;
-        }
+        if (ay < 1 || ay > 12) return;
       }
     }
 
-    // Araya otomatik eğik çizgi (/) ekleme formatı
     if (cleaned.length >= 2) {
       setSkt(`${cleaned.substring(0, 2)}/${cleaned.substring(2, 4)}`);
     } else {
@@ -77,15 +106,13 @@ export default function OdemeEkrani() {
   };
 
   const handleOdemeYap = async () => {
-    // 1. ADRES ZORUNLULUĞU KONTROLÜ
-    if (il.trim() === '' || ilce.trim() === '' || acikAdres.trim().length < 10) {
-      Alert.alert('Hata', 'Lütfen İl, İlçe and Açık Adres bilgilerini eksiksiz girin.');
+    if (il.trim() === '' || ilce.trim() === '' || acikAdres.trim().length < 10 || telefon.trim().length < 10) {
+      Alert.alert('Hata', 'Lütfen İl, İlçe, Telefon ve Açık Adres bilgilerini eksiksiz girin.');
       return;
     }
 
     const tamTeslimatAdresi = `${adresBaslik ? adresBaslik + ' - ' : ''}${acikAdres}, ${ilce}/${il}`;
 
-    // 2. KART SEÇİLİYSE BİLGİ KONTROLÜ
     if (odemeYontemi === 'Kredi Kartı') {
       if (kartNo.length < 19 || kartSahibi.trim().length < 3 || skt.length < 5 || cvv.length < 3) {
         Alert.alert('Hata', 'Lütfen tüm kart bilgilerini eksiksiz ve doğru doldurun.');
@@ -96,6 +123,19 @@ export default function OdemeEkrani() {
     setLoading(true);
 
     try {
+      // BİLGİLERİ KAYDET İŞARETLENDİYSE KULLANICIYA ÖZEL KAYDET
+      if (bilgileriKaydet) {
+        const userId = await AsyncStorage.getItem('userId') || 'ortak';
+        const adresObj = { baslik: adresBaslik, il: il, ilce: ilce, acikAdres: acikAdres, telefon: telefon };
+        
+        await AsyncStorage.setItem(`@kayitliAdres_${userId}`, JSON.stringify(adresObj));
+
+        if (odemeYontemi === 'Kredi Kartı') {
+          const kartObj = { kartNo: kartNo, kartSahibi: kartSahibi, skt: skt };
+          await AsyncStorage.setItem(`@kayitliKart_${userId}`, JSON.stringify(kartObj));
+        }
+      }
+
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
       const token = await AsyncStorage.getItem('userToken');
@@ -109,7 +149,8 @@ export default function OdemeEkrani() {
         `${API_CONFIG.BASE_URL}/siparisler/olustur`,
         {
           odemeYontemi: odemeYontemi,
-          teslimatAdresi: tamTeslimatAdresi
+          teslimatAdresi: tamTeslimatAdresi,
+          telefon: telefon
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -272,6 +313,16 @@ export default function OdemeEkrani() {
               onChangeText={setAdresBaslik}
             />
 
+            <TextInput
+              style={styles.input}
+              placeholder="İletişim Numarası (Örn: 05xxxxxxxxx) *"
+              placeholderTextColor="#aaa"
+              keyboardType="phone-pad"
+              maxLength={11}
+              value={telefon}
+              onChangeText={setTelefon}
+            />
+
             <View style={styles.ikiliSatir}>
               <View style={{ flex: 1, marginRight: 10 }}>
                 <TextInput
@@ -304,6 +355,20 @@ export default function OdemeEkrani() {
               onChangeText={setAcikAdres}
             />
           </View>
+
+          {/* BİLGİLERİ KAYDET CHECKBOX */}
+          <TouchableOpacity 
+            style={styles.checkboxContainer} 
+            onPress={() => setBilgileriKaydet(!bilgileriKaydet)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.checkbox, bilgileriKaydet && styles.checkboxSecili]}>
+              {bilgileriKaydet && <Ionicons name="checkmark" size={16} color="#FFF" />}
+            </View>
+            <Text style={styles.checkboxYazi}>
+              Kart ve adres bilgilerimi sonraki alışverişlerim için güvenle kaydet.
+            </Text>
+          </TouchableOpacity>
 
         </ScrollView>
       </KeyboardAvoidingView>
@@ -391,6 +456,11 @@ const styles = StyleSheet.create({
   },
   ikiliSatir: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 },
   
+  checkboxContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginTop: 15, marginBottom: 10 },
+  checkbox: { width: 22, height: 22, borderWidth: 2, borderColor: '#ccc', borderRadius: 6, justifyContent: 'center', alignItems: 'center', marginRight: 10, backgroundColor: '#fff' },
+  checkboxSecili: { backgroundColor: '#FFB800', borderColor: '#FFB800' },
+  checkboxYazi: { flex: 1, fontSize: 13, color: '#666', lineHeight: 18 },
+
   altSabitAlan: {
     backgroundColor: '#fff',
     padding: 20,

@@ -143,7 +143,7 @@ export default function Profil() {
 
         <TouchableOpacity 
           style={styles.menuButon} 
-          onPress={() => router.push('/favoriler' as any)} // Tıklanınca favoriler sayfasına yönlendirir
+          onPress={() => router.push('/favoriler' as any)} 
         >
           <View style={styles.menuSol}>
             <View style={[styles.menuIkonKutu, {backgroundColor: '#E3F2FD'}]}>

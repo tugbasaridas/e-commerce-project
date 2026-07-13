@@ -3,7 +3,7 @@ import axios from 'axios';
 // Not: Eğer token'ı expo-secure-store ile kaydediyorsan, import'u ve getItem kısmını ona göre değiştirmelisin.
 
 export const API_CONFIG = {
-  BASE_URL: 'http://192.168.0.20:5110/api', 
+  BASE_URL: 'http://192.168.0.23:5110/api', 
   TIMEOUT: 10000,
 };
 

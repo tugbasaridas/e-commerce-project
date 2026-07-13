@@ -6,17 +6,33 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator, Alert, Dimensions, FlatList,
-  Image, Modal, StyleSheet, Text,
-  TouchableOpacity, View
+  Image,
+  LayoutAnimation,
+  Modal,
+  Platform,
+  StyleSheet, Text, TextInput,
+  TouchableOpacity,
+  UIManager,
+  View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context'; // YENİ EKLENDİ
+
+// Android için animasyon izni
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const width = Dimensions.get('window').width;
 const cardWidth = width / 2 - 25; 
 
 export default function Favoriler() {
   const router = useRouter();
-  const [favoriler, setFavoriler] = useState<any[]>([]); // Any kullandık ki ortalamaPuan hatası vermesin
+  const [favoriler, setFavoriler] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // ARAMA SİSTEMİ STATE'LERİ
+  const [aramaAktif, setAramaAktif] = useState(false);
+  const [aramaMetni, setAramaMetni] = useState('');
 
   // Oylama Modal State'leri
   const [oylamaModalGorunur, setOylamaModalGorunur] = useState(false);
@@ -24,7 +40,6 @@ export default function Favoriler() {
   const [secilenPuan, setSecilenPuan] = useState<number>(0);
   const [oyGonderiliyor, setOyGonderiliyor] = useState(false);
 
-  // Sayfa her görüntülendiğinde backend'den güncel favorileri çeker
   useFocusEffect(
     useCallback(() => {
       favorileriGetir();
@@ -34,7 +49,10 @@ export default function Favoriler() {
   const favorileriGetir = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      if (!token) return;
+      if (!token) {
+        setLoading(false);
+        return;
+      }
 
       const response = await axios.get(`${API_CONFIG.BASE_URL}/favoriler`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -48,7 +66,6 @@ export default function Favoriler() {
     }
   };
 
-  // Kalp butonuna basılınca ürünü favorilerden siler
   const favoridenCikar = async (urunId: number) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
@@ -58,21 +75,18 @@ export default function Favoriler() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      // Silme işlemi başarılıysa arayüzdeki listeden de anlık olarak kaldır
       setFavoriler(prev => prev.filter(item => item.urunId !== urunId));
     } catch (error) {
       Alert.alert("Hata", "Ürün favorilerden çıkarılamadı.");
     }
   };
 
-  // 1. ADIM: Yıldız ikonuna basıldığında Modalı açar
   const oylamaPenceresiniAc = (urunId: number) => {
     setOylanacakUrunId(urunId);
     setOylamaModalGorunur(true);
     setSecilenPuan(0);
   };
 
-  // 2. ADIM: Seçilen puanı backend'e gönderir
   const oyGonder = async () => {
     if (secilenPuan === 0) {
       Alert.alert("Uyarı", "Lütfen göndermeden önce bir yıldız seçin.");
@@ -93,8 +107,6 @@ export default function Favoriler() {
       Alert.alert("Teşekkürler!", "Değerlendirmeniz başarıyla kaydedildi.");
       setOylamaModalGorunur(false);
       setSecilenPuan(0);
-      
-      // Oylama başarılı olunca puanların güncellenmesi için listeyi yenile
       favorileriGetir();
       
     } catch (error: any) {
@@ -105,21 +117,30 @@ export default function Favoriler() {
     }
   };
 
+  // ARAMA BUTONUNA BASILINCA (Animasyonlu açılış)
+  const toggleArama = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setAramaAktif(!aramaAktif);
+    if (aramaAktif) setAramaMetni(''); // Kapanınca metni temizle
+  };
+
+  // FİLTRELENMİŞ LİSTEYİ HESAPLA
+  const filtrelenmisFavoriler = favoriler.filter(item => 
+    item.ad.toLowerCase().includes(aramaMetni.toLowerCase())
+  );
+
   const urunKartiCiz = ({ item }: { item: any }) => (
     <TouchableOpacity 
       style={styles.kart} 
       activeOpacity={0.9}
       onPress={() => router.push(`/detay?id=${item.urunId}` as any)}
     >
-      {/* KALP BUTONU */}
       <TouchableOpacity style={styles.kalpButon} onPress={() => favoridenCikar(item.urunId)}>
         <Ionicons name="heart" size={20} color="#ff4757" />
       </TouchableOpacity>
 
-      {/* ÜRÜN RESMİ */}
       <Image source={{ uri: item.resimUrl }} style={styles.resim} resizeMode="contain" />
 
-      {/* ALT BİLGİ ALANI */}
       <View style={styles.bilgiAlani}>
         <Text style={styles.urunAdi} numberOfLines={1}>{item.ad}</Text>
         
@@ -127,7 +148,6 @@ export default function Favoriler() {
           <Text style={styles.guncelFiyat}>{item.fiyat.toFixed(2)} TL</Text>
         </View>
         
-        {/* TIKLANABİLİR YILDIZ SATIRI (DİNAMİK) */}
         <TouchableOpacity 
           style={styles.yildizSatiri} 
           onPress={() => oylamaPenceresiniAc(item.urunId)}
@@ -151,17 +171,42 @@ export default function Favoriler() {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.sayfaBaslik}>Favoriler </Text>
+    <SafeAreaView style={styles.container}>
       
-      {favoriler.length === 0 ? (
+      {/* ÜST BAŞLIK VE ARAMA BUTONU */}
+      <View style={styles.headerSatiri}>
+        <Text style={styles.sayfaBaslik}>Favoriler</Text>
+        
+        {/* İŞTE ARAMA BUTONU BURADA */}
+        <TouchableOpacity onPress={toggleArama} style={styles.aramaIkonButon}>
+          <Ionicons name={aramaAktif ? "close" : "search"} size={26} color="#333" />
+        </TouchableOpacity>
+      </View>
+
+      {/* ARAMA ÇUBUĞU (Sadece aktifse görünür) */}
+      {aramaAktif && (
+        <View style={styles.aramaKutusu}>
+          <Ionicons name="search" size={20} color="#888" style={{ marginRight: 10 }} />
+          <TextInput
+            style={styles.aramaInput}
+            placeholder="Favorilerde ara..."
+            value={aramaMetni}
+            onChangeText={setAramaMetni}
+            autoFocus={true}
+          />
+        </View>
+      )}
+      
+      {filtrelenmisFavoriler.length === 0 ? (
         <View style={styles.bosDurum}>
           <Ionicons name="heart-dislike-outline" size={80} color="#ccc" />
-          <Text style={styles.bosMetin}>Henüz hiçbir ürünü favorilerinize eklemediniz.</Text>
+          <Text style={styles.bosMetin}>
+            {aramaMetni ? "Aradığınız kriterlere uygun ürün bulunamadı." : "Henüz hiçbir ürünü favorilerinize eklemediniz."}
+          </Text>
         </View>
       ) : (
         <FlatList
-          data={favoriler}
+          data={filtrelenmisFavoriler}
           renderItem={urunKartiCiz}
           keyExtractor={(item) => item.favoriId.toString()}
           numColumns={2} 
@@ -171,7 +216,7 @@ export default function Favoriler() {
         />
       )}
 
-      {/* OYLAMA MODALI (DİNAMİK) */}
+      {/* OYLAMA MODALI */}
       <Modal visible={oylamaModalGorunur} transparent={true} animationType="fade">
         <View style={styles.modalArkaPlan}>
           <View style={styles.modalKutu}>
@@ -208,13 +253,21 @@ export default function Favoriler() {
         </View>
       </Modal>
 
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 20, paddingTop: 60 },
-  sayfaBaslik: { fontSize: 26, fontWeight: 'bold', color: '#333', marginBottom: 20 },
+  // paddingTop değerini kaldırdık çünkü SafeAreaView bunu otomatik hallediyor
+  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 20 },
+  
+  headerSatiri: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, marginTop: 10 },
+  sayfaBaslik: { fontSize: 28, fontWeight: 'bold', color: '#333' },
+  aramaIkonButon: { padding: 8, backgroundColor: '#f5f5f5', borderRadius: 20 },
+  
+  aramaKutusu: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0F0F5', borderRadius: 12, paddingHorizontal: 15, paddingVertical: 10, marginBottom: 20 },
+  aramaInput: { flex: 1, fontSize: 16, color: '#333' },
+
   listeSutunYapisi: { justifyContent: 'space-between' },
   kart: { 
     width: cardWidth, 
@@ -228,95 +281,26 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 3, 
   },
-  kalpButon: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    padding: 5,
-    zIndex: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
-  },
+  kalpButon: { position: 'absolute', top: 10, right: 10, backgroundColor: '#fff', borderRadius: 15, padding: 5, zIndex: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 2, elevation: 2 },
   resim: { width: '100%', height: 120, borderRadius: 10, marginTop: 15 },
   bilgiAlani: { marginTop: 10 },
   urunAdi: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 },
   fiyatSatiri: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
   guncelFiyat: { fontSize: 16, fontWeight: 'bold', color: '#ff6b6b' },
-  
-  yildizSatiri: { 
-    flexDirection: 'row', 
-    alignItems: 'center',
-    paddingVertical: 5,
-  },
+  yildizSatiri: { flexDirection: 'row', alignItems: 'center', paddingVertical: 5 },
   yildizYazisi: { fontSize: 12, color: '#777', marginLeft: 4 },
   
   bosDurum: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  bosMetin: { fontSize: 16, color: '#888', textAlign: 'center', marginTop: 15 },
+  bosMetin: { fontSize: 16, color: '#888', textAlign: 'center', marginTop: 15, paddingHorizontal: 20 },
   merkez: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
-  // Oylama Modal Stilleri
-  modalArkaPlan: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalKutu: {
-    width: '80%',
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 25,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-  kapatIkonu: {
-    position: 'absolute',
-    top: 15,
-    right: 15,
-    padding: 5,
-  },
-  modalBaslik: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
-    marginTop: 5,
-  },
-  modalAciklama: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 25,
-  },
-  yildizSecici: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 20,
-  },
-  secimYildizi: {
-    marginHorizontal: 5,
-  },
-  modalGonderButon: { 
-    backgroundColor: '#FFD700', 
-    width: '100%', 
-    paddingVertical: 15, 
-    borderRadius: 12, 
-    alignItems: 'center' 
-  },
-  modalGonderButonYazi: { 
-    color: '#000', 
-    fontSize: 16, 
-    fontWeight: 'bold' 
-  }
+  modalArkaPlan: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalKutu: { width: '80%', backgroundColor: '#fff', borderRadius: 20, padding: 25, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 10 },
+  kapatIkonu: { position: 'absolute', top: 15, right: 15, padding: 5 },
+  modalBaslik: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 10, marginTop: 5 },
+  modalAciklama: { fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 25 },
+  yildizSecici: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', width: '100%', marginBottom: 20 },
+  secimYildizi: { marginHorizontal: 5 },
+  modalGonderButon: { backgroundColor: '#FFD700', width: '100%', paddingVertical: 15, borderRadius: 12, alignItems: 'center' },
+  modalGonderButonYazi: { color: '#000', fontSize: 16, fontWeight: 'bold' }
 });

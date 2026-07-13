@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Linking, // YENİ: Tarayıcıya yönlendirme için eklendi
   Modal,
   ScrollView,
   StyleSheet,
@@ -27,7 +28,6 @@ export default function AdminSiparisler() {
   const [modalGorunur, setModalGorunur] = useState(false);
   const [seciliSiparis, setSeciliSiparis] = useState<number | null>(null);
 
-  // YENİ STATE'LER: Arama ve Filtreleme
   const [aramaMetni, setAramaMetni] = useState('');
   const [seciliDurum, setSeciliDurum] = useState('Tümü');
 
@@ -79,19 +79,42 @@ export default function AdminSiparisler() {
     }
   };
 
-  // YENİ: ARAMA VE FİLTRELEME MANTIĞI
+  // YENİ: ADMİN İÇİN KARGO TAKİP FONKSİYONU
+  const kargoTakipBaslat = async (siparisId: number) => {
+    const kargoNo = `ARS${Math.floor(100000000 + Math.random() * 900000000)}`;
+    const kargoUrl = `https://www.araskargo.com.tr/kargo-takip`;
+
+    Alert.alert(
+      "Kargo Takip", 
+      `Sipariş #${siparisId}\nTakip No: ${kargoNo}\n\nKargo firmasının takip sayfasına gitmek ister misiniz?`,
+      [
+        { text: "Vazgeç", style: "cancel" },
+        { 
+          text: "Siteye Git", 
+          onPress: async () => {
+            const supported = await Linking.canOpenURL(kargoUrl);
+            if (supported) {
+              await Linking.openURL(kargoUrl);
+            } else {
+              Alert.alert("Hata", "Takip sayfası açılamadı.");
+            }
+          } 
+        }
+      ]
+    );
+  };
+
   const filtrelenmisSiparisler = useMemo(() => {
     return siparisler.filter(siparis => {
-      // Durum Filtresi
       const durumUyar = seciliDurum === 'Tümü' || siparis.durum === seciliDurum;
       
-      // Arama Filtresi (Sipariş ID, İsim, E-posta veya Adres içinde arar)
       const aramaKucukHarf = aramaMetni.toLowerCase();
       const aramaUyar = 
         siparis.id.toString().includes(aramaKucukHarf) ||
         (siparis.kullaniciAdSoyad && siparis.kullaniciAdSoyad.toLowerCase().includes(aramaKucukHarf)) ||
         (siparis.kullaniciEmail && siparis.kullaniciEmail.toLowerCase().includes(aramaKucukHarf)) ||
-        (siparis.teslimatAdresi && siparis.teslimatAdresi.toLowerCase().includes(aramaKucukHarf));
+        (siparis.teslimatAdresi && siparis.teslimatAdresi.toLowerCase().includes(aramaKucukHarf)) ||
+        (siparis.telefon && siparis.telefon.toLowerCase().includes(aramaKucukHarf));
 
       return durumUyar && aramaUyar;
     });
@@ -110,13 +133,12 @@ export default function AdminSiparisler() {
         <Text style={styles.baslik}>Sipariş Yönetimi</Text>
       </View>
 
-      {/* YENİ: ARAMA ÇUBUĞU */}
       <View style={styles.aramaKutusuContainer}>
         <View style={styles.aramaKutusu}>
           <Ionicons name="search-outline" size={20} color="#8E8E93" />
           <TextInput
             style={styles.aramaInput}
-            placeholder="Sipariş No, İsim veya E-posta ara..."
+            placeholder="Sipariş No, İsim, E-posta veya Telefon ara..."
             placeholderTextColor="#8E8E93"
             value={aramaMetni}
             onChangeText={setAramaMetni}
@@ -130,7 +152,6 @@ export default function AdminSiparisler() {
         </View>
       </View>
 
-      {/* YENİ: YATAY DURUM FİLTRELERİ */}
       <View style={styles.filtreKapsayici}>
         <ScrollView 
           horizontal 
@@ -211,6 +232,14 @@ export default function AdminSiparisler() {
                   <Ionicons name="location-outline" size={14} color="#8E8E93" />
                   <Text style={styles.kargoAdresYazi}>{item.teslimatAdresi || 'Adres bilgisi yok.'}</Text>
                 </View>
+                
+                <View style={styles.kargoSatiri}>
+                  <Ionicons name="call-outline" size={14} color="#00529B" />
+                  <Text style={[styles.kargoOdemeYazi, { color: '#00529B' }]}>
+                    {item.telefon || 'Telefon belirtilmemiş'}
+                  </Text>
+                </View>
+
                 <View style={styles.kargoSatiri}>
                   <Ionicons name="card-outline" size={14} color="#8E8E93" />
                   <Text style={styles.kargoOdemeYazi}>{item.odemeYontemi || 'Belirtilmemiş'}</Text>
@@ -237,6 +266,19 @@ export default function AdminSiparisler() {
                 </TouchableOpacity>
               </View>
 
+              {/* YENİ: ADMİN İÇİN KARGO TAKİP BUTONU */}
+              {item.durum === 'Kargoya Verildi' && (
+                <TouchableOpacity 
+                  style={styles.adminKargoBtn} 
+                  onPress={() => kargoTakipBaslat(item.id)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="link-outline" size={18} color="#00529B" style={{ marginRight: 6 }} />
+                  <Text style={styles.adminKargoBtnYazi}>Kargo Takibini Gör</Text>
+                  <Ionicons name="chevron-forward" size={16} color="#00529B" style={{ marginLeft: 'auto' }} />
+                </TouchableOpacity>
+              )}
+
             </View>
           );
         }}
@@ -257,30 +299,22 @@ export default function AdminSiparisler() {
                 <Text style={styles.modalAltBaslik}>#{seciliSiparis} numaralı sipariş için yeni durumu belirleyin.</Text>
                 
                 <TouchableOpacity style={[styles.modalSecenek, { borderLeftColor: '#FF9F00' }]} onPress={() => durumSec('Hazırlanıyor')}>
-                  <View style={[styles.modalSecenekIcon, { backgroundColor: '#FFF4E5' }]}>
-                    <Ionicons name="time-outline" size={20} color="#FF9F00" />
-                  </View>
+                  <View style={[styles.modalSecenekIcon, { backgroundColor: '#FFF4E5' }]}><Ionicons name="time-outline" size={20} color="#FF9F00" /></View>
                   <Text style={styles.modalSecenekYazi}>Hazırlanıyor</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={[styles.modalSecenek, { borderLeftColor: '#4EA8DE' }]} onPress={() => durumSec('Kargoya Verildi')}>
-                  <View style={[styles.modalSecenekIcon, { backgroundColor: '#E1F5FE' }]}>
-                    <Ionicons name="cube-outline" size={20} color="#4EA8DE" />
-                  </View>
+                  <View style={[styles.modalSecenekIcon, { backgroundColor: '#E1F5FE' }]}><Ionicons name="cube-outline" size={20} color="#4EA8DE" /></View>
                   <Text style={styles.modalSecenekYazi}>Kargoya Verildi</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={[styles.modalSecenek, { borderLeftColor: '#28A745' }]} onPress={() => durumSec('Tamamlandı')}>
-                  <View style={[styles.modalSecenekIcon, { backgroundColor: '#F0FDF4' }]}>
-                    <Ionicons name="checkmark-circle-outline" size={20} color="#28A745" />
-                  </View>
+                  <View style={[styles.modalSecenekIcon, { backgroundColor: '#F0FDF4' }]}><Ionicons name="checkmark-circle-outline" size={20} color="#28A745" /></View>
                   <Text style={styles.modalSecenekYazi}>Tamamlandı</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={[styles.modalSecenek, { borderLeftColor: '#EF233C' }]} onPress={() => durumSec('İptal')}>
-                  <View style={[styles.modalSecenekIcon, { backgroundColor: '#FFEBEA' }]}>
-                    <Ionicons name="close-circle-outline" size={20} color="#EF233C" />
-                  </View>
+                  <View style={[styles.modalSecenekIcon, { backgroundColor: '#FFEBEA' }]}><Ionicons name="close-circle-outline" size={20} color="#EF233C" /></View>
                   <Text style={styles.modalSecenekYazi}>İptal</Text>
                 </TouchableOpacity>
 
@@ -299,97 +333,30 @@ export default function AdminSiparisler() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },
   merkez: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    paddingHorizontal: 20, 
-    paddingTop: 10,
-    paddingBottom: 15,
-    backgroundColor: '#FFFFFF',
-  },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 15, backgroundColor: '#FFFFFF' },
   backBtn: { padding: 5 },
   baslik: { fontSize: 20, fontWeight: 'bold', marginLeft: 15, color: '#1C1C1E' },
   
-  // YENİ: Arama Çubuğu Stilleri
-  aramaKutusuContainer: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    paddingBottom: 10,
-  },
-  aramaKutusu: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 44,
-  },
-  aramaInput: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 15,
-    color: '#1C1C1E',
-  },
+  aramaKutusuContainer: { backgroundColor: '#FFFFFF', paddingHorizontal: 20, paddingBottom: 10 },
+  aramaKutusu: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F2F2F7', borderRadius: 10, paddingHorizontal: 12, height: 44 },
+  aramaInput: { flex: 1, marginLeft: 8, fontSize: 15, color: '#1C1C1E' },
 
- 
-  filtreKapsayici: {
-    backgroundColor: '#FFFFFF',
-    paddingBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  filtreScroll: {
-    paddingHorizontal: 15,
-  },
-  filtreChip: {
-    backgroundColor: '#F2F2F7',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginHorizontal: 5,
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-  },
-  aktifFiltreChip: {
-    backgroundColor: '#4EA8DE',
-    borderColor: '#4EA8DE',
-  },
-  filtreChipYazi: {
-    fontSize: 13,
-    color: '#48484A',
-    fontWeight: '600',
-  },
-  aktifFiltreChipYazi: {
-    color: '#FFFFFF',
-  },
+  filtreKapsayici: { backgroundColor: '#FFFFFF', paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  filtreScroll: { paddingHorizontal: 15 },
+  filtreChip: { backgroundColor: '#F2F2F7', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginHorizontal: 5, borderWidth: 1, borderColor: '#E5E5EA' },
+  aktifFiltreChip: { backgroundColor: '#4EA8DE', borderColor: '#4EA8DE' },
+  filtreChipYazi: { fontSize: 13, color: '#48484A', fontWeight: '600' },
+  aktifFiltreChipYazi: { color: '#FFFFFF' },
   
-  bosListeMetni: {
-    textAlign: 'center',
-    color: '#8E8E93',
-    marginTop: 50,
-    fontSize: 15,
-  },
-
+  bosListeMetni: { textAlign: 'center', color: '#8E8E93', marginTop: 50, fontSize: 15 },
   listContainer: { padding: 20, paddingBottom: 100 },
   
-  kart: { 
-    backgroundColor: '#FFFFFF', 
-    padding: 18, 
-    marginBottom: 16, 
-    borderRadius: 16, 
-    shadowColor: '#000', 
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 3 
-  },
+  kart: { backgroundColor: '#FFFFFF', padding: 18, marginBottom: 16, borderRadius: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.04, shadowRadius: 10, elevation: 3 },
   kartUst: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   siparisNo: { fontWeight: '800', fontSize: 16, color: '#1C1C1E', marginBottom: 6 },
-  
   kullaniciBilgiSatiri: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
   kullaniciYazi: { fontSize: 13, color: '#1C1C1E', marginLeft: 4, fontWeight: '500' },
   kullaniciEmailYazi: { fontSize: 12, color: '#8E8E93', marginLeft: 4 },
-  
   durumBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
   durumYazi: { fontSize: 12, fontWeight: '700' },
   
@@ -409,62 +376,33 @@ const styles = StyleSheet.create({
   fiyatAlan: { fontSize: 13, color: '#8E8E93' },
   fiyatDeger: { fontWeight: '800', color: '#1C1C1E', fontSize: 18 },
   
-  btnGuncelle: { 
-    flexDirection: 'row', 
-    backgroundColor: '#4EA8DE', 
-    paddingVertical: 10, 
-    paddingHorizontal: 16,
-    borderRadius: 12, 
-    alignItems: 'center', 
-    justifyContent: 'center',
-    shadowColor: '#4EA8DE',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4
-  },
+  btnGuncelle: { flexDirection: 'row', backgroundColor: '#4EA8DE', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center', shadowColor: '#4EA8DE', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
   btnGuncelleYazi: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
 
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 25,
-    paddingBottom: 35,
-    paddingTop: 15,
-  },
-  modalTutacak: {
-    width: 40,
-    height: 5,
-    backgroundColor: '#E5E5EA',
-    borderRadius: 5,
-    alignSelf: 'center',
-    marginBottom: 20,
-  },
-  modalBaslik: { fontSize: 18, fontWeight: 'bold', color: '#1C1C1E', marginBottom: 4 },
-  modalAltBaslik: { fontSize: 14, color: '#8E8E93', marginBottom: 20 },
-  modalSecenek: {
+  // YENİ: Admin Kargo Takip Butonu Stili
+  adminKargoBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    padding: 15,
+    backgroundColor: '#E6F2FF',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: 12,
-    marginBottom: 10,
-    borderLeftWidth: 4,
+    marginTop: 12,
   },
+  adminKargoBtnYazi: {
+    color: '#00529B',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 25, paddingBottom: 35, paddingTop: 15 },
+  modalTutacak: { width: 40, height: 5, backgroundColor: '#E5E5EA', borderRadius: 5, alignSelf: 'center', marginBottom: 20 },
+  modalBaslik: { fontSize: 18, fontWeight: 'bold', color: '#1C1C1E', marginBottom: 4 },
+  modalAltBaslik: { fontSize: 14, color: '#8E8E93', marginBottom: 20 },
+  modalSecenek: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', padding: 15, borderRadius: 12, marginBottom: 10, borderLeftWidth: 4 },
   modalSecenekIcon: { padding: 8, borderRadius: 8, marginRight: 15 },
   modalSecenekYazi: { fontSize: 16, fontWeight: '600', color: '#1C1C1E' },
-  modalVazgecBtn: {
-    marginTop: 15,
-    paddingVertical: 15,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    alignItems: 'center',
-  },
+  modalVazgecBtn: { marginTop: 15, paddingVertical: 15, backgroundColor: '#F2F2F7', borderRadius: 12, alignItems: 'center' },
   modalVazgecYazi: { color: '#1C1C1E', fontSize: 16, fontWeight: 'bold' }
 });
