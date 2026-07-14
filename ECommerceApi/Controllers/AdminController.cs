@@ -11,10 +11,12 @@ namespace ECommerceApi.Controllers;
 public class AdminController : ControllerBase
 {
     private readonly IAdminService _adminService;
+    private readonly IUrunService _urunService;
 
-    public AdminController(IAdminService adminService)
+    public AdminController(IAdminService adminService,IUrunService urunService)
     {
         _adminService = adminService;
+        _urunService = urunService;
     }
 
     [HttpGet("dashboard")]
@@ -58,4 +60,23 @@ public class AdminController : ControllerBase
         if (!sonuc.Basarili) return BadRequest(sonuc.Mesaj);
         return Ok(new { Mesaj = sonuc.Mesaj });
     }
+
+    // --- YENİ EKLENEN İNDİRİM METOTLARI ---
+    [HttpPost("urunler/{id}/indirim-yap")]
+    public async Task<IActionResult> IndirimYap(int id, [FromBody] IndirimDTO dto)
+    {
+        var sonuc = await _urunService.IndirimYapAsync(id, dto.YeniFiyat);
+        if (!sonuc.Basarili) return BadRequest(new { Mesaj = sonuc.Mesaj });
+        return Ok(new { Mesaj = sonuc.Mesaj });
+    }
+
+    [HttpPost("urunler/{id}/indirim-kaldir")]
+    public async Task<IActionResult> IndirimiKaldir(int id)
+    {
+        var sonuc = await _urunService.IndirimiKaldirAsync(id);
+        if (!sonuc.Basarili) return BadRequest(new { Mesaj = sonuc.Mesaj });
+        return Ok(new { Mesaj = sonuc.Mesaj });
+    }
+
+    
 }

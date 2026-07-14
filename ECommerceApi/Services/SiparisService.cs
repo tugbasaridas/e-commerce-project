@@ -40,7 +40,11 @@ public class SiparisService : ISiparisService
                 if (urun == null || urun.Stok < sepetItem.Miktar)
                     throw new Exception($"{urun?.Ad ?? "Bilinmeyen Ürün"} için stok yetersiz!");
 
-                decimal satirTutari = urun.Fiyat * sepetItem.Miktar;
+                // GÜVENLİ FİYAT HESAPLAMASI: İndirimli fiyat varsa onu, yoksa normal fiyatı al
+                decimal gecerliFiyat = urun.IndirimliFiyat ?? urun.Fiyat;
+
+                // Satır tutarını geçerli fiyat üzerinden hesapla
+                decimal satirTutari = gecerliFiyat * sepetItem.Miktar;
                 toplamTutar += satirTutari;
                 urun.Stok -= sepetItem.Miktar;
 
@@ -48,7 +52,7 @@ public class SiparisService : ISiparisService
                 {
                     UrunId = urun.Id,
                     Adet = sepetItem.Miktar,
-                    BirimFiyat = urun.Fiyat 
+                    BirimFiyat = gecerliFiyat // Sipariş geçmişinde görünecek asıl fiyat!
                 });
             }
 
@@ -99,7 +103,7 @@ public class SiparisService : ISiparisService
                     Ad = d.Urunler != null ? d.Urunler.Ad : "Ürün Silinmiş",
                     ResimUrl = d.Urunler != null ? d.Urunler.ResimUrl : "",
                     Adet = d.Adet,
-                    SatinAlinanFiyat = d.BirimFiyat
+                    SatinAlinanFiyat = d.BirimFiyat // Kaydettiğimiz doğru fiyat buradan okunuyor
                 })
             })
             .ToListAsync();

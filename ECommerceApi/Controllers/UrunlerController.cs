@@ -75,4 +75,12 @@ public class UrunlerController : ControllerBase
         
         return Ok(new { mesaj });
     }
+
+    
+[HttpGet("indirimdekiler")]
+public async Task<IActionResult> GetIndirimdekiler()
+{
+    var urunler = await _urunService.IndirimliUrunleriGetirAsync();
+    return Ok(urunler);
+}
 }

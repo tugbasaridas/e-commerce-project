@@ -13,4 +13,7 @@ public interface IUrunService
     Task<bool> UrunSilAsync(int id);
     Task<Urunler?> UrunGuncelleAsync(int id, UrunGuncelleDto guncelUrun);
     Task<(bool Basarili, string Mesaj)> UrunOylaAsync(int urunId, int userId, int puan);
+    Task<List<UrunListelemeDTO>> IndirimliUrunleriGetirAsync();
+    Task<(bool Basarili, string Mesaj)> IndirimYapAsync(int urunId, decimal yeniFiyat);
+    Task<(bool Basarili, string Mesaj)> IndirimiKaldirAsync(int urunId);
 }

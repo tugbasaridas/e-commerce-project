@@ -34,23 +34,29 @@ public class FavoriService : IFavoriService
     public async Task<object> FavorileriGetirAsync(int kullaniciId)
     {
         return await _db.Favoriler
+            .Where(f => f.KullaniciId == kullaniciId)
             .Include(f => f.Urunler)
                 .ThenInclude(u => u!.Oylamalar) 
-            .Where(f => f.KullaniciId == kullaniciId)
             .Select(f => new 
             {
                 FavoriId = f.Id,
                 UrunId = f.UrunId,
                 Ad = f.Urunler != null ? f.Urunler.Ad : "Ürün Silinmiş", 
-                Fiyat = f.Urunler != null ? f.Urunler.Fiyat : 0,
+                
+                // GÜNCELLEME: İndirimli fiyat varsa onu al, yoksa normal fiyatı al
+                Fiyat = f.Urunler != null ? (f.Urunler.IndirimliFiyat ?? f.Urunler.Fiyat) : 0,
+                
+                // GÜNCELLEME: Eğer indirim varsa, orijinal fiyatı da gönder ki üstünü çizebilesin
+                OrijinalFiyat = f.Urunler != null ? f.Urunler.Fiyat : 0,
+                
                 ResimUrl = f.Urunler != null ? f.Urunler.ResimUrl : "",
                 
                 OrtalamaPuan = (f.Urunler != null && f.Urunler.Oylamalar != null && f.Urunler.Oylamalar.Any()) 
-                               ? Math.Round(f.Urunler.Oylamalar.Average(o => o.Puan), 1) 
-                               : 0.0,
+                            ? Math.Round(f.Urunler.Oylamalar.Average(o => o.Puan), 1) 
+                            : 0.0,
                 OylamaSayisi = (f.Urunler != null && f.Urunler.Oylamalar != null) 
-                               ? f.Urunler.Oylamalar.Count() 
-                               : 0
+                            ? f.Urunler.Oylamalar.Count() 
+                            : 0
             })
             .ToListAsync();
     }

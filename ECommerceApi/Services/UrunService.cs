@@ -22,7 +22,8 @@ public class UrunService : IUrunService
                 Id = u.Id,
                 Ad = u.Ad,
                 Aciklama = u.Aciklama,
-                Fiyat = u.Fiyat,
+                Fiyat = u.Fiyat, // Asıl liste fiyatı
+                IndirimliFiyat = u.IndirimliFiyat, // Varsa indirimli fiyat
                 ResimUrl = u.ResimUrl,
                 KategoriId = u.KategoriId,
                 Kategori = u.Kategori != null ? new { u.Kategori.Id, u.Kategori.Ad } : null,
@@ -41,6 +42,7 @@ public class UrunService : IUrunService
                 u.Ad, 
                 u.Aciklama, 
                 u.Fiyat, 
+                u.IndirimliFiyat, // Detay sayfasında göstermek için eklendi
                 u.Stok, 
                 u.ResimUrl, 
                 u.KategoriId, 
@@ -54,8 +56,12 @@ public class UrunService : IUrunService
     public async Task<Urunler> UrunEkleAsync(UrunEkleDTO dto) 
     {
         var yeniUrun = new Urunler {
-            Ad = dto.Ad, Aciklama = dto.Aciklama, Fiyat = dto.Fiyat,
-            Stok = dto.Stok, ResimUrl = dto.ResimUrl, KategoriId = dto.KategoriId
+            Ad = dto.Ad, 
+            Aciklama = dto.Aciklama, 
+            Fiyat = dto.Fiyat, // Eklendiğinde sadece asıl fiyat var
+            Stok = dto.Stok, 
+            ResimUrl = dto.ResimUrl, 
+            KategoriId = dto.KategoriId
         };
         _db.Urunler.Add(yeniUrun);
         await _db.SaveChangesAsync();
@@ -76,7 +82,6 @@ public class UrunService : IUrunService
         var mevcutUrun = await _db.Urunler.FindAsync(id);
         if (mevcutUrun is null) return null;
         
-        // Sadece yeni bir veri geldiyse mevcut olanı güncelliyoruz (Eski verileri ezmiyoruz)
         if (!string.IsNullOrWhiteSpace(guncelUrun.Ad)) 
             mevcutUrun.Ad = guncelUrun.Ad;
             
@@ -145,5 +150,59 @@ public class UrunService : IUrunService
         {
             return (false, "Veritabanı hatası: " + ex.Message);
         }
+    }
+
+    public async Task<List<UrunListelemeDTO>> IndirimliUrunleriGetirAsync()
+    {
+        return await _db.Urunler
+            .Where(u => u.IndirimliFiyat != null) // Sadece IndirimliFiyat dolu olanları getir
+            .Include(u => u.Kategori)
+            .Select(u => new UrunListelemeDTO {
+                Id = u.Id,
+                Ad = u.Ad,
+                Aciklama = u.Aciklama,
+                Fiyat = u.Fiyat,
+                IndirimliFiyat = u.IndirimliFiyat, // <-- Yeni modele tam uyumlu
+                ResimUrl = u.ResimUrl,
+                KategoriId = u.KategoriId,
+                Kategori = u.Kategori != null ? new { u.Kategori.Id, u.Kategori.Ad } : null,
+                OrtalamaPuan = u.Oylamalar.Any() ? Math.Round(u.Oylamalar.Average(o => o.Puan), 1) : 0.0,
+                OylamaSayisi = u.Oylamalar.Count()
+            })
+            .OrderByDescending(u => u.Id)
+            .ToListAsync();
+    }
+
+    public async Task<(bool Basarili, string Mesaj)> IndirimYapAsync(int urunId, decimal yeniFiyat)
+    {
+        var urun = await _db.Urunler.FindAsync(urunId);
+        if (urun == null) return (false, "Ürün bulunamadı.");
+
+        // İndirimli fiyat, asıl fiyattan küçük olmak zorunda
+        if (yeniFiyat >= urun.Fiyat) 
+            return (false, "İndirimli fiyat, asıl liste fiyatından daha düşük olmalıdır!");
+
+        // Fiyat'a (orijinal değere) ASLA DOKUNMUYORUZ. Sadece IndirimliFiyat'ı güncelliyoruz.
+        urun.IndirimliFiyat = yeniFiyat;
+        
+        await _db.SaveChangesAsync();
+        return (true, "İndirim başarıyla uygulandı.");
+    }
+
+    public async Task<(bool Basarili, string Mesaj)> IndirimiKaldirAsync(int urunId)
+    {
+        var urun = await _db.Urunler.FindAsync(urunId);
+        if (urun == null) return (false, "Ürün bulunamadı.");
+
+        if (urun.IndirimliFiyat != null)
+        {
+            // İndirimi sıfırlıyoruz. Fiyat sütunu zaten korunduğu için başka işlem gerekmiyor.
+            urun.IndirimliFiyat = null; 
+            
+            await _db.SaveChangesAsync();
+            return (true, "İndirim başarıyla kaldırıldı ve fiyat eski haline döndü.");
+        }
+
+        return (false, "Bu ürün zaten indirimde değil.");
     }
 }
