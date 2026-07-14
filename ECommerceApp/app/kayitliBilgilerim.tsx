@@ -7,7 +7,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function KayitliBilgilerim() {
   const router = useRouter();
-  // Artık tek bir obje değil, dizi (array) tutuyoruz
   const [kayitliAdresler, setKayitliAdresler] = useState<any[]>([]);
   const [kayitliKartlar, setKayitliKartlar] = useState<any[]>([]);
 
@@ -17,7 +16,6 @@ export default function KayitliBilgilerim() {
 
   const bilgileriGetir = async () => {
     const userId = await AsyncStorage.getItem('userId') || 'ortak';
-    // Anahtarları çoğul (Adresler/Kartlar) yaptık
     const adresVeri = await AsyncStorage.getItem(`@kayitliAdresler_${userId}`);
     const kartVeri = await AsyncStorage.getItem(`@kayitliKartlar_${userId}`);
 
@@ -70,14 +68,21 @@ export default function KayitliBilgilerim() {
           kayitliKartlar.map((kart, index) => (
             <View key={kart.id || index} style={styles.sanalKartContainer}>
               <View style={styles.sanalKart}>
-                <TouchableOpacity style={styles.silIkon} onPress={() => bilgiyiSil('kart', kart.id)}>
-                  <Ionicons name="trash-outline" size={20} color="#FFF" />
-                </TouchableOpacity>
+                
+                {/* DEĞİŞTİRİLEN KISIM: İkonlar çakışmasın diye yan yana gruplandı */}
                 <View style={styles.kartUstSatir}>
                   <View style={styles.kartCip} />
-                  <Ionicons name="wifi-outline" size={24} color="#FFF" style={{ transform: [{ rotate: '90deg' }] }} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Ionicons name="wifi-outline" size={24} color="#FFF" style={{ transform: [{ rotate: '90deg' }], marginRight: 15 }} />
+                    <TouchableOpacity onPress={() => bilgiyiSil('kart', kart.id)}>
+                      <Ionicons name="trash-outline" size={22} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
+                {/* DEĞİŞTİRİLEN KISIM BİTİŞİ */}
+
                 <Text style={styles.kartNoYazi}>{kart.kartNo}</Text>
+                
                 <View style={styles.kartAltSatir}>
                   <View style={{ flex: 1, marginRight: 10 }}>
                     <Text style={styles.kartEtiket}>KART SAHİBİ</Text>
@@ -146,7 +151,7 @@ const styles = StyleSheet.create({
   kartAltSatir: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
   kartEtiket: { color: '#FFF', opacity: 0.7, fontSize: 10, fontWeight: '500', marginBottom: 4 },
   kartDeger: { color: '#FFF', fontSize: 14, fontWeight: 'bold', letterSpacing: 1 },
-  silIkon: { position: 'absolute', top: 15, right: 15, zIndex: 1, padding: 5 },
+  // silIkon: absolute tanımı tamamen kaldırıldı (artık flex kullanıyor)
 
   adresKutu: { backgroundColor: '#fff', padding: 20, borderRadius: 16, borderWidth: 1, borderColor: '#eee', marginBottom: 15 },
   adresSatir: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },

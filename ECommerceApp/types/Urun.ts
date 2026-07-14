@@ -9,6 +9,7 @@ export interface Urun {
   ad: string;
   aciklama?: string;
   fiyat: number;
+  indirimliFiyat?: number | null;
   stok: number;
   resimUrl?: string;
   kategoriId: number;

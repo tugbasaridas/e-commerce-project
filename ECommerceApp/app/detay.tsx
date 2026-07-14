@@ -14,12 +14,10 @@ export default function Detay() {
   const [loading, setLoading] = useState(true);
   const [girisYapildiMi, setGirisYapildiMi] = useState(false);
   
-  // Miktar ve Bildirimler
   const [miktar, setMiktar] = useState(1);
   const [toastGorunur, setToastGorunur] = useState(false);
   const [toastMesaj, setToastMesaj] = useState('');
 
-  // Oylama Sistemi State'leri
   const [oylamaModalGorunur, setOylamaModalGorunur] = useState(false);
   const [secilenPuan, setSecilenPuan] = useState<number>(0); 
   const [oyGonderiliyor, setOyGonderiliyor] = useState(false);
@@ -80,7 +78,6 @@ export default function Detay() {
     }
   };
 
-  // OYLAMA İŞLEMİ BURADA ÇALIŞIR
   const oyGonder = async () => {
     if (secilenPuan === 0) {
       Alert.alert("Uyarı", "Lütfen bir puan seçin.");
@@ -89,14 +86,10 @@ export default function Detay() {
     setOyGonderiliyor(true);
     try {
       const token = await AsyncStorage.getItem('userToken');
-      
       await axios.post(`${API_CONFIG.BASE_URL}/urunler/${id}/oyla?puan=${secilenPuan}`, {}, { headers: { Authorization: `Bearer ${token}` } });
-      
       Alert.alert("Başarılı", "Teşekkürler!");
       setOylamaModalGorunur(false);
       setSecilenPuan(0);
-      
-      // Güncel puanı göstermek için ürünü tekrar çek
       const guncelUrun = await axios.get(`${API_CONFIG.BASE_URL}/urunler/${id}`);
       setUrun(guncelUrun.data);
     } catch (error: any) {
@@ -122,8 +115,24 @@ export default function Detay() {
       <View style={styles.detayBilgi}>
         <Text style={styles.kategori}>{urun.kategori?.ad || "Genel"}</Text>
         <Text style={styles.baslik}>{urun.ad}</Text>
-        <Text style={styles.fiyat}>{urun.fiyat.toFixed(2)} TL</Text>
         
+        {/* YENİ İNDİRİM MANTIĞI */}
+        <View style={styles.fiyatKapsayici}>
+          {urun.indirimliFiyat ? (
+            <View style={styles.indirimliFiyatAlani}>
+              <Text style={styles.eskiFiyat}>{urun.fiyat.toFixed(2)} TL</Text>
+              <Text style={styles.yeniFiyat}>{urun.indirimliFiyat.toFixed(2)} TL</Text>
+              <View style={styles.rozet}>
+                <Text style={styles.rozetYazi}>
+                  %{Math.round(((urun.fiyat - urun.indirimliFiyat) / urun.fiyat) * 100)} İNDİRİM
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <Text style={styles.normalFiyat}>{urun.fiyat.toFixed(2)} TL</Text>
+          )}
+        </View>
+
         <TouchableOpacity style={styles.degerlendirmeSatiri} onPress={() => girisYapildiMi ? setOylamaModalGorunur(true) : Alert.alert("Giriş Gerekli", "Puanlamak için giriş yapın.")}>
           <View style={styles.yildizGrup}><Ionicons name="star" size={18} color="#FFD700" /><Text style={styles.yildizPuanYazi}>{urun.ortalamaPuan?.toFixed(1) || "0.0"}</Text></View>
           <Text style={styles.oyVerLinkYazi}>({urun.oylamaSayisi || 0} Değerlendirme)</Text>
@@ -142,7 +151,6 @@ export default function Detay() {
         <TouchableOpacity style={[styles.buton, !girisYapildiMi && styles.butonPasif]} onPress={sepeteEkle}><Text style={styles.butonYazi}>Sepete Ekle</Text></TouchableOpacity>
       </View>
 
-      {/* OYLAMA MODALI BURADA */}
       <Modal visible={oylamaModalGorunur} transparent={true} animationType="fade">
         <View style={styles.modalArkaPlan}>
           <View style={styles.modalKutu}>
@@ -164,6 +172,7 @@ export default function Detay() {
     </ScrollView>
   );
 }
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   toastKutusu: { position: 'absolute', top: 50, left: 20, right: 20, backgroundColor: '#28A745', padding: 15, borderRadius: 10, zIndex: 999, alignItems: 'center' },
@@ -172,7 +181,16 @@ const styles = StyleSheet.create({
   detayBilgi: { padding: 20 },
   kategori: { color: '#888', textTransform: 'uppercase', marginBottom: 5 },
   baslik: { fontSize: 28, fontWeight: 'bold' },
-  fiyat: { fontSize: 24, color: 'orange', fontWeight: 'bold', marginTop: 10, marginBottom: 5 },
+  
+  // YENİ FİYAT STİLLERİ
+  fiyatKapsayici: { marginTop: 10, marginBottom: 15 },
+  indirimliFiyatAlani: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  normalFiyat: { fontSize: 24, color: 'orange', fontWeight: 'bold' }, // Normalde kullandığın turuncu fiyat
+  yeniFiyat: { fontSize: 24, fontWeight: 'bold', color: '#FF4757' }, // İndirimli ise kırmızı yap
+  eskiFiyat: { fontSize: 18, color: '#999', textDecorationLine: 'line-through' }, // Asıl fiyatı gri ve çizgili yap
+  rozet: { backgroundColor: '#FF4757', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  rozetYazi: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
+
   degerlendirmeSatiri: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, paddingVertical: 5 },
   yildizGrup: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, marginRight: 10 },
   yildizPuanYazi: { fontSize: 14, fontWeight: 'bold', color: '#333', marginLeft: 5 },

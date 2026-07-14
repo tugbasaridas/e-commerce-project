@@ -3,9 +3,11 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -35,6 +37,34 @@ export default function OdemeEkrani() {
   const [cvv, setCvv] = useState('');
   const [loading, setLoading] = useState(false);
   const [bilgileriKaydet, setBilgileriKaydet] = useState(false);
+
+  const spinValue = useRef(new Animated.Value(0)).current;
+  const [isFlipped, setIsFlipped] = useState(false);
+
+  const flipCard = (toBack: boolean) => {
+    if (isFlipped === toBack) return;
+    Animated.timing(spinValue, {
+      toValue: toBack ? 1 : 0,
+      duration: 400,
+      useNativeDriver: true,
+    }).start();
+    setIsFlipped(toBack);
+  };
+
+  const frontInterpolate = spinValue.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
+  const backInterpolate = spinValue.interpolate({ inputRange: [0, 1], outputRange: ['180deg', '360deg'] });
+  
+  const frontOpacity = spinValue.interpolate({ inputRange: [0, 0.5, 0.5, 1], outputRange: [1, 1, 0, 0] });
+  const backOpacity = spinValue.interpolate({ inputRange: [0, 0.5, 0.5, 1], outputRange: [0, 0, 1, 1] });
+
+  const frontAnimatedStyle = { 
+    opacity: frontOpacity,
+    transform: [{ perspective: 1000 }, { rotateY: frontInterpolate }] 
+  };
+  const backAnimatedStyle = { 
+    opacity: backOpacity,
+    transform: [{ perspective: 1000 }, { rotateY: backInterpolate }] 
+  };
 
   useEffect(() => {
     const kayitliBilgileriGetir = async () => {
@@ -76,13 +106,61 @@ export default function OdemeEkrani() {
 
   const handleSktChange = (text: string) => {
     let cleaned = text.replace(/\D/g, '');
-    if (cleaned.length >= 2) setSkt(`${cleaned.substring(0, 2)}/${cleaned.substring(2, 4)}`);
-    else setSkt(cleaned);
+    if (cleaned.length >= 2) {
+      let ay = parseInt(cleaned.substring(0, 2), 10);
+      if (ay > 12) ay = 12;
+      if (ay === 0) ay = 1;
+      let ayString = ay < 10 ? `0${ay}` : `${ay}`;
+      setSkt(`${ayString}/${cleaned.substring(2, 4)}`);
+    } else {
+      setSkt(cleaned);
+    }
+  };
+
+  // YENİ EKLENEN: Akıllı Telefon Formatlayıcısı
+  const handleTelefonChange = (text: string) => {
+    // Eğer kullanıcı silme işlemi yapıyorsa müdahale etme ki takılmasın
+    if (text.length < telefon.length) {
+      setTelefon(text);
+      return;
+    }
+    
+    // Sadece rakamları al
+    let cleaned = text.replace(/\D/g, '');
+    if (cleaned.length === 0) {
+      setTelefon('');
+      return;
+    }
+
+    // "5" ile başlarsa otomatik "0" ekle
+    if (cleaned[0] !== '0') {
+      cleaned = '0' + cleaned;
+    }
+
+    // Maksimum 11 haneye sınırla (0555 123 45 67)
+    if (cleaned.length > 11) {
+      cleaned = cleaned.substring(0, 11);
+    }
+
+    // Telefon numarasını gruplara ayırarak formatla: (0555) 123 45 67
+    let formatted = cleaned;
+    if (cleaned.length > 3) {
+      formatted = `(${cleaned.substring(0, 4)}) ${cleaned.substring(4)}`;
+    }
+    if (cleaned.length > 6) {
+      formatted = `(${cleaned.substring(0, 4)}) ${cleaned.substring(4, 7)} ${cleaned.substring(7)}`;
+    }
+    if (cleaned.length > 8) {
+      formatted = `(${cleaned.substring(0, 4)}) ${cleaned.substring(4, 7)} ${cleaned.substring(7, 9)} ${cleaned.substring(9)}`;
+    }
+
+    setTelefon(formatted);
   };
 
   const odemeyiBaslat = async () => {
-    if (!il || !ilce || acikAdres.length < 10 || telefon.length < 10) {
-      Alert.alert('Hata', 'Lütfen adres bilgilerini eksiksiz girin.');
+    // Telefon uzunluk kontrolü artık formatlı haline göre (15 karakter: (05XX) XXX XX XX)
+    if (!il || !ilce || acikAdres.length < 10 || telefon.length < 15) {
+      Alert.alert('Hata', 'Lütfen adres ve telefon bilgilerini eksiksiz girin.');
       return;
     }
     await AsyncStorage.setItem('@geciciSiparis', JSON.stringify({ adresBaslik, il, ilce, acikAdres, telefon, odemeYontemi, bilgileriKaydet, kartNo, kartSahibi, skt }));
@@ -140,69 +218,123 @@ export default function OdemeEkrani() {
         <View style={{ width: 40 }} />
       </View>
       <ScrollView contentContainerStyle={{ padding: 20 }}>
+        
         <View style={styles.tabContainer}>
           <TouchableOpacity style={[styles.tabButon, odemeYontemi === 'Kredi Kartı' && styles.aktifTab]} onPress={() => setOdemeYontemi('Kredi Kartı')}>
-            <Ionicons name="card-outline" size={18} color={odemeYontemi === 'Kredi Kartı' ? '#FFF' : '#666'} />
+            <Ionicons name="card-outline" size={18} color={odemeYontemi === 'Kredi Kartı' ? '#000' : '#666'} />
             <Text style={[styles.tabYazi, odemeYontemi === 'Kredi Kartı' && styles.aktifTabYazi]}>Kredi Kartı</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.tabButon, odemeYontemi === 'Kapıda Ödeme' && styles.aktifTab]} onPress={() => setOdemeYontemi('Kapıda Ödeme')}>
-            <Ionicons name="home-outline" size={18} color={odemeYontemi === 'Kapıda Ödeme' ? '#FFF' : '#666'} />
+            <Ionicons name="home-outline" size={18} color={odemeYontemi === 'Kapıda Ödeme' ? '#000' : '#666'} />
             <Text style={[styles.tabYazi, odemeYontemi === 'Kapıda Ödeme' && styles.aktifTabYazi]}>Kapıda Ödeme</Text>
           </TouchableOpacity>
         </View>
 
         {odemeYontemi === 'Kredi Kartı' && (
           <View>
-            {kayitliKartlarList.length > 0 && (
-              <View style={{ marginTop: 15 }}>
-                <Text style={styles.secimBaslik}>Kayıtlı Kartlarım</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>{kayitliKartlarList.map((k, i) => (
-                  <TouchableOpacity key={i} style={[styles.miniKart, kartNo === k.kartNo && styles.miniKartSecili]} onPress={() => { setKartNo(k.kartNo); setKartSahibi(k.kartSahibi); setSkt(k.skt); }}>
-                    <Text style={styles.miniKartNo}>**** {k.kartNo.slice(-4)}</Text>
-                  </TouchableOpacity>
-                ))}</ScrollView>
-              </View>
-            )}
             <View style={styles.sanalKartContainer}>
-                <View style={styles.sanalKart}>
-                    <Text style={styles.kartNoYazi}>{kartNo || '•••• •••• •••• ••••'}</Text>
-                </View>
+              <View style={styles.kartWrapper}>
+                
+                <Animated.View style={[styles.sanalKart, styles.kartOnYuz, frontAnimatedStyle]}>
+                  <View style={styles.kartUstBolum}>
+                    <Ionicons name="hardware-chip" size={40} color="#FFD700" />
+                    <Text style={styles.bankaIsmi}>MyBank</Text>
+                  </View>
+                  <Text style={styles.kartNoYazi}>{kartNo || '•••• •••• •••• ••••'}</Text>
+                  <View style={styles.kartAltBolum}>
+                    <View>
+                      <Text style={styles.kartEtiket}>KART SAHİBİ</Text>
+                      <Text style={styles.kartDetay}>{kartSahibi.toUpperCase() || 'AD SOYAD'}</Text>
+                    </View>
+                    <View>
+                      <Text style={styles.kartEtiket}>SKT</Text>
+                      <Text style={styles.kartDetay}>{skt || 'AA/YY'}</Text>
+                    </View>
+                  </View>
+                </Animated.View>
+
+                <Animated.View style={[styles.sanalKart, styles.kartArkaYuz, backAnimatedStyle]}>
+                  <View style={styles.manyetikSerit} />
+                  <View style={styles.cvvBolumu}>
+                    <View style={styles.cvvBeyazAlan}><Text style={styles.cvvMetin}>{cvv || '•••'}</Text></View>
+                    <Text style={styles.cvvEtiket}>CVV</Text>
+                  </View>
+                </Animated.View>
+                
+              </View>
             </View>
-            <TextInput style={styles.input} placeholder="Kart Sahibi" value={kartSahibi} onChangeText={setKartSahibi} />
-            <TextInput style={styles.input} placeholder="Kart No" keyboardType="number-pad" value={kartNo} onChangeText={handleKartNoChange} />
+
+            <TextInput 
+              style={styles.input} 
+              placeholder="Kart Sahibi" 
+              value={kartSahibi} 
+              onChangeText={setKartSahibi} 
+              onFocus={() => flipCard(false)} 
+            />
+            <TextInput 
+              style={styles.input} 
+              placeholder="Kart No" 
+              keyboardType="number-pad" 
+              value={kartNo} 
+              onChangeText={handleKartNoChange} 
+              onFocus={() => flipCard(false)} 
+            />
+            
             <View style={styles.ikiliSatir}>
-                <TextInput style={[styles.input, {flex: 1}]} placeholder="AA/YY" value={skt} onChangeText={handleSktChange} />
-                <TextInput style={[styles.input, {flex: 1, marginLeft: 10}]} placeholder="CVV" secureTextEntry keyboardType="number-pad" value={cvv} onChangeText={setCvv} />
+                <TextInput 
+                  style={[styles.input, {flex: 1}]} 
+                  placeholder="AA/YY" 
+                  value={skt} 
+                  onChangeText={handleSktChange} 
+                  keyboardType="number-pad" 
+                  onFocus={() => flipCard(false)} 
+                />
+                <TextInput 
+                  style={[styles.input, {flex: 1, marginLeft: 10}]} 
+                  placeholder="CVV" 
+                  secureTextEntry 
+                  keyboardType="number-pad" 
+                  maxLength={3} 
+                  value={cvv} 
+                  onChangeText={setCvv} 
+                  onFocus={() => flipCard(true)} 
+                />
             </View>
           </View>
         )}
 
         <View style={styles.formContainer}>
-            {kayitliAdreslerList.length > 0 && (
-              <View style={{ marginBottom: 15 }}>
-                <Text style={styles.secimBaslik}>Kayıtlı Adreslerim</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>{kayitliAdreslerList.map((a, i) => (
-                  <TouchableOpacity key={i} style={[styles.miniAdres, acikAdres === a.acikAdres && styles.miniAdresSecili]} onPress={() => { setAdresBaslik(a.baslik); setIl(a.il); setIlce(a.ilce); setAcikAdres(a.acikAdres); setTelefon(a.telefon); }}>
-                    <Text style={styles.miniAdresBaslik}>{a.baslik}</Text>
-                  </TouchableOpacity>
-                ))}</ScrollView>
-              </View>
-            )}
-            <TextInput style={styles.input} placeholder="Adres Başlığı" value={adresBaslik} onChangeText={setAdresBaslik} />
-            <TextInput style={styles.input} placeholder="Telefon" value={telefon} onChangeText={setTelefon} />
+            <TextInput style={styles.input} placeholder="Adres Başlığı (Örn: Ev, İş)" value={adresBaslik} onChangeText={setAdresBaslik} onFocus={() => flipCard(false)} />
+            
+            {/* GÜNCELLENEN TELEFON INPUTU */}
+            <TextInput 
+              style={styles.input} 
+              placeholder="Telefon (5XX XXX XX XX)" 
+              keyboardType="phone-pad" // Klavyeyi telefon moduna geçirir
+              maxLength={16} // Formatla beraber maksimum uzunluk
+              value={telefon} 
+              onChangeText={handleTelefonChange} 
+              onFocus={() => flipCard(false)} 
+            />
+
             <View style={styles.ikiliSatir}>
-                <TextInput style={[styles.input, {flex: 1}]} placeholder="İl" value={il} onChangeText={setIl} />
-                <TextInput style={[styles.input, {flex: 1, marginLeft: 10}]} placeholder="İlçe" value={ilce} onChangeText={setIlce} />
+                <TextInput style={[styles.input, {flex: 1}]} placeholder="İl" value={il} onChangeText={setIl} onFocus={() => flipCard(false)} />
+                <TextInput style={[styles.input, {flex: 1, marginLeft: 10}]} placeholder="İlçe" value={ilce} onChangeText={setIlce} onFocus={() => flipCard(false)} />
             </View>
-            <TextInput style={styles.input} placeholder="Açık Adres" value={acikAdres} onChangeText={setAcikAdres} />
+            <TextInput style={styles.input} placeholder="Açık Adres" value={acikAdres} onChangeText={setAcikAdres} onFocus={() => flipCard(false)} />
         </View>
+
         <TouchableOpacity style={styles.checkboxContainer} onPress={() => setBilgileriKaydet(!bilgileriKaydet)}>
             <View style={[styles.checkbox, bilgileriKaydet && styles.checkboxSecili]} />
             <Text>Bilgilerimi kaydet</Text>
         </TouchableOpacity>
+
       </ScrollView>
+
       <View style={styles.altSabitAlan}>
-        <TouchableOpacity style={styles.odemeButon} onPress={odemeyiBaslat}><Text style={styles.odemeButonYazi}>Ödemeyi Tamamla</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.odemeButon} onPress={odemeyiBaslat}>
+          <Text style={styles.odemeButonYazi}>Ödemeyi Tamamla ({tutar ? tutar : '0.00'} TL)</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -212,31 +344,34 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FAFAFA' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 15, backgroundColor: '#fff' },
   headerBaslik: { fontSize: 20, fontWeight: 'bold' },
-  tabContainer: { flexDirection: 'row', padding: 20 },
-  tabButon: { flex: 1, padding: 15, alignItems: 'center', borderWidth: 1, borderColor: '#eee', borderRadius: 10, margin: 5 },
-  aktifTab: { backgroundColor: '#FFB800' },
-  tabYazi: { fontWeight: '600' },
+  tabContainer: { flexDirection: 'row', marginBottom: 20 },
+  tabButon: { flex: 1, padding: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: '#eee', borderRadius: 10, marginHorizontal: 5 },
+  aktifTab: { backgroundColor: '#FFB800', borderColor: '#FFB800' },
+  tabYazi: { fontWeight: '600', color: '#666' },
   aktifTabYazi: { color: '#000' },
-  sanalKartContainer: { alignItems: 'center', marginVertical: 20 },
-  sanalKart: { width: '90%', height: 180, backgroundColor: '#FF7597', borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
-  kartNoYazi: { color: '#FFF', fontSize: 20, fontWeight: 'bold' },
-  formContainer: { paddingHorizontal: 20 },
-  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 12, padding: 15, marginBottom: 10 },
+  sanalKartContainer: { alignItems: 'center', marginVertical: 10, height: 200, justifyContent: 'center' },
+  kartWrapper: { width: 330, height: 200 },
+  sanalKart: { width: 330, height: 200, borderRadius: 16, padding: 20, justifyContent: 'space-between', position: 'absolute', top: 0, left: 0, backfaceVisibility: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 15, elevation: 10 },
+  kartOnYuz: { backgroundColor: '#FF7597' },
+  kartArkaYuz: { backgroundColor: '#FF7597' },
+  kartUstBolum: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  bankaIsmi: { color: '#FFF', fontSize: 18, fontStyle: 'italic', fontWeight: 'bold' },
+  kartNoYazi: { color: '#FFF', fontSize: 22, letterSpacing: 2, textAlign: 'center', marginVertical: 15, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
+  kartAltBolum: { flexDirection: 'row', justifyContent: 'space-between' },
+  kartEtiket: { color: 'rgba(255, 255, 255, 0.7)', fontSize: 10, marginBottom: 2 },
+  kartDetay: { color: '#FFF', fontSize: 14, fontWeight: 'bold', textTransform: 'uppercase' },
+  manyetikSerit: { backgroundColor: '#000', height: 40, width: '120%', position: 'absolute', top: 30, left: -10 },
+  cvvBolumu: { marginTop: 80, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 10 },
+  cvvBeyazAlan: { backgroundColor: '#FFF', width: 60, height: 35, justifyContent: 'center', alignItems: 'center', borderRadius: 4 },
+  cvvMetin: { fontSize: 16, fontStyle: 'italic', fontWeight: 'bold' },
+  cvvEtiket: { color: '#FFF', fontSize: 12, marginLeft: 10 },
+  formContainer: { marginTop: 10 },
+  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 12, padding: 15, marginBottom: 15 },
   ikiliSatir: { flexDirection: 'row' },
-  secimBaslik: { fontSize: 14, fontWeight: 'bold', marginBottom: 5 },
-  miniKart: { padding: 10, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, marginRight: 10 },
-  miniKartSecili: { borderColor: '#FFB800', backgroundColor: '#FFFDF5' },
-  miniKartNo: { fontSize: 12 },
-  miniAdres: { padding: 10, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, marginRight: 10 },
-  miniAdresSecili: { borderColor: '#FFB800', backgroundColor: '#FFFDF5' },
-  miniAdresBaslik: { fontSize: 12 },
-  checkboxContainer: { flexDirection: 'row', alignItems: 'center', padding: 20 },
-  checkbox: { width: 20, height: 20, borderWidth: 2, borderColor: '#ccc', marginRight: 10 },
-  checkboxSecili: { backgroundColor: '#FFB800' },
-  altSabitAlan: { padding: 20, backgroundColor: '#fff' },
-  odemeButon: { backgroundColor: '#FFB800', padding: 15, borderRadius: 12, alignItems: 'center' },
-  odemeButonYazi: { fontWeight: 'bold' },
-  toplamSatiri: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
-  toplamEtiket: { fontSize: 16 },
-  toplamFiyat: { fontSize: 20, fontWeight: 'bold' }
+  checkboxContainer: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
+  checkbox: { width: 22, height: 22, borderWidth: 2, borderColor: '#ccc', borderRadius: 6, marginRight: 10 },
+  checkboxSecili: { backgroundColor: '#FFB800', borderColor: '#FFB800' },
+  altSabitAlan: { padding: 20, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#eee' },
+  odemeButon: { backgroundColor: '#FFB800', padding: 18, borderRadius: 12, alignItems: 'center' },
+  odemeButonYazi: { fontWeight: 'bold', fontSize: 16, color: '#000' }
 });

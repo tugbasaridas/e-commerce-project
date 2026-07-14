@@ -15,6 +15,10 @@ export default function Kayit() {
   const [ad, setAd] = useState('');
   const [email, setEmail] = useState('');
   const [sifre, setSifre] = useState('');
+  
+  // YENİ EKLENEN: Şifre görünürlüğünü kontrol eden state
+  const [sifreGorunur, setSifreGorunur] = useState(false);
+  
   const [loading, setLoading] = useState(false);
   
   // Estetik bildirim sistemi için yeni state
@@ -155,14 +159,20 @@ export default function Kayit() {
         placeholderTextColor="#A1A1A1"
       />
       
-      <TextInput 
-        style={styles.input} 
-        placeholder="Şifreniz" 
-        secureTextEntry
-        value={sifre}
-        onChangeText={setSifre}
-        placeholderTextColor="#A1A1A1"
-      />
+      {/* DEĞİŞTİRİLEN KISIM: Şifre ve Göz İkonu Alanı */}
+      <View style={[styles.input, { flexDirection: 'row', alignItems: 'center', paddingRight: 15 }]}>
+        <TextInput 
+          style={{ flex: 1, fontSize: 15, color: '#1C1C1E', padding: 0 }} // Stil bozulmasın diye padding sıfırlandı
+          placeholder="Şifreniz" 
+          secureTextEntry={!sifreGorunur} // State'e bağlandı
+          value={sifre}
+          onChangeText={setSifre}
+          placeholderTextColor="#A1A1A1"
+        />
+        <TouchableOpacity onPress={() => setSifreGorunur(!sifreGorunur)}>
+          <Ionicons name={sifreGorunur ? "eye-off" : "eye"} size={22} color="#A1A1A1" />
+        </TouchableOpacity>
+      </View>
 
       <TouchableOpacity style={styles.buton} onPress={kayitIslemi} disabled={loading}>
         {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.butonYazi}>Kayıt Ol</Text>}
