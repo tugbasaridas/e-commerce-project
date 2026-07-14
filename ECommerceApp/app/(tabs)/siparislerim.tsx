@@ -215,12 +215,30 @@ export default function Siparislerim() {
         </View>
       )}
 
-      <FlatList
-        data={filtrelenmisSiparisler}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={siparisKartiCiz}
-        contentContainerStyle={{ paddingHorizontal: 15, paddingBottom: 20 }}
-      />
+      {/* YENİ EKLENEN KISIM: Sipariş listesi boşsa mesaj göster */}
+      {siparisler.length === 0 ? (
+        <View style={styles.merkez}>
+          <Ionicons name="receipt-outline" size={80} color="#ccc" />
+          <Text style={[styles.altMetin, { textAlign: 'center', marginTop: 15 }]}>
+            Henüz hiçbir siparişiniz bulunmamaktadır.
+          </Text>
+          <TouchableOpacity style={styles.girisButon} onPress={() => router.replace('/(tabs)' as any)}>
+            <Text style={styles.girisButonYazi}>Alışverişe Başla</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FlatList
+          data={filtrelenmisSiparisler}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={siparisKartiCiz}
+          contentContainerStyle={{ paddingHorizontal: 15, paddingBottom: 20 }}
+          ListEmptyComponent={
+            <Text style={{ textAlign: 'center', color: '#888', marginTop: 20 }}>
+              Aramanıza uygun sipariş bulunamadı.
+            </Text>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }

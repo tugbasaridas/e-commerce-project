@@ -5,7 +5,17 @@ import axios from 'axios';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  LayoutAnimation,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface DestekTalebi {
@@ -30,10 +40,18 @@ export default function Destek() {
   const [gecmisTalepler, setGecmisTalepler] = useState<DestekTalebi[]>([]);
   const [yukleniyor, setYukleniyor] = useState(false);
 
+  // ARAMA SİSTEMİ STATE'LERİ
+  const [aramaAktif, setAramaAktif] = useState(false);
+  const [aramaMetni, setAramaMetni] = useState('');
+
   useFocusEffect(
     useCallback(() => {
       if (aktifSekme === 'gecmis') {
         gecmisTalepleriGetir();
+      } else {
+        // Yeni sekmesine geçildiğinde aramayı kapat
+        setAramaAktif(false);
+        setAramaMetni('');
       }
     }, [aktifSekme])
   );
@@ -90,6 +108,23 @@ export default function Destek() {
     }
   };
 
+  // Arama Toggle Animasyonu
+  const toggleArama = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setAramaAktif(!aramaAktif);
+    if (aramaAktif) setAramaMetni(''); // Kapatırken metni temizle
+  };
+
+  // Talepleri Filtreleme Mantığı
+  const filtrelenmisTalepler = gecmisTalepler.filter(item => {
+    const kucukArama = aramaMetni.toLowerCase();
+    const konuEslesiyorMu = item.konu.toLowerCase().includes(kucukArama);
+    const mesajEslesiyorMu = item.mesaj.toLowerCase().includes(kucukArama);
+    const cevapEslesiyorMu = item.adminCevabi ? item.adminCevabi.toLowerCase().includes(kucukArama) : false;
+    
+    return konuEslesiyorMu || mesajEslesiyorMu || cevapEslesiyorMu;
+  });
+
   const renderTalepKart = ({ item }: { item: DestekTalebi }) => {
     const cevaplandiMi = item.durum === 'Cevaplandı';
 
@@ -135,7 +170,14 @@ export default function Destek() {
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.baslik}>Destek Merkezi</Text>
-        <View style={{ width: 40 }} />
+        <View style={styles.headerSagBosluk}>
+          {/* Sadece geçmiş sekmesinde ve geçmiş talepler varsa arama ikonunu göster */}
+          {aktifSekme === 'gecmis' && gecmisTalepler.length > 0 && (
+            <TouchableOpacity onPress={toggleArama} style={styles.aramaIkonButon}>
+              <Ionicons name={aramaAktif ? "close" : "search"} size={22} color="#333" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Sekmeler (Tabs) */}
@@ -153,6 +195,19 @@ export default function Destek() {
           <Text style={[styles.sekmeYazi, aktifSekme === 'gecmis' && styles.sekmeYaziAktif]}>Mesajlarım</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Arama Kutusu (Görünürlüğü state'e bağlı) */}
+      {aktifSekme === 'gecmis' && aramaAktif && (
+        <View style={styles.aramaKutusu}>
+          <TextInput
+            style={styles.aramaInput}
+            placeholder="Konu, mesaj veya cevap ara..."
+            value={aramaMetni}
+            onChangeText={setAramaMetni}
+            autoFocus={true}
+          />
+        </View>
+      )}
 
       {/* 1. SEKME: YENİ MESAJ FORMU */}
       {aktifSekme === 'yeni' && (
@@ -197,14 +252,16 @@ export default function Destek() {
             <ActivityIndicator size="large" color="#FFB800" style={{ marginTop: 50 }} />
           ) : (
             <FlatList 
-              data={gecmisTalepler}
+              data={filtrelenmisTalepler} // data artık filtrelenmiş veriyi alıyor
               keyExtractor={(item) => item.id.toString()}
               contentContainerStyle={{ paddingBottom: 30 }}
               showsVerticalScrollIndicator={false}
               ListEmptyComponent={
                 <View style={styles.bosListe}>
-                  <Ionicons name="chatbubbles-outline" size={60} color="#ccc" />
-                  <Text style={styles.bosListeMetni}>Henüz bir destek talebiniz bulunmuyor.</Text>
+                  <Ionicons name={aramaMetni ? "search-outline" : "chatbubbles-outline"} size={60} color="#ccc" />
+                  <Text style={styles.bosListeMetni}>
+                    {aramaMetni ? 'Aramanıza uygun mesaj bulunamadı.' : 'Henüz bir destek talebiniz bulunmuyor.'}
+                  </Text>
                 </View>
               }
               renderItem={renderTalepKart}
@@ -221,6 +278,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
   geriButon: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
   baslik: { fontSize: 20, fontWeight: 'bold', color: '#111' },
+  headerSagBosluk: { width: 40, alignItems: 'flex-end', justifyContent: 'center' },
+  aramaIkonButon: { padding: 6, backgroundColor: '#f0f0f0', borderRadius: 20 },
   
   // Sekmeler
   sekmeAlani: { flexDirection: 'row', backgroundColor: '#fff', paddingHorizontal: 20, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#eee' },
@@ -228,6 +287,10 @@ const styles = StyleSheet.create({
   sekmeAktif: { borderBottomColor: '#FFB800' },
   sekmeYazi: { fontSize: 15, fontWeight: '600', color: '#888' },
   sekmeYaziAktif: { color: '#FFB800', fontWeight: 'bold' },
+
+  // Arama Çubuğu
+  aramaKutusu: { flexDirection: 'row', backgroundColor: '#fff', padding: 12, marginHorizontal: 20, borderRadius: 12, marginTop: 15, borderWidth: 1, borderColor: '#FFB800' },
+  aramaInput: { flex: 1, fontSize: 15, color: '#333' },
 
   // Form Alanı
   formAlani: { padding: 20 },

@@ -5,10 +5,7 @@ import axios from 'axios';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,380 +17,192 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function OdemeEkrani() {
   const router = useRouter();
-  const { tutar } = useLocalSearchParams<{ tutar: string }>();
+  const { tutar, dogrulandi } = useLocalSearchParams<{ tutar: string, dogrulandi: string }>();
 
-  // Ödeme Yöntemi
+  const [kayitliAdreslerList, setKayitliAdreslerList] = useState<any[]>([]);
+  const [kayitliKartlarList, setKayitliKartlarList] = useState<any[]>([]);
   const [odemeYontemi, setOdemeYontemi] = useState<'Kredi Kartı' | 'Kapıda Ödeme'>('Kredi Kartı');
   
-  // Detaylı Adres State'leri
   const [adresBaslik, setAdresBaslik] = useState('');
   const [il, setIl] = useState('');
   const [ilce, setIlce] = useState('');
   const [acikAdres, setAcikAdres] = useState('');
   const [telefon, setTelefon] = useState('');
 
-  // Kredi Kartı State'leri
   const [kartNo, setKartNo] = useState('');
   const [kartSahibi, setKartSahibi] = useState('');
   const [skt, setSkt] = useState('');
   const [cvv, setCvv] = useState('');
   const [loading, setLoading] = useState(false);
-
-  // BİLGİLERİ KAYDETME STATE'İ
   const [bilgileriKaydet, setBilgileriKaydet] = useState(false);
 
-  // SAYFA AÇILDIĞINDA KAYITLI BİLGİLERİ GETİR (KULLANICIYA ÖZEL)
   useEffect(() => {
     const kayitliBilgileriGetir = async () => {
       try {
-        // Giriş yapan kullanıcının ID'sini alıyoruz (Yoksa 'ortak' klasörüne bakar)
         const userId = await AsyncStorage.getItem('userId') || 'ortak';
-
-        // Verileri kullanıcıya özel isimlerle (key) arıyoruz
-        const adresVeri = await AsyncStorage.getItem(`@kayitliAdres_${userId}`);
-        const kartVeri = await AsyncStorage.getItem(`@kayitliKart_${userId}`);
+        const adresVeri = await AsyncStorage.getItem(`@kayitliAdresler_${userId}`);
+        const kartVeri = await AsyncStorage.getItem(`@kayitliKartlar_${userId}`);
 
         if (adresVeri) {
-          const adres = JSON.parse(adresVeri);
-          setAdresBaslik(adres.baslik || '');
-          setIl(adres.il || '');
-          setIlce(adres.ilce || '');
-          setAcikAdres(adres.acikAdres || '');
-          setTelefon(adres.telefon || '');
+          const adresler = JSON.parse(adresVeri);
+          setKayitliAdreslerList(adresler);
+          if (adresler.length > 0) {
+            const sonAdres = adresler[adresler.length - 1];
+            setAdresBaslik(sonAdres.baslik || ''); setIl(sonAdres.il || '');
+            setIlce(sonAdres.ilce || ''); setAcikAdres(sonAdres.acikAdres || '');
+            setTelefon(sonAdres.telefon || '');
+          }
         }
-
         if (kartVeri) {
-          const kart = JSON.parse(kartVeri);
-          setKartNo(kart.kartNo || '');
-          setKartSahibi(kart.kartSahibi || '');
-          setSkt(kart.skt || '');
+          const kartlar = JSON.parse(kartVeri);
+          setKayitliKartlarList(kartlar);
+          if (kartlar.length > 0) {
+            const sonKart = kartlar[kartlar.length - 1];
+            setKartNo(sonKart.kartNo || ''); setKartSahibi(sonKart.kartSahibi || ''); setSkt(sonKart.skt || '');
+          }
         }
-      } catch (error) {
-        console.log("Kayıtlı bilgiler okunamadı.");
-      }
+      } catch (error) { console.log("Bilgiler okunamadı."); }
     };
     kayitliBilgileriGetir();
   }, []);
 
+  useEffect(() => { if (dogrulandi === 'true') handleOdemeYap(); }, [dogrulandi]);
+
   const handleKartNoChange = (text: string) => {
     const cleaned = text.replace(/\D/g, '');
     const match = cleaned.match(/.{1,4}/g);
-    if (match) {
-      setKartNo(match.join(' ').substring(0, 19));
-    } else {
-      setKartNo(cleaned);
-    }
+    setKartNo(match ? match.join(' ').substring(0, 19) : cleaned);
   };
 
   const handleSktChange = (text: string) => {
     let cleaned = text.replace(/\D/g, '');
-    
-    if (cleaned.length > 0) {
-      if (cleaned.length === 1 && parseInt(cleaned, 10) > 1) {
-        cleaned = `0${cleaned}`;
-      }
-      if (cleaned.length >= 2) {
-        const ay = parseInt(cleaned.substring(0, 2), 10);
-        if (ay < 1 || ay > 12) return;
-      }
-    }
+    if (cleaned.length >= 2) setSkt(`${cleaned.substring(0, 2)}/${cleaned.substring(2, 4)}`);
+    else setSkt(cleaned);
+  };
 
-    if (cleaned.length >= 2) {
-      setSkt(`${cleaned.substring(0, 2)}/${cleaned.substring(2, 4)}`);
+  const odemeyiBaslat = async () => {
+    if (!il || !ilce || acikAdres.length < 10 || telefon.length < 10) {
+      Alert.alert('Hata', 'Lütfen adres bilgilerini eksiksiz girin.');
+      return;
+    }
+    await AsyncStorage.setItem('@geciciSiparis', JSON.stringify({ adresBaslik, il, ilce, acikAdres, telefon, odemeYontemi, bilgileriKaydet, kartNo, kartSahibi, skt }));
+
+    if (odemeYontemi === 'Kredi Kartı') {
+      if (kartNo.length < 19 || !kartSahibi || !skt || !cvv) {
+        Alert.alert('Hata', 'Lütfen kart bilgilerini eksiksiz girin.');
+        return;
+      }
+      router.push({ pathname: '/dogrulama' as any, params: { kod: Math.floor(100000 + Math.random() * 900000).toString(), telefon } });
     } else {
-      setSkt(cleaned);
+      handleOdemeYap();
     }
   };
 
   const handleOdemeYap = async () => {
-    if (il.trim() === '' || ilce.trim() === '' || acikAdres.trim().length < 10 || telefon.trim().length < 10) {
-      Alert.alert('Hata', 'Lütfen İl, İlçe, Telefon ve Açık Adres bilgilerini eksiksiz girin.');
-      return;
-    }
-
-    const tamTeslimatAdresi = `${adresBaslik ? adresBaslik + ' - ' : ''}${acikAdres}, ${ilce}/${il}`;
-
-    if (odemeYontemi === 'Kredi Kartı') {
-      if (kartNo.length < 19 || kartSahibi.trim().length < 3 || skt.length < 5 || cvv.length < 3) {
-        Alert.alert('Hata', 'Lütfen tüm kart bilgilerini eksiksiz ve doğru doldurun.');
-        return;
-      }
-    }
-
     setLoading(true);
-
     try {
-      // BİLGİLERİ KAYDET İŞARETLENDİYSE KULLANICIYA ÖZEL KAYDET
-      if (bilgileriKaydet) {
-        const userId = await AsyncStorage.getItem('userId') || 'ortak';
-        const adresObj = { baslik: adresBaslik, il: il, ilce: ilce, acikAdres: acikAdres, telefon: telefon };
-        
-        await AsyncStorage.setItem(`@kayitliAdres_${userId}`, JSON.stringify(adresObj));
+      const gecici = JSON.parse(await AsyncStorage.getItem('@geciciSiparis') || '{}');
+      const userId = await AsyncStorage.getItem('userId') || 'ortak';
 
-        if (odemeYontemi === 'Kredi Kartı') {
-          const kartObj = { kartNo: kartNo, kartSahibi: kartSahibi, skt: skt };
-          await AsyncStorage.setItem(`@kayitliKart_${userId}`, JSON.stringify(kartObj));
+      if (gecici.bilgileriKaydet) {
+        const adresler = JSON.parse(await AsyncStorage.getItem(`@kayitliAdresler_${userId}`) || '[]');
+        if (!adresler.some((a: any) => a.acikAdres.trim().toLowerCase() === gecici.acikAdres.trim().toLowerCase())) {
+          adresler.push({ id: Date.now().toString(), baslik: gecici.adresBaslik, il: gecici.il, ilce: gecici.ilce, acikAdres: gecici.acikAdres, telefon: gecici.telefon });
+          await AsyncStorage.setItem(`@kayitliAdresler_${userId}`, JSON.stringify(adresler));
+        }
+
+        if (gecici.odemeYontemi === 'Kredi Kartı') {
+          const kartlar = JSON.parse(await AsyncStorage.getItem(`@kayitliKartlar_${userId}`) || '[]');
+          if (!kartlar.some((k: any) => k.kartNo === gecici.kartNo)) {
+            kartlar.push({ id: Date.now().toString(), kartNo: gecici.kartNo, kartSahibi: gecici.kartSahibi, skt: gecici.skt });
+            await AsyncStorage.setItem(`@kayitliKartlar_${userId}`, JSON.stringify(kartlar));
+          }
         }
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await axios.post(`${API_CONFIG.BASE_URL}/siparisler/olustur`, {
+        odemeYontemi: gecici.odemeYontemi,
+        teslimatAdresi: `${gecici.adresBaslik} - ${gecici.acikAdres}, ${gecici.ilce}/${gecici.il}`,
+        telefon: gecici.telefon
+      }, { headers: { Authorization: `Bearer ${await AsyncStorage.getItem('userToken')}` } });
 
-      const token = await AsyncStorage.getItem('userToken');
-      if (!token) {
-        Alert.alert('Hata', 'Oturum süreniz dolmuş, lütfen tekrar giriş yapın.');
-        router.push('/(auth)/giris' as any);
-        return;
-      }
-
-      const response = await axios.post(
-        `${API_CONFIG.BASE_URL}/siparisler/olustur`,
-        {
-          odemeYontemi: odemeYontemi,
-          teslimatAdresi: tamTeslimatAdresi,
-          telefon: telefon
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      Alert.alert(
-        'Sipariş Başarılı 🎉',
-        response.data.Mesaj || 'Siparişiniz başarıyla alındı ve hazırlanıyor.',
-        [
-          {
-            text: 'Siparişlerime Git',
-            onPress: () => {
-              router.replace('/(tabs)/siparislerim' as any);
-            }
-          }
-        ]
-      );
-    } catch (error: any) {
-      console.log('SİPARİŞ OLUŞTURMA HATASI:', error.response?.data);
-      let hataMesaji = 'Sipariş oluşturulurken bir hata oluştu.';
-      const veri = error.response?.data;
-
-      if (veri) {
-        if (typeof veri === 'string') hataMesaji = veri;
-        else if (veri.mesaj || veri.Mesaj) hataMesaji = veri.mesaj || veri.Mesaj;
-        else if (veri.title) hataMesaji = veri.title;
-      }
-      Alert.alert('İşlem Başarısız', hataMesaji);
-    } finally {
-      setLoading(false);
-    }
+      await AsyncStorage.removeItem('@geciciSiparis');
+      Alert.alert('Sipariş Başarılı 🎉', 'Siparişiniz alındı.', [{ text: 'Tamam', onPress: () => router.replace('/(tabs)/siparislerim' as any) }]);
+    } catch (e) { Alert.alert('Hata', 'Sipariş oluşturulamadı.'); }
+    finally { setLoading(false); }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.geriButon}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={24} /></TouchableOpacity>
         <Text style={styles.headerBaslik}>Ödeme Bilgileri</Text>
         <View style={{ width: 40 }} />
       </View>
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-      >
-        <ScrollView contentContainerStyle={{ paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
-          
-          <View style={styles.tabContainer}>
-            <TouchableOpacity 
-              style={[styles.tabButon, odemeYontemi === 'Kredi Kartı' && styles.aktifTab]}
-              onPress={() => setOdemeYontemi('Kredi Kartı')}
-            >
-              <Ionicons name="card-outline" size={18} color={odemeYontemi === 'Kredi Kartı' ? '#FFF' : '#666'} />
-              <Text style={[styles.tabYazi, odemeYontemi === 'Kredi Kartı' && styles.aktifTabYazi]}>Kredi Kartı</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.tabButon, odemeYontemi === 'Kapıda Ödeme' && styles.aktifTab]}
-              onPress={() => setOdemeYontemi('Kapıda Ödeme')}
-            >
-              <Ionicons name="home-outline" size={18} color={odemeYontemi === 'Kapıda Ödeme' ? '#FFF' : '#666'} />
-              <Text style={[styles.tabYazi, odemeYontemi === 'Kapıda Ödeme' && styles.aktifTabYazi]}>Kapıda Ödeme</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* KREDİ KARTI FORMU */}
-          {odemeYontemi === 'Kredi Kartı' && (
-            <View>
-              {/* Pembe Sanal Kart */}
-              <View style={styles.sanalKartContainer}>
-                <View style={styles.sanalKart}>
-                  <View style={styles.kartUstSatir}>
-                    <View style={styles.kartCip} />
-                    <Ionicons name="wifi-outline" size={24} color="#FFF" style={{ transform: [{ rotate: '90deg' }] }} />
-                  </View>
-                  <Text style={styles.kartNoYazi}>{kartNo || '•••• •••• •••• ••••'}</Text>
-                  <View style={styles.kartAltSatir}>
-                    <View style={{ flex: 1, marginRight: 10 }}>
-                      <Text style={styles.kartEtiket}>KART SAHİBİ</Text>
-                      <Text style={styles.kartDeger} numberOfLines={1}>
-                        {kartSahibi ? kartSahibi.toUpperCase() : 'İSİM SOYİSİM'}
-                      </Text>
-                    </View>
-                    <View style={{ marginRight: 20 }}>
-                      <Text style={styles.kartEtiket}>SKT</Text>
-                      <Text style={styles.kartDeger}>{skt || 'AA/YY'}</Text>
-                    </View>
-                    <View>
-                      <Text style={styles.kartEtiket}>CVV</Text>
-                      <Text style={styles.kartDeger}>{cvv || '•••'}</Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.formContainer}>
-                <Text style={styles.inputEtiket}>Kart Sahibi *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Örn: Tuğba Sarıdaş"
-                  placeholderTextColor="#aaa"
-                  value={kartSahibi}
-                  onChangeText={setKartSahibi}
-                  autoCapitalize="characters"
-                />
-
-                <Text style={styles.inputEtiket}>Kart Numarası *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="0000 0000 0000 0000"
-                  placeholderTextColor="#aaa"
-                  keyboardType="number-pad"
-                  value={kartNo}
-                  onChangeText={handleKartNoChange}
-                  maxLength={19}
-                />
-
-                <View style={styles.ikiliSatir}>
-                  <View style={{ flex: 1, marginRight: 10 }}>
-                    <Text style={styles.inputEtiket}>Son Kullanma *</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="AA/YY"
-                      placeholderTextColor="#aaa"
-                      keyboardType="number-pad"
-                      value={skt}
-                      onChangeText={handleSktChange}
-                      maxLength={5}
-                    />
-                  </View>
-
-                  <View style={{ flex: 1, marginLeft: 10 }}>
-                    <Text style={styles.inputEtiket}>CVV *</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="000"
-                      placeholderTextColor="#aaa"
-                      keyboardType="number-pad"
-                      secureTextEntry
-                      value={cvv}
-                      onChangeText={(text) => setCvv(text.replace(/\D/g, '').substring(0, 3))}
-                      maxLength={3}
-                    />
-                  </View>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* TESLİMAT ADRESİ FORMU */}
-          <View style={[styles.formContainer, { marginTop: odemeYontemi === 'Kapıda Ödeme' ? 20 : 10 }]}>
-            <Text style={[styles.headerBaslik, { fontSize: 16, marginBottom: 15 }]}>Teslimat Adresi</Text>
-            
-            <TextInput
-              style={styles.input}
-              placeholder="Adres Başlığı (Örn: Ev, İş vb.)"
-              placeholderTextColor="#aaa"
-              value={adresBaslik}
-              onChangeText={setAdresBaslik}
-            />
-
-            <TextInput
-              style={styles.input}
-              placeholder="İletişim Numarası (Örn: 05xxxxxxxxx) *"
-              placeholderTextColor="#aaa"
-              keyboardType="phone-pad"
-              maxLength={11}
-              value={telefon}
-              onChangeText={setTelefon}
-            />
-
-            <View style={styles.ikiliSatir}>
-              <View style={{ flex: 1, marginRight: 10 }}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="İl *"
-                  placeholderTextColor="#aaa"
-                  value={il}
-                  onChangeText={setIl}
-                />
-              </View>
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="İlçe *"
-                  placeholderTextColor="#aaa"
-                  value={ilce}
-                  onChangeText={setIlce}
-                />
-              </View>
-            </View>
-
-            <TextInput
-              style={[styles.input, { height: 90, paddingTop: 12 }]}
-              placeholder="Açık Adres (Mahalle, Cadde, Sokak, No) *"
-              placeholderTextColor="#aaa"
-              multiline={true}
-              numberOfLines={4}
-              textAlignVertical="top"
-              value={acikAdres}
-              onChangeText={setAcikAdres}
-            />
-          </View>
-
-          {/* BİLGİLERİ KAYDET CHECKBOX */}
-          <TouchableOpacity 
-            style={styles.checkboxContainer} 
-            onPress={() => setBilgileriKaydet(!bilgileriKaydet)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.checkbox, bilgileriKaydet && styles.checkboxSecili]}>
-              {bilgileriKaydet && <Ionicons name="checkmark" size={16} color="#FFF" />}
-            </View>
-            <Text style={styles.checkboxYazi}>
-              Kart ve adres bilgilerimi sonraki alışverişlerim için güvenle kaydet.
-            </Text>
+      <ScrollView contentContainerStyle={{ padding: 20 }}>
+        <View style={styles.tabContainer}>
+          <TouchableOpacity style={[styles.tabButon, odemeYontemi === 'Kredi Kartı' && styles.aktifTab]} onPress={() => setOdemeYontemi('Kredi Kartı')}>
+            <Ionicons name="card-outline" size={18} color={odemeYontemi === 'Kredi Kartı' ? '#FFF' : '#666'} />
+            <Text style={[styles.tabYazi, odemeYontemi === 'Kredi Kartı' && styles.aktifTabYazi]}>Kredi Kartı</Text>
           </TouchableOpacity>
-
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      <View style={styles.altSabitAlan}>
-        <View style={styles.toplamSatiri}>
-          <Text style={styles.toplamEtiket}>Ödenecek Tutar</Text>
-          <Text style={styles.toplamFiyat}>
-            {tutar ? parseFloat(tutar).toFixed(2) : '0.00'} TL
-          </Text>
+          <TouchableOpacity style={[styles.tabButon, odemeYontemi === 'Kapıda Ödeme' && styles.aktifTab]} onPress={() => setOdemeYontemi('Kapıda Ödeme')}>
+            <Ionicons name="home-outline" size={18} color={odemeYontemi === 'Kapıda Ödeme' ? '#FFF' : '#666'} />
+            <Text style={[styles.tabYazi, odemeYontemi === 'Kapıda Ödeme' && styles.aktifTabYazi]}>Kapıda Ödeme</Text>
+          </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
-          style={[styles.odemeButon, loading && { opacity: 0.7 }]}
-          onPress={handleOdemeYap}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#000" />
-          ) : (
-            <Text style={styles.odemeButonYazi}>
-                {odemeYontemi === 'Kredi Kartı' ? 'Ödemeyi Güvenli Tamamla' : 'Siparişi Onayla'}
-            </Text>
-          )}
+        {odemeYontemi === 'Kredi Kartı' && (
+          <View>
+            {kayitliKartlarList.length > 0 && (
+              <View style={{ marginTop: 15 }}>
+                <Text style={styles.secimBaslik}>Kayıtlı Kartlarım</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>{kayitliKartlarList.map((k, i) => (
+                  <TouchableOpacity key={i} style={[styles.miniKart, kartNo === k.kartNo && styles.miniKartSecili]} onPress={() => { setKartNo(k.kartNo); setKartSahibi(k.kartSahibi); setSkt(k.skt); }}>
+                    <Text style={styles.miniKartNo}>**** {k.kartNo.slice(-4)}</Text>
+                  </TouchableOpacity>
+                ))}</ScrollView>
+              </View>
+            )}
+            <View style={styles.sanalKartContainer}>
+                <View style={styles.sanalKart}>
+                    <Text style={styles.kartNoYazi}>{kartNo || '•••• •••• •••• ••••'}</Text>
+                </View>
+            </View>
+            <TextInput style={styles.input} placeholder="Kart Sahibi" value={kartSahibi} onChangeText={setKartSahibi} />
+            <TextInput style={styles.input} placeholder="Kart No" keyboardType="number-pad" value={kartNo} onChangeText={handleKartNoChange} />
+            <View style={styles.ikiliSatir}>
+                <TextInput style={[styles.input, {flex: 1}]} placeholder="AA/YY" value={skt} onChangeText={handleSktChange} />
+                <TextInput style={[styles.input, {flex: 1, marginLeft: 10}]} placeholder="CVV" secureTextEntry keyboardType="number-pad" value={cvv} onChangeText={setCvv} />
+            </View>
+          </View>
+        )}
+
+        <View style={styles.formContainer}>
+            {kayitliAdreslerList.length > 0 && (
+              <View style={{ marginBottom: 15 }}>
+                <Text style={styles.secimBaslik}>Kayıtlı Adreslerim</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>{kayitliAdreslerList.map((a, i) => (
+                  <TouchableOpacity key={i} style={[styles.miniAdres, acikAdres === a.acikAdres && styles.miniAdresSecili]} onPress={() => { setAdresBaslik(a.baslik); setIl(a.il); setIlce(a.ilce); setAcikAdres(a.acikAdres); setTelefon(a.telefon); }}>
+                    <Text style={styles.miniAdresBaslik}>{a.baslik}</Text>
+                  </TouchableOpacity>
+                ))}</ScrollView>
+              </View>
+            )}
+            <TextInput style={styles.input} placeholder="Adres Başlığı" value={adresBaslik} onChangeText={setAdresBaslik} />
+            <TextInput style={styles.input} placeholder="Telefon" value={telefon} onChangeText={setTelefon} />
+            <View style={styles.ikiliSatir}>
+                <TextInput style={[styles.input, {flex: 1}]} placeholder="İl" value={il} onChangeText={setIl} />
+                <TextInput style={[styles.input, {flex: 1, marginLeft: 10}]} placeholder="İlçe" value={ilce} onChangeText={setIlce} />
+            </View>
+            <TextInput style={styles.input} placeholder="Açık Adres" value={acikAdres} onChangeText={setAcikAdres} />
+        </View>
+        <TouchableOpacity style={styles.checkboxContainer} onPress={() => setBilgileriKaydet(!bilgileriKaydet)}>
+            <View style={[styles.checkbox, bilgileriKaydet && styles.checkboxSecili]} />
+            <Text>Bilgilerimi kaydet</Text>
         </TouchableOpacity>
+      </ScrollView>
+      <View style={styles.altSabitAlan}>
+        <TouchableOpacity style={styles.odemeButon} onPress={odemeyiBaslat}><Text style={styles.odemeButonYazi}>Ödemeyi Tamamla</Text></TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -401,76 +210,33 @@ export default function OdemeEkrani() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FAFAFA' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderColor: '#eee'
-  },
-  geriButon: { padding: 5 },
-  headerBaslik: { fontSize: 20, fontWeight: 'bold', color: '#333' },
-  
-  tabContainer: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 15, justifyContent: 'space-between' },
-  tabButon: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#eee', paddingVertical: 12, borderRadius: 10, marginHorizontal: 5 },
-  aktifTab: { backgroundColor: '#FFB800', borderColor: '#FFB800' },
-  tabYazi: { marginLeft: 8, fontSize: 14, fontWeight: '600', color: '#666' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 15, backgroundColor: '#fff' },
+  headerBaslik: { fontSize: 20, fontWeight: 'bold' },
+  tabContainer: { flexDirection: 'row', padding: 20 },
+  tabButon: { flex: 1, padding: 15, alignItems: 'center', borderWidth: 1, borderColor: '#eee', borderRadius: 10, margin: 5 },
+  aktifTab: { backgroundColor: '#FFB800' },
+  tabYazi: { fontWeight: '600' },
   aktifTabYazi: { color: '#000' },
-
-  sanalKartContainer: { alignItems: 'center', marginVertical: 20, paddingHorizontal: 15 },
-  sanalKart: {
-    width: '100%',
-    height: 200,
-    backgroundColor: '#FF7597', 
-    borderRadius: 16,
-    padding: 20,
-    justifyContent: 'space-between',
-    shadowColor: '#FF7597', 
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 6
-  },
-  kartUstSatir: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  kartCip: { width: 45, height: 32, backgroundColor: '#FFE3E8', borderRadius: 6, opacity: 0.9 }, 
-  kartNoYazi: { color: '#FFF', fontSize: 21, fontWeight: '600', letterSpacing: 2, textAlign: 'center', marginVertical: 15 },
-  kartAltSatir: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  kartEtiket: { color: '#FFF', opacity: 0.7, fontSize: 10, fontWeight: '500', marginBottom: 4 },
-  kartDeger: { color: '#FFF', fontSize: 14, fontWeight: 'bold', letterSpacing: 1 },
-  
-  formContainer: { paddingHorizontal: 20, marginTop: 10 },
-  inputEtiket: { fontSize: 14, fontWeight: '600', color: '#444', marginBottom: 8, marginTop: 10 },
-  input: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E5E5EA', 
-    borderRadius: 12, 
-    paddingHorizontal: 15,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: '#333',
-    marginBottom: 10 
-  },
-  ikiliSatir: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 },
-  
-  checkboxContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginTop: 15, marginBottom: 10 },
-  checkbox: { width: 22, height: 22, borderWidth: 2, borderColor: '#ccc', borderRadius: 6, justifyContent: 'center', alignItems: 'center', marginRight: 10, backgroundColor: '#fff' },
-  checkboxSecili: { backgroundColor: '#FFB800', borderColor: '#FFB800' },
-  checkboxYazi: { flex: 1, fontSize: 13, color: '#666', lineHeight: 18 },
-
-  altSabitAlan: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderTopWidth: 1,
-    borderColor: '#eee',
-    paddingBottom: Platform.OS === 'ios' ? 25 : 20
-  },
-  toplamSatiri: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  toplamEtiket: { fontSize: 16, color: '#666', fontWeight: '500' },
-  toplamFiyat: { fontSize: 24, fontWeight: 'bold', color: '#111' },
-  odemeButon: { backgroundColor: '#FFB800', paddingVertical: 16, borderRadius: 14, alignItems: 'center' },
-  odemeButonYazi: { color: '#000', fontSize: 16, fontWeight: '800' }
+  sanalKartContainer: { alignItems: 'center', marginVertical: 20 },
+  sanalKart: { width: '90%', height: 180, backgroundColor: '#FF7597', borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+  kartNoYazi: { color: '#FFF', fontSize: 20, fontWeight: 'bold' },
+  formContainer: { paddingHorizontal: 20 },
+  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 12, padding: 15, marginBottom: 10 },
+  ikiliSatir: { flexDirection: 'row' },
+  secimBaslik: { fontSize: 14, fontWeight: 'bold', marginBottom: 5 },
+  miniKart: { padding: 10, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, marginRight: 10 },
+  miniKartSecili: { borderColor: '#FFB800', backgroundColor: '#FFFDF5' },
+  miniKartNo: { fontSize: 12 },
+  miniAdres: { padding: 10, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, marginRight: 10 },
+  miniAdresSecili: { borderColor: '#FFB800', backgroundColor: '#FFFDF5' },
+  miniAdresBaslik: { fontSize: 12 },
+  checkboxContainer: { flexDirection: 'row', alignItems: 'center', padding: 20 },
+  checkbox: { width: 20, height: 20, borderWidth: 2, borderColor: '#ccc', marginRight: 10 },
+  checkboxSecili: { backgroundColor: '#FFB800' },
+  altSabitAlan: { padding: 20, backgroundColor: '#fff' },
+  odemeButon: { backgroundColor: '#FFB800', padding: 15, borderRadius: 12, alignItems: 'center' },
+  odemeButonYazi: { fontWeight: 'bold' },
+  toplamSatiri: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
+  toplamEtiket: { fontSize: 16 },
+  toplamFiyat: { fontSize: 20, fontWeight: 'bold' }
 });

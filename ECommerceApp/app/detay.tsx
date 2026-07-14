@@ -74,6 +74,7 @@ export default function Detay() {
       const token = await AsyncStorage.getItem('userToken');
       await axios.post(`${API_CONFIG.BASE_URL}/sepet`, { urunId: Number(id), miktar: miktar }, { headers: { Authorization: `Bearer ${token}` } });
       basariliMesajGoster(`${miktar} adet sepete eklendi!`);
+      router.push('/(tabs)/sepet');
     } catch (error) {
       Alert.alert("Hata", "Sepete eklenirken bir sorun oluştu.");
     }
@@ -88,7 +89,7 @@ export default function Detay() {
     setOyGonderiliyor(true);
     try {
       const token = await AsyncStorage.getItem('userToken');
-      // Backend'e POST isteği gönder
+      
       await axios.post(`${API_CONFIG.BASE_URL}/urunler/${id}/oyla?puan=${secilenPuan}`, {}, { headers: { Authorization: `Bearer ${token}` } });
       
       Alert.alert("Başarılı", "Teşekkürler!");

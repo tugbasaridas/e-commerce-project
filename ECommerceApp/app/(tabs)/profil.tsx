@@ -129,6 +129,37 @@ export default function Profil() {
           <Ionicons name="chevron-forward" size={20} color="#ccc" />
         </TouchableOpacity>
 
+        <TouchableOpacity style={styles.menuButon} onPress={() => router.push('/favoriler' as any)}>
+          <View style={styles.menuSol}>
+            <View style={[styles.menuIkonKutu, {backgroundColor: '#E3F2FD'}]}>
+              <Ionicons name="heart-outline" size={20} color="#1565C0" />
+            </View>
+            <Text style={styles.menuYazi}>Favorilerim</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#ccc" />
+        </TouchableOpacity>
+
+        {/* YENİ EKLENEN: KAYITLI BİLGİLERİM */}
+        <TouchableOpacity style={styles.menuButon} onPress={() => router.push('/kayitliBilgilerim' as any)}>
+          <View style={styles.menuSol}>
+            <View style={[styles.menuIkonKutu, {backgroundColor: '#EFEBE9'}]}>
+              <Ionicons name="card-outline" size={20} color="#5D4037" />
+            </View>
+            <Text style={styles.menuYazi}>Kayıtlı Kart & Adreslerim</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#ccc" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuButon} onPress={() => router.push('/destek' as any)}>
+          <View style={styles.menuSol}>
+            <View style={[styles.menuIkonKutu, {backgroundColor: '#F3E5F5'}]}>
+              <Ionicons name="headset-outline" size={20} color="#7B1FA2" />
+            </View>
+            <Text style={styles.menuYazi}>Yardım ve Destek</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#ccc" />
+        </TouchableOpacity>
+
         {role === 'Admin' && (
           <TouchableOpacity style={styles.menuButon} onPress={() => router.push('/(admin)' as any)}>
             <View style={styles.menuSol}>
@@ -140,32 +171,6 @@ export default function Profil() {
             <Ionicons name="chevron-forward" size={20} color="#ccc" />
           </TouchableOpacity>
         )}
-
-        <TouchableOpacity 
-          style={styles.menuButon} 
-          onPress={() => router.push('/favoriler' as any)} 
-        >
-          <View style={styles.menuSol}>
-            <View style={[styles.menuIkonKutu, {backgroundColor: '#E3F2FD'}]}>
-              <Ionicons name="heart-outline" size={20} color="#1565C0" />
-            </View>
-            <Text style={styles.menuYazi}>Favorilerim</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#ccc" />
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.menuButon} 
-          onPress={() => router.push('/destek' as any)} // Direkt olarak yazdığımız destek.tsx sayfasına gider
-        >
-          <View style={styles.menuSol}>
-            <View style={[styles.menuIkonKutu, {backgroundColor: '#F3E5F5'}]}>
-              <Ionicons name="headset-outline" size={20} color="#7B1FA2" />
-            </View>
-            <Text style={styles.menuYazi}>Yardım ve Destek</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#ccc" />
-        </TouchableOpacity>
       </View>
 
       {/* ÇIKIŞ YAP BUTONU */}

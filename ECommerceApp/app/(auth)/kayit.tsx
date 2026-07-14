@@ -3,7 +3,12 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+
+interface BildirimTipi {
+  mesaj: string;
+  tip: 'hata' | 'uyari' | 'basari';
+}
 
 export default function Kayit() {
   const router = useRouter();
@@ -11,67 +16,123 @@ export default function Kayit() {
   const [email, setEmail] = useState('');
   const [sifre, setSifre] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // Estetik bildirim sistemi için yeni state
+  const [bildirim, setBildirim] = useState<BildirimTipi | null>(null);
+
+  const bildirimGoster = (mesaj: string, tip: 'hata' | 'uyari' | 'basari') => {
+    setBildirim({ mesaj, tip });
+    
+    // Başarı bildirimi hariç diğerlerini 4 saniye sonra otomatik kapat
+    if (tip !== 'basari') {
+      setTimeout(() => {
+        setBildirim(null);
+      }, 4000);
+    }
+  };
 
   const kayitIslemi = async () => {
-    // 1. Boş Alan Kontrolü
-    if (!ad || !email || !sifre) {
-      Alert.alert("Uyarı", "Lütfen tüm alanları doldurun.");
+    // 1. Boş Alan ve Boşluk Kontrolü
+    if (!ad.trim() || !email.trim() || !sifre.trim()) {
+      bildirimGoster("Lütfen tüm alanları doldurun.", 'uyari');
       return;
     }
 
-    // 2. E-posta Formatı Kontrolü (Regex)
+    // 2. İsim Sınırlandırması (En az 3 karakter)
+    if (ad.trim().length < 3) {
+      bildirimGoster("Ad Soyad en az 3 karakterden oluşmalıdır.", 'hata');
+      return;
+    }
+
+    // 3. E-posta Formatı Kontrolü (Regex)
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      Alert.alert("Geçersiz E-posta", "Lütfen geçerli bir e-posta adresi giriniz (Örn: ornek@gmail.com).");
+      bildirimGoster("Lütfen geçerli bir e-posta adresi giriniz (Örn: ornek@gmail.com).", 'hata');
+      return;
+    }
+
+    // 4. Şifre Sınırlandırması (En az 6 karakter)
+    if (sifre.length < 6) {
+      bildirimGoster("Şifreniz en az 6 karakter uzunluğunda olmalıdır.", 'hata');
+      return;
+    }
+
+    // En az 1 rakam ve 1 büyük harf kontrolü
+    const gucluSifreRegex = /^(?=.*[A-Z])(?=.*\d).+$/;
+    if (!gucluSifreRegex.test(sifre)) {
+      bildirimGoster("Şifreniz en az bir büyük harf ve bir rakam içermelidir.", 'hata');
       return;
     }
 
     setLoading(true);
+    setBildirim(null); // Eski bildirimi temizle
+    
     try {
-      // Backend'deki kayıt endpoint'ine istek atıyoruz
       await axios.post(`${API_CONFIG.BASE_URL}/kullanicilar/kayit`, {
-        adSoyad: ad, 
-        email: email,
+        adSoyad: ad.trim(),
+        email: email.trim().toLowerCase(),
         sifre: sifre
       });
 
       setLoading(false);
-      Alert.alert("Başarılı", "Hesabınız başarıyla oluşturuldu!", [
-        { text: "Giriş Yap", onPress: () => router.replace('/giris') } 
-      ]);
+      bildirimGoster("Hesabınız başarıyla oluşturuldu! Şimdi giriş yapabilirsiniz.", 'basari');
       
     } catch (error: any) {
       setLoading(false);
-      
-      // Backend'in tam olarak ne gönderdiğini terminale (VS Code) yazdıralım
       console.log("BACKEND'DEN GELEN HATA:", error.response?.data);
 
       let hataMesaji = "Kayıt işlemi sırasında bir hata oluştu.";
       const veri = error.response?.data;
 
-      // .NET'in gönderebileceği tüm farklı hata senaryolarını kontrol ediyoruz
       if (veri) {
-        if (typeof veri === 'string') {
-          hataMesaji = veri; 
-        } else if (veri.mesaj) {
-          hataMesaji = veri.mesaj;
-        } else if (veri.Mesaj) {
-          hataMesaji = veri.Mesaj;
-        } else if (veri.title) {
-          hataMesaji = veri.title; 
-        }
+        if (typeof veri === 'string') hataMesaji = veri;
+        else if (veri.mesaj) hataMesaji = veri.mesaj;
+        else if (veri.Mesaj) hataMesaji = veri.Mesaj;
+        else if (veri.title) hataMesaji = veri.title;
       }
       
-      Alert.alert("Kayıt Hatası", hataMesaji);
+      bildirimGoster(hataMesaji, 'hata');
     }
   };
 
   return (
     <View style={styles.container}>
-    {/* SOL ÜST GERİ OK BUTONU */}
+      
+      {/* ESTETİK TOAST BİLDİRİM BANNERI */}
+      {bildirim && (
+        <View style={[styles.bildirimKutusu, styles[bildirim.tip]]}>
+          <Ionicons 
+            name={bildirim.tip === 'basari' ? 'checkmark-circle' : bildirim.tip === 'uyari' ? 'warning' : 'close-circle'} 
+            size={22} 
+            color={styles[`${bildirim.tip}Metin`].color} 
+          />
+          <View style={styles.bildirimIcerik}>
+            <Text style={[styles.bildirimMetni, styles[`${bildirim.tip}Metin`]]}>
+              {bildirim.mesaj}
+            </Text>
+            
+            {/* Başarılı olduğunda çıkan şık buton */}
+            {bildirim.tip === 'basari' && (
+              <TouchableOpacity style={styles.bildirimButon} onPress={() => router.replace('/giris')}>
+                <Text style={styles.bildirimButonYazi}>Giriş Yap</Text>
+                <Ionicons name="arrow-forward" size={14} color="#FFF" style={{ marginLeft: 4 }} />
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          {bildirim.tip !== 'basari' && (
+            <TouchableOpacity onPress={() => setBildirim(null)}>
+              <Ionicons name="close" size={18} color="#8E8E93" />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {/* SOL ÜST GERİ OK BUTONU */}
       <TouchableOpacity style={styles.geriButon} onPress={() => router.back()}>
-       <Ionicons name="arrow-back" size={28} color="#333" />
+        <Ionicons name="arrow-back" size={28} color="#1C1C1E" />
       </TouchableOpacity>
+      
       <Text style={styles.baslik}>Yeni Hesap Oluştur</Text>
       <Text style={styles.altMetin}>Hemen kayıt olun ve alışverişe başlayın.</Text>
 
@@ -80,6 +141,8 @@ export default function Kayit() {
         placeholder="Adınız Soyadınız" 
         value={ad}
         onChangeText={setAd}
+        autoCapitalize="words"
+        placeholderTextColor="#A1A1A1"
       />
 
       <TextInput 
@@ -89,6 +152,7 @@ export default function Kayit() {
         autoCapitalize="none"
         value={email}
         onChangeText={setEmail}
+        placeholderTextColor="#A1A1A1"
       />
       
       <TextInput 
@@ -97,13 +161,14 @@ export default function Kayit() {
         secureTextEntry
         value={sifre}
         onChangeText={setSifre}
+        placeholderTextColor="#A1A1A1"
       />
 
       <TouchableOpacity style={styles.buton} onPress={kayitIslemi} disabled={loading}>
         {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.butonYazi}>Kayıt Ol</Text>}
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push('/giris')} style={{ marginTop: 20 }}>
+      <TouchableOpacity onPress={() => router.push('/giris')} style={{ marginTop: 24 }}>
         <Text style={styles.yonlendirme}>Zaten hesabınız var mı? <Text style={{ fontWeight: 'bold', color: 'orange' }}>Giriş Yap</Text></Text>
       </TouchableOpacity>
     </View>
@@ -111,18 +176,55 @@ export default function Kayit() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', padding: 20, justifyContent: 'center' },
-  baslik: { fontSize: 28, fontWeight: 'bold', marginBottom: 10, color: '#333' },
+  container: { flex: 1, backgroundColor: '#fff', padding: 24, justifyContent: 'center' },
+  baslik: { fontSize: 28, fontWeight: 'bold', marginBottom: 10, color: '#1C1C1E' },
   altMetin: { fontSize: 16, color: '#666', marginBottom: 30 },
-  input: { borderWidth: 1, borderColor: '#ddd', padding: 15, borderRadius: 10, marginBottom: 15, backgroundColor: '#f9f9f9' },
-  buton: { backgroundColor: 'orange', padding: 15, borderRadius: 10, alignItems: 'center', marginTop: 10 },
-  butonYazi: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  yonlendirme: { textAlign: 'center', color: '#666', fontSize: 16 },
-  geriButon: {
+  input: { borderWidth: 1, borderColor: '#E5E5EA', padding: 15, borderRadius: 12, marginBottom: 16, backgroundColor: '#F9F9F9', fontSize: 15, color: '#1C1C1E' },
+  buton: { backgroundColor: 'orange', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 8, shadowColor: 'orange', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 3 },
+  butonYazi: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  yonlendirme: { textAlign: 'center', color: '#666', fontSize: 15 },
+  geriButon: { position: 'absolute', top: 60, left: 20, zIndex: 10, padding: 8, backgroundColor: '#F2F2F7', borderRadius: 20 },
+  
+  // ESTETİK BİLDİRİM KUTUSU STİLLERİ
+  bildirimKutusu: {
     position: 'absolute',
-    top: 50, 
+    top: 60,
     left: 20,
-    zIndex: 10,
-    padding: 10, 
+    right: 20,
+    zIndex: 999,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 5,
   },
+  bildirimIcerik: { flex: 1, marginLeft: 10, marginRight: 6 },
+  bildirimMetni: { fontSize: 14, fontWeight: '600', lineHeight: 20 },
+  
+  // Tip Renkleri (Soft modern tonlar)
+  hata: { backgroundColor: '#FFF5F5', borderColor: '#FEB2B2' },
+  hataMetin: { color: '#C53030' },
+  
+  uyari: { backgroundColor: '#FFFAF0', borderColor: '#FEEBC8' },
+  uyariMetin: { color: '#DD6B20' },
+  
+  basari: { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' },
+  basariMetin: { color: '#166534' },
+
+  bildirimButon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#166534',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginTop: 10,
+    alignSelf: 'flex-start'
+  },
+  bildirimButonYazi: { color: '#FFF', fontSize: 12, fontWeight: 'bold' }
 });
