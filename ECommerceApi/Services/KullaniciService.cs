@@ -24,13 +24,15 @@ public class KullaniciService : IKullaniciService
     public async Task<object> TumKullanicilariGetirAsync()
     {
         return await _db.Kullanicilar
+            .IgnoreQueryFilters()
             .Select(k => new 
             { 
                 k.Id, 
                 k.AdSoyad, 
                 k.Email, 
                 k.Rol, 
-                k.OlusturulmaTarihi 
+                k.OlusturulmaTarihi ,
+                k.IsDeleted
             })
             .ToListAsync();
     }
@@ -77,12 +79,17 @@ public class KullaniciService : IKullaniciService
     {
         var kullanici = await _db.Kullanicilar.FirstOrDefaultAsync(u => u.Email == dto.Email);
         
-        // DÜZELTME: Sona 5. eleman olarak 'null' eklendi
+       
         if (kullanici == null) return (false, "Kullanıcı bulunamadı veya şifre hatalı.", null, null, null);
+
+        if (kullanici.IsDeleted) 
+    {
+        return (false, "Hesabınız yönetici tarafından silinmiş veya askıya alınmıştır.", null, null, null);
+    }
 
         bool sifreDogruMu = BCrypt.Net.BCrypt.Verify(dto.Sifre, kullanici.SifreHash);
         
-        // DÜZELTME: Sona 5. eleman olarak 'null' eklendi
+        
         if (!sifreDogruMu) return (false, "Kullanıcı bulunamadı veya şifre hatalı.", null, null, null);
 
         var claims = new[]

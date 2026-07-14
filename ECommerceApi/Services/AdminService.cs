@@ -71,4 +71,46 @@ public class AdminService : IAdminService
 
         return (true, "Sipariş durumu başarıyla güncellendi.", siparis.Durum);
     }
+
+    public async Task<(bool Basarili, string Mesaj)> KullaniciSilAsync(int userId)
+    {
+        
+        var kullanici = await _db.Kullanicilar
+            .IgnoreQueryFilters() 
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (kullanici == null) return (false, "Kullanıcı bulunamadı.");
+        // --- GÜVENLİK KALKANI: Admin kendini veya başka admini silemez ---
+        if (kullanici.Rol == "Admin") 
+        {
+            return (false, "Kritik Hata: Sistem yöneticisi hesabı askıya alınamaz!");
+        }
+
+        // 2. Yumuşak silme (Soft Delete) işlemini gerçekleştir
+        kullanici.IsDeleted = true;
+        kullanici.DeletedAt = DateTime.UtcNow;
+
+        try 
+        {
+            await _db.SaveChangesAsync();
+            return (true, "Kullanıcı başarıyla askıya alındı.");
+        }
+        catch (Exception)
+        {
+            return (false, "Silme işlemi sırasında bir hata oluştu.");
+        }
+    }
+
+    public async Task<(bool Basarili, string Mesaj)> KullaniciAktiflestirAsync(int userId)
+    {
+        var kullanici = await _db.Kullanicilar.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Id == userId);
+        if (kullanici == null) return (false, "Kullanıcı bulunamadı.");
+
+        kullanici.IsDeleted = false; // Pasif durumdan çıkar
+        kullanici.DeletedAt = null;
+
+        await _db.SaveChangesAsync();
+        return (true, "Kullanıcı başarıyla aktifleştirildi.");
+    }
+
 }

@@ -8,4 +8,6 @@ public class Kullanicilar
     public string? AdSoyad { get; set; } = string.Empty;
     public string Rol { get; set; } = "Kullanici"; 
     public DateTime OlusturulmaTarihi { get; set; } = DateTime.UtcNow;
+    public bool IsDeleted { get; set; } = false;
+    public DateTime? DeletedAt { get; set; }
 }

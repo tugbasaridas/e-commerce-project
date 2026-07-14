@@ -40,4 +40,22 @@ public class AdminController : ControllerBase
 
         return Ok(new { Mesaj = mesaj, YeniDurum = yeniDurum });
     }
+
+    [Authorize(Roles = "Admin")]
+    [HttpDelete("sil/{id}")]
+    public async Task<IActionResult> DeleteUser(int id)
+    {
+        var sonuc = await _adminService.KullaniciSilAsync(id);
+        if (!sonuc.Basarili) return BadRequest(sonuc.Mesaj);
+        return Ok(new { Mesaj = sonuc.Mesaj });
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpPut("aktiflestir/{id}")]
+    public async Task<IActionResult> ActivateUser(int id)
+    {
+        var sonuc = await _adminService.KullaniciAktiflestirAsync(id);
+        if (!sonuc.Basarili) return BadRequest(sonuc.Mesaj);
+        return Ok(new { Mesaj = sonuc.Mesaj });
+    }
 }
