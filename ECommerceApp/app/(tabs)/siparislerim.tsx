@@ -193,7 +193,7 @@ export default function Siparislerim() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.headerSatiri}>
         <Text style={styles.sayfaBaslik}>Siparişlerim</Text>
         {siparisler.length > 0 && (
@@ -215,7 +215,6 @@ export default function Siparislerim() {
         </View>
       )}
 
-      {/* YENİ EKLENEN KISIM: Sipariş listesi boşsa mesaj göster */}
       {siparisler.length === 0 ? (
         <View style={styles.merkez}>
           <Ionicons name="receipt-outline" size={80} color="#ccc" />

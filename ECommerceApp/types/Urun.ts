@@ -1,7 +1,15 @@
-
 export interface Kategori {
   id: number;
   ad: string;
+}
+
+// YENİ EKLENDİ: Yorumların veri tipini belirleyen yapı
+export interface Yorum {
+  id: number;
+  puan: number;
+  yorumMetni?: string;
+  tarih: string;
+  kullaniciAdi: string;
 }
 
 export interface Urun {
@@ -16,4 +24,7 @@ export interface Urun {
   kategori: Kategori; 
   ortalamaPuan?: number;
   oylamaSayisi?: number;
+  
+  // YENİ EKLENDİ: Ürüne ait yorumlar listesi
+  yorumlar?: Yorum[];
 }

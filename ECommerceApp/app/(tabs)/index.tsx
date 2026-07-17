@@ -18,7 +18,7 @@ export default function Anasayfa() {
   const [aramaMetni, setAramaMetni] = useState('');
   
   const [siralama, setSiralama] = useState<SiralamaTipi>(null);
-  const [sadeceIndirimli, setSadeceIndirimli] = useState(false); // YENİ: İndirim filtresi state'i
+  const [sadeceIndirimli, setSadeceIndirimli] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useFocusEffect(
@@ -69,7 +69,6 @@ export default function Anasayfa() {
       sonuc = sonuc.filter(u => u.ad?.toLowerCase().includes(aranan.toLowerCase()));
     }
 
-    // YENİ: İndirimli ürünleri filtrele
     if (indirimliMi) {
       sonuc = sonuc.filter(u => u.indirimliFiyat != null && u.indirimliFiyat > 0);
     }
@@ -117,7 +116,7 @@ export default function Anasayfa() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       
       <View style={styles.ustAlan}>
         <Text style={styles.hosgeldinYazi}>Keşfet</Text>
@@ -136,7 +135,6 @@ export default function Anasayfa() {
       <View style={styles.siralamaAlani}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 15 }}>
           
-          {/* YENİ: ŞIK İNDİRİM FİLTRESİ */}
           <TouchableOpacity 
             style={[styles.indirimHap, sadeceIndirimli && styles.indirimHapAktif]}
             onPress={indirimFiltresiSec}
@@ -196,6 +194,7 @@ export default function Anasayfa() {
       </View>
 
       <FlatList 
+        style={{ flex: 1 }}
         data={gorunenUrunler}
         keyExtractor={(item) => item.id.toString()}
         numColumns={2}
@@ -279,13 +278,12 @@ const styles = StyleSheet.create({
 
   siralamaAlani: { marginBottom: 15 },
   
-  // YENİ: İndirim Butonu Stilleri
   indirimHap: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 6,
-    backgroundColor: '#FFF0F0', // Açık kırmızı arka plan
+    backgroundColor: '#FFF0F0',
     borderRadius: 20,
     marginRight: 12,
     borderWidth: 1,
@@ -301,7 +299,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     backgroundColor: '#f0f0f0',
-    borderRadius: 20, // Tasarım bütünlüğü için daha yuvarlak yaptık
+    borderRadius: 20,
     marginRight: 10,
     borderWidth: 1,
     borderColor: '#e0e0e0'

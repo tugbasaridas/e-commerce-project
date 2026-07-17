@@ -6,6 +6,7 @@ import axios from 'axios';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, LayoutAnimation, Platform, StyleSheet, Text, TextInput, TouchableOpacity, UIManager, View } from 'react-native';
+// SafeAreaView kütüphanesi
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -79,7 +80,8 @@ export default function Sepet() {
   if (loading) return <View style={styles.merkez}><ActivityIndicator size="large" color="#FFB800" /></View>;
 
   return (
-    <SafeAreaView style={styles.container}>
+    /* YENİ EKLENDİ: edges={['top', 'left', 'right']} ile alt boşluk tamamen kapatıldı! */
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.headerSatiri}>
         <Text style={styles.sayfaBaslik}>Sepetim</Text>
         {sepet.length > 0 && (
@@ -107,6 +109,7 @@ export default function Sepet() {
       ) : (
         <>
           <FlatList
+            style={{ flex: 1 }}
             data={filtrelenmisSepet}
             keyExtractor={(item) => item.id.toString()}
             contentContainerStyle={{ padding: 15 }}
@@ -176,7 +179,9 @@ const styles = StyleSheet.create({
   miktarButon: { paddingHorizontal: 12, paddingVertical: 6 },
   miktarYazi: { fontSize: 16, fontWeight: '600', paddingHorizontal: 8 },
   silButon: { padding: 5 },
-  altSabitAlan: { backgroundColor: '#fff', padding: 20, borderTopWidth: 1, borderColor: '#eee', paddingBottom: 30 },
+  
+  altSabitAlan: { backgroundColor: '#fff', padding: 20, borderTopWidth: 1, borderColor: '#eee', paddingBottom: 15 }, // İkonlara tam oturması için padding ayarlaması
+  
   toplamSatiri: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   toplamEtiket: { fontSize: 16, color: '#666', fontWeight: '500' },
   toplamFiyat: { fontSize: 22, fontWeight: 'bold', color: '#111' },

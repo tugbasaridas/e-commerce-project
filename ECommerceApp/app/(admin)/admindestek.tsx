@@ -86,10 +86,12 @@ export default function AdminDestekPanel() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar style="dark" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={26} color="#333" /></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.navigate('/(admin)/admin-islemler' as any)}>
+          <Ionicons name="arrow-back" size={26} color="#333" />
+        </TouchableOpacity>
         <Text style={styles.baslik}>Destek Talepleri</Text>
         <View style={{ width: 40 }} />
       </View>

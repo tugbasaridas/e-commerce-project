@@ -111,7 +111,8 @@ export default function Favoriler() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    /* YENİ EKLENDİ: edges={['top', 'left', 'right']} kodu ile alttaki beyaz boşluk iptal edildi */
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.headerSatiri}>
         <Text style={styles.sayfaBaslik}>Favoriler</Text>
         <TouchableOpacity onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setAramaAktif(!aramaAktif); }} style={styles.aramaIkonButon}>
@@ -134,6 +135,8 @@ export default function Favoriler() {
         columnWrapperStyle={styles.listeSutunYapisi}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={<View style={styles.bosDurum}><Ionicons name="heart-dislike-outline" size={80} color="#ccc" /><Text style={styles.bosMetin}>Ürün bulunamadı.</Text></View>}
+        /* Alt kısımdaki ürünlerin çok yapışmaması için listeye minik bir iç boşluk ekledik */
+        contentContainerStyle={{ paddingBottom: 20 }}
       />
 
       <Modal visible={oylamaModalGorunur} transparent={true} animationType="fade">

@@ -30,15 +30,12 @@ export default function AdminKullanicilar() {
     }
   };
 
-  // Hem metin hem sekme durumuna göre dinamik filtreleme
   const filtreleUygula = (text: string, sekme: string, data: any[]) => {
     let sonuc = data;
 
-    // Durum Filtresi
     if (sekme === 'Aktif') sonuc = sonuc.filter(k => !k.isDeleted);
     if (sekme === 'Pasif') sonuc = sonuc.filter(k => k.isDeleted);
 
-    // Metin Filtresi
     if (text) {
       const aranan = text.toLowerCase();
       sonuc = sonuc.filter(k =>
@@ -79,7 +76,6 @@ export default function AdminKullanicilar() {
               await api.delete(`/admin/sil/${id}`);
             }
             
-            // Listeyi güncelle ve filtreleri tekrar uygula
             const guncelListe = kullanicilar.map(k => k.id === id ? { ...k, isDeleted: !suAnkiDurum } : k);
             setKullanicilar(guncelListe);
             filtreleUygula(aramaMetni, aktifSekme, guncelListe);
@@ -113,7 +109,6 @@ export default function AdminKullanicilar() {
           </Text>
         </View>
         
-        {/* EĞER KULLANICI ADMİNSE SİLME BUTONUNU GÖSTERME, KALKAN GÖSTER */}
         {item.rol === 'Admin' ? (
           <View style={{ padding: 8, opacity: 0.5 }}>
             <Ionicons name="shield-checkmark" size={20} color="#4EA8DE" />
@@ -132,10 +127,10 @@ export default function AdminKullanicilar() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#1C1C1E" />
+        <TouchableOpacity onPress={() => router.navigate('/(admin)/admin-islemler' as any)}>
+          <Ionicons name="arrow-back" size={26} color="#333" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Kullanıcı Yönetimi</Text>
         <View style={{ width: 24 }} />
@@ -152,7 +147,6 @@ export default function AdminKullanicilar() {
         />
       </View>
 
-      {/* SEKMELER (TÜMÜ / AKTİF / PASİF) */}
       <View style={styles.tabContainer}>
         {['Tümü', 'Aktif', 'Pasif'].map((sekme) => (
           <TouchableOpacity 
@@ -185,7 +179,6 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, backgroundColor: '#FFF', borderBottomWidth: 1, borderColor: '#E5E5EA' },
   headerTitle: { fontSize: 20, fontWeight: 'bold' },
-  backButton: { padding: 5 },
   searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', marginHorizontal: 20, marginTop: 15, borderRadius: 12, paddingHorizontal: 15, height: 50, elevation: 3 },
   searchIcon: { marginRight: 10 },
   searchInput: { flex: 1, fontSize: 15 },
@@ -196,7 +189,7 @@ const styles = StyleSheet.create({
   activeTabText: { color: '#FFF' },
   listContainer: { paddingHorizontal: 20, paddingBottom: 100 },
   userCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 18, borderRadius: 16, marginBottom: 15, elevation: 2 },
-  pasifCard: { opacity: 0.65, backgroundColor: '#F9F9F9' }, // Pasif durumu için silik stil
+  pasifCard: { opacity: 0.65, backgroundColor: '#F9F9F9' },
   userIconContainer: { backgroundColor: '#E1F5FE', padding: 10, borderRadius: 50, marginRight: 15 },
   userInfo: { flex: 1 },
   userName: { fontSize: 16, fontWeight: '700' },

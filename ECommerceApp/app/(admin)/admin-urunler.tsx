@@ -132,9 +132,9 @@ export default function AdminUrunler() {
    <View style={styles.container}>
      {/* HEADER: Ekle butonu artık burada! */}
      <View style={styles.header}>
-       <TouchableOpacity style={styles.geriButon} onPress={() => router.replace('/admin' as any)}>
-         <Ionicons name="arrow-back" size={26} color="#1C1C1E" />
-       </TouchableOpacity>
+       <TouchableOpacity onPress={() => router.navigate('/(admin)/admin-islemler' as any)}>
+          <Ionicons name="arrow-back" size={26} color="#333" />
+        </TouchableOpacity>
        <Text style={styles.headerTitle}>Ürün Yönetimi</Text>
        <TouchableOpacity style={styles.headerEkleButon} onPress={() => router.push('/admin-urun-ekle')}>
          <Ionicons name="add-circle" size={32} color="#FF9F00" />

@@ -16,31 +16,30 @@ export default function RootLayout() {
 
         const inAuthGroup = segments[0] === '(auth)';
         const isAdminGroup = segments[0] === '(admin)';
-        
         const isRoot = (segments as string[]).length === 0; 
 
         if (!token) {
           // --- MİSAFİR (GUEST) DURUMU ---
-          // Misafirler sekmelerde (tabs) gezebilir!
-          // Sadece yetkisi olmayan yere (admin) girmeye çalışırsa girişe yolla.
           if (isAdminGroup) {
             router.replace('/(auth)/giris');
           }
-          // Uygulama ilk açıldığında anasayfaya (tabs) yönlendir
           if (isRoot) {
             router.replace('/(tabs)');
           }
-
         } else {
-          // --- GİRİŞ YAPMIŞ KİŞİ DURUMU ---
+          // --- GİRİŞ YAPMIŞ KİŞİ ---
           if (role === 'Admin') {
-            // Admin, giriş sayfalarına dönerse veya uygulama yeni açıldıysa panele yolla
-            if (inAuthGroup || isRoot) {
-              router.replace('/admin');
+            // Eğer Admin ise ve (tabs) veya (auth) kısmındaysa panele yolla
+            if (!isAdminGroup && (segments[0] === '(tabs)' || inAuthGroup || isRoot)) {
+              router.replace('/(admin)/admin');
             }
           } else {
-            // Normal Kullanıcı, admin paneline veya giriş sayfalarına dönerse anasayfaya yolla
-            if (isAdminGroup || inAuthGroup || isRoot) {
+            // Normal Kullanıcı ise ve Admin klasörüne girmeye çalışırsa (tabs)'a yolla
+            if (isAdminGroup) {
+              router.replace('/(tabs)');
+            }
+            // Müşteri root veya auth'daysa tabs'a yolla
+            else if (inAuthGroup || isRoot) {
               router.replace('/(tabs)');
             }
           }
