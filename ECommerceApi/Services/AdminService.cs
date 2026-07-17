@@ -15,15 +15,53 @@ public class AdminService : IAdminService
 
     public async Task<object> GetDashboardIstatistikleriAsync()
     {
+        // 1. Temel Sayaçlar
         var toplamUrun = await _db.Urunler.CountAsync();
         var toplamKullanici = await _db.Kullanicilar.CountAsync();
         var beklemedeOlanSiparisler = await _db.Siparisler.CountAsync(s => s.Durum == "Hazırlanıyor");
 
+        // --- YENİ: PAZARLAMA VE CİRO ANALİTİĞİ ---
+        var simdikiYil = DateTime.UtcNow.Year;
+        var simdikiAy = DateTime.UtcNow.Month;
+
+        // Sadece durumu "Tamamlandı" olan başarılı siparişleri baz alıyoruz
+        var basariliSiparisler = _db.Siparisler.Where(s => s.Durum == "Tamamlandı");
+
+        var toplamCiro = await basariliSiparisler.SumAsync(s => s.ToplamTutar);
+        var basariliSiparisSayisi = await basariliSiparisler.CountAsync();
+
+        // Bu ayki ciro hesabı
+        var aylikCiro = await basariliSiparisler
+            .Where(s => s.SiparisTarihi.Year == simdikiYil && s.SiparisTarihi.Month == simdikiAy)
+            .SumAsync(s => s.ToplamTutar);
+
+        // En Çok Satan İlk 5 Ürün
+        var enCokSatanlar = await basariliSiparisler
+            .SelectMany(s => s.Detaylar) // Siparişlerin içindeki ürün detaylarına iniyoruz
+            .GroupBy(d => new { d.UrunId, UrunAdi = d.Urunler != null ? d.Urunler.Ad : "Silinmiş Ürün" }) // Ürün bazında grupluyoruz
+            .Select(g => new 
+            {
+                UrunId = g.Key.UrunId,
+                UrunAdi = g.Key.UrunAdi,
+                ToplamSatisAdedi = g.Sum(x => x.Adet),
+                ToplamKazanc = g.Sum(x => x.Adet * x.BirimFiyat)
+            })
+            .OrderByDescending(x => x.ToplamSatisAdedi) // Satış adedine göre çoktan aza sırala
+            .Take(5) // Sadece en çok satan 5 ürünü al
+            .ToListAsync();
+
+        // Tüm verileri Anonim Obje olarak döndürüyoruz
         return new
         {
             ToplamUrun = toplamUrun,
             ToplamKullanici = toplamKullanici,
-            BekleyenSiparisler = beklemedeOlanSiparisler
+            BekleyenSiparisler = beklemedeOlanSiparisler,
+            
+            // Yeni Pazarlama Verileri
+            ToplamCiro = toplamCiro,
+            AylikCiro = aylikCiro,
+            BasariliSiparisSayisi = basariliSiparisSayisi,
+            EnCokSatanlar = enCokSatanlar
         };
     }
 
@@ -46,7 +84,7 @@ public class AdminService : IAdminService
                 
                 OdemeYontemi = x.Siparis.OdemeYontemi,
                 TeslimatAdresi = x.Siparis.TeslimatAdresi,
-                Telefon = x.Siparis.Telefon, // <-- DÜZELTME: Telefon verisi artık frontend'e gidiyor!
+                Telefon = x.Siparis.Telefon, 
                 
                 KullaniciId = x.Siparis.KullaniciId, 
                 KullaniciAdSoyad = x.Kullanici.AdSoyad,
@@ -74,12 +112,12 @@ public class AdminService : IAdminService
 
     public async Task<(bool Basarili, string Mesaj)> KullaniciSilAsync(int userId)
     {
-        
         var kullanici = await _db.Kullanicilar
             .IgnoreQueryFilters() 
             .FirstOrDefaultAsync(u => u.Id == userId);
 
         if (kullanici == null) return (false, "Kullanıcı bulunamadı.");
+        
         // --- GÜVENLİK KALKANI: Admin kendini veya başka admini silemez ---
         if (kullanici.Rol == "Admin") 
         {
@@ -112,5 +150,4 @@ public class AdminService : IAdminService
         await _db.SaveChangesAsync();
         return (true, "Kullanıcı başarıyla aktifleştirildi.");
     }
-
 }

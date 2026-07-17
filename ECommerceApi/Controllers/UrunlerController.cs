@@ -8,7 +8,7 @@ using System.Security.Claims;
 namespace ECommerceApi.Controllers;
 
 [ApiController]
-[Route("api/[controller]")] // Bu satır otomatik olarak /api/urunler yolunu oluşturur
+[Route("api/[controller]")] 
 public class UrunlerController : ControllerBase
 {
     private readonly IUrunService _urunService;
@@ -62,14 +62,15 @@ public class UrunlerController : ControllerBase
 
     [Authorize]
     [HttpPost("{urunId}/oyla")]
-    public async Task<IActionResult> UrunOyla(int urunId, [FromQuery] int puan)
+    public async Task<IActionResult> UrunOyla(int urunId, [FromQuery] int puan, [FromQuery] string? yorum = null)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userIdClaim == null) return Unauthorized();
         
         int userId = int.Parse(userIdClaim);
 
-        var (basarili, mesaj) = await _urunService.UrunOylaAsync(urunId, userId, puan);
+        // Servis metoduna yorumu da gönderiyoruz
+        var (basarili, mesaj) = await _urunService.UrunOylaAsync(urunId, userId, puan, yorum);
         
         if (!basarili) return BadRequest(new { mesaj });
         

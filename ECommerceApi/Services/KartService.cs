@@ -14,8 +14,6 @@ public class KartService : IKartService
         _db = db;
     }
 
-    // 1. GÜVENLİ SEPET GETİRME
-    // Fiyatı frontend'den değil, veritabanından 'IndirimliFiyat ?? Fiyat' mantığıyla alıyoruz.
     public async Task<object> SepetiGetirAsync(int userId)
     {
         return await _db.SepetUrunleri
@@ -29,18 +27,16 @@ public class KartService : IKartService
                 Urunler = c.Urunler != null ? new 
                 {
                     Ad = c.Urunler.Ad,
-                    Fiyat = c.Urunler.IndirimliFiyat ?? c.Urunler.Fiyat, // İndirim varsa onu gösterir
+                    Fiyat = c.Urunler.IndirimliFiyat ?? c.Urunler.Fiyat, 
                     ResimUrl = c.Urunler.ResimUrl 
                 } : null
             })
             .ToListAsync();
     }
 
-    // 2. GÜVENLİ SEPETE EKLEME
-    // Kullanıcının gönderdiği fiyatı tamamen yok sayıyoruz.
+   
     public async Task<(bool Basarili, string Mesaj)> SepeteEkleAsync(int userId, SepeteEkleDTO dto)
     {
-        // Ürünü veritabanından çek (Fiyatı sen belirle)
         var urun = await _db.Urunler.FindAsync(dto.UrunId);
         if (urun == null) return (false, "Ürün bulunamadı.");
 

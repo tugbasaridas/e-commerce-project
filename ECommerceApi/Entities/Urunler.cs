@@ -7,6 +7,7 @@ public class Urunler
     public string? Aciklama { get; set; } = string.Empty;
     public decimal Fiyat { get; set; }
     public decimal? IndirimliFiyat { get; set; }
+    public DateTime? IndirimBitisTarihi { get; set; }
     public int Stok { get; set; }
     public string? ResimUrl { get; set; } = string.Empty;
     public DateTime OlusturulmaTarihi { get; set; } = DateTime.UtcNow;

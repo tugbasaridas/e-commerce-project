@@ -7,6 +7,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Security.Cryptography; // YENİ: Rastgele token üretmek için gerekli
 
 namespace ECommerceApi.Services;
 
@@ -75,22 +76,21 @@ public class KullaniciService : IKullaniciService
         return (true, "Kayıt başarılı.");
     }
 
-    public async Task<(bool Basarili, string Mesaj, string? Token, string? Rol, int? KullaniciId)> GirisYapAsync(GirisDTO dto)
+    // YENİ: Dönüş tipine 'string? RefreshToken' eklendi
+    public async Task<(bool Basarili, string Mesaj, string? Token, string? RefreshToken, string? Rol, int? KullaniciId)> GirisYapAsync(GirisDTO dto)
     {
         var kullanici = await _db.Kullanicilar.FirstOrDefaultAsync(u => u.Email == dto.Email);
         
-       
-        if (kullanici == null) return (false, "Kullanıcı bulunamadı veya şifre hatalı.", null, null, null);
+        if (kullanici == null) return (false, "Kullanıcı bulunamadı veya şifre hatalı.", null, null, null, null);
 
         if (kullanici.IsDeleted) 
-    {
-        return (false, "Hesabınız yönetici tarafından silinmiş veya askıya alınmıştır.", null, null, null);
-    }
+        {
+            return (false, "Hesabınız yönetici tarafından silinmiş veya askıya alınmıştır.", null, null, null, null);
+        }
 
         bool sifreDogruMu = BCrypt.Net.BCrypt.Verify(dto.Sifre, kullanici.SifreHash);
         
-        
-        if (!sifreDogruMu) return (false, "Kullanıcı bulunamadı veya şifre hatalı.", null, null, null);
+        if (!sifreDogruMu) return (false, "Kullanıcı bulunamadı veya şifre hatalı.", null, null, null, null);
 
         var claims = new[]
         {
@@ -102,17 +102,71 @@ public class KullaniciService : IKullaniciService
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
+        // Access Token süresi güvenlik için 15 DAKİKAYA düşürüldü
         var token = new JwtSecurityToken(
             issuer: _config["Jwt:Issuer"],
             audience: _config["Jwt:Audience"],
             claims: claims,
-            expires: DateTime.UtcNow.AddDays(7),
+            expires: DateTime.UtcNow.AddMinutes(15),
             signingCredentials: creds
         );
 
         var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
 
-        // DÜZELTME: Sona 5. eleman olarak 'kullanici.Id' eklendi
-        return (true, "Giriş başarılı", tokenString, kullanici.Rol, kullanici.Id);
+        // YENİ: Refresh Token oluştur ve veritabanına kaydet
+        var refreshToken = RastgeleTokenOlustur();
+        kullanici.RefreshToken = refreshToken;
+        kullanici.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7); // Refresh token 7 gün geçerli
+        
+        await _db.SaveChangesAsync();
+
+        return (true, "Giriş başarılı", tokenString, refreshToken, kullanici.Rol, kullanici.Id);
+    }
+
+    // YENİ: Sisteme yeni token alma metodu eklendi
+    public async Task<(bool Basarili, string Mesaj, string? Token, string? RefreshToken)> YeniTokenUretAsync(string mevcutRefreshToken)
+    {
+        var kullanici = await _db.Kullanicilar.FirstOrDefaultAsync(u => u.RefreshToken == mevcutRefreshToken);
+
+        // Kullanıcı yoksa veya token süresi dolmuşsa reddet
+        if (kullanici == null || kullanici.RefreshTokenExpiryTime <= DateTime.UtcNow)
+        {
+            return (false, "Geçersiz veya süresi dolmuş oturum. Lütfen tekrar giriş yapın.", null, null);
+        }
+
+        var claims = new[]
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, kullanici.Id.ToString()),
+            new Claim(JwtRegisteredClaimNames.Email, kullanici.Email),
+            new Claim(ClaimTypes.Role, kullanici.Rol) 
+        };
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var yeniAccessToken = new JwtSecurityToken(
+            issuer: _config["Jwt:Issuer"],
+            audience: _config["Jwt:Audience"],
+            claims: claims,
+            expires: DateTime.UtcNow.AddMinutes(15),
+            signingCredentials: creds
+        );
+
+        var yeniRefreshToken = RastgeleTokenOlustur();
+        kullanici.RefreshToken = yeniRefreshToken;
+        kullanici.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+        
+        await _db.SaveChangesAsync();
+
+        return (true, "Başarılı", new JwtSecurityTokenHandler().WriteToken(yeniAccessToken), yeniRefreshToken);
+    }
+
+    // YARDIMCI METOT: Kriptografik olarak güvenli rastgele metin üretici
+    private string RastgeleTokenOlustur()
+    {
+        var randomNumber = new byte[64];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(randomNumber);
+        return Convert.ToBase64String(randomNumber);
     }
 }

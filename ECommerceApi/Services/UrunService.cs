@@ -16,14 +16,31 @@ public class UrunService : IUrunService
 
     public async Task<List<UrunListelemeDTO>> TumUrunleriGetirAsync()
     {
+        // --- 1. ADIM: OTOMATİK TEMİZLİK (Süresi dolan indirimleri kaldır) ---
+        var suresiBitenler = await _db.Urunler
+            .Where(u => u.IndirimBitisTarihi != null && u.IndirimBitisTarihi < DateTime.UtcNow)
+            .ToListAsync();
+
+        if (suresiBitenler.Any())
+        {
+            foreach (var u in suresiBitenler)
+            {
+                u.IndirimliFiyat = null;
+                u.IndirimBitisTarihi = null;
+            }
+            await _db.SaveChangesAsync(); // Temizliği kaydet
+        }
+
+        // --- 2. ADIM: ÜRÜNLERİ LİSTELE ---
         return await _db.Urunler
             .Include(u => u.Kategori)
             .Select(u => new UrunListelemeDTO {
                 Id = u.Id,
                 Ad = u.Ad,
                 Aciklama = u.Aciklama,
-                Fiyat = u.Fiyat, // Asıl liste fiyatı
-                IndirimliFiyat = u.IndirimliFiyat, // Varsa indirimli fiyat
+                Fiyat = u.Fiyat, 
+                IndirimliFiyat = u.IndirimliFiyat, 
+                Stok = u.Stok, 
                 ResimUrl = u.ResimUrl,
                 KategoriId = u.KategoriId,
                 Kategori = u.Kategori != null ? new { u.Kategori.Id, u.Kategori.Ad } : null,
@@ -42,13 +59,22 @@ public class UrunService : IUrunService
                 u.Ad, 
                 u.Aciklama, 
                 u.Fiyat, 
-                u.IndirimliFiyat, // Detay sayfasında göstermek için eklendi
+                u.IndirimliFiyat, 
                 u.Stok, 
                 u.ResimUrl, 
                 u.KategoriId, 
                 u.Kategori,
                 OrtalamaPuan = u.Oylamalar.Any() ? Math.Round(u.Oylamalar.Average(o => o.Puan), 1) : 0.0,
-                OylamaSayisi = u.Oylamalar.Count()
+                OylamaSayisi = u.Oylamalar.Count(),
+                
+                // İŞTE EKSİK OLAN KISIM: Yorumları çekip frontend'e yolluyoruz
+                Yorumlar = u.Oylamalar.Select(o => new {
+                    o.Id,
+                    o.Puan,
+                    o.YorumMetni,
+                    o.Tarih,
+                    KullaniciAdi = o.Kullanicilar != null ? o.Kullanicilar.AdSoyad : "İsimsiz Kullanıcı"
+                }).OrderByDescending(x => x.Tarih).ToList()
             })
             .FirstOrDefaultAsync(u => u.Id == id);
     }
@@ -58,7 +84,7 @@ public class UrunService : IUrunService
         var yeniUrun = new Urunler {
             Ad = dto.Ad, 
             Aciklama = dto.Aciklama, 
-            Fiyat = dto.Fiyat, // Eklendiğinde sadece asıl fiyat var
+            Fiyat = dto.Fiyat, 
             Stok = dto.Stok, 
             ResimUrl = dto.ResimUrl, 
             KategoriId = dto.KategoriId
@@ -72,6 +98,7 @@ public class UrunService : IUrunService
     {
         var urun = await _db.Urunler.FindAsync(id);
         if (urun is null) return false;
+        
         _db.Urunler.Remove(urun);
         await _db.SaveChangesAsync();
         return true;
@@ -104,7 +131,7 @@ public class UrunService : IUrunService
         return mevcutUrun;
     }
 
-    public async Task<(bool Basarili, string Mesaj)> UrunOylaAsync(int urunId, int userId, int puan)
+    public async Task<(bool Basarili, string Mesaj)> UrunOylaAsync(int urunId, int userId, int puan, string? yorum = null)
     {
         var urunuSatinAlmisMi = await _db.SiparisDetaylari
             .Include(sd => sd.Siparis)
@@ -115,7 +142,7 @@ public class UrunService : IUrunService
 
         if (!urunuSatinAlmisMi)
         {
-            return (false, "Bu ürünü oylayabilmek için önce satın alıp teslim almış olmanız gerekmektedir.");
+            return (false, "Bu ürünü oylayabilmek veya yorum yapabilmek için önce satın alıp teslim almış olmanız gerekmektedir.");
         }
 
         var urunVarMi = await _db.Urunler.AnyAsync(u => u.Id == urunId);
@@ -124,18 +151,26 @@ public class UrunService : IUrunService
         var mevcutOylama = await _db.Oylamalar
             .FirstOrDefaultAsync(o => o.UrunId == urunId && o.KullaniciId == userId);
 
+        // Kullanıcı daha önce oylamışsa puanını ve (varsa) yorumunu güncelliyoruz
         if (mevcutOylama != null)
         {
             mevcutOylama.Puan = puan;
+            // Eğer yeni bir yorum gönderilmişse (boş değilse) onu da güncelle
+            if (!string.IsNullOrWhiteSpace(yorum))
+            {
+                mevcutOylama.YorumMetni = yorum;
+            }
             mevcutOylama.Tarih = DateTime.UtcNow;
         }
         else
         {
+          
             var yeniOylama = new Oylama
             {
                 UrunId = urunId,
                 KullaniciId = userId,
                 Puan = puan,
+                YorumMetni = yorum, 
                 Tarih = DateTime.UtcNow
             };
             await _db.Oylamalar.AddAsync(yeniOylama);
@@ -154,15 +189,32 @@ public class UrunService : IUrunService
 
     public async Task<List<UrunListelemeDTO>> IndirimliUrunleriGetirAsync()
     {
+        // --- 1. ADIM: OTOMATİK TEMİZLİK (Süresi dolan indirimleri kaldır) ---
+        var suresiBitenler = await _db.Urunler
+            .Where(u => u.IndirimBitisTarihi != null && u.IndirimBitisTarihi < DateTime.UtcNow)
+            .ToListAsync();
+
+        if (suresiBitenler.Any())
+        {
+            foreach (var u in suresiBitenler)
+            {
+                u.IndirimliFiyat = null;
+                u.IndirimBitisTarihi = null;
+            }
+            await _db.SaveChangesAsync(); 
+        }
+
+        // --- 2. ADIM: İNDİRİMLİ ÜRÜNLERİ LİSTELE ---
         return await _db.Urunler
-            .Where(u => u.IndirimliFiyat != null) // Sadece IndirimliFiyat dolu olanları getir
+            .Where(u => u.IndirimliFiyat != null) 
             .Include(u => u.Kategori)
             .Select(u => new UrunListelemeDTO {
                 Id = u.Id,
                 Ad = u.Ad,
                 Aciklama = u.Aciklama,
                 Fiyat = u.Fiyat,
-                IndirimliFiyat = u.IndirimliFiyat, // <-- Yeni modele tam uyumlu
+                IndirimliFiyat = u.IndirimliFiyat, 
+                Stok = u.Stok, 
                 ResimUrl = u.ResimUrl,
                 KategoriId = u.KategoriId,
                 Kategori = u.Kategori != null ? new { u.Kategori.Id, u.Kategori.Ad } : null,
@@ -173,20 +225,21 @@ public class UrunService : IUrunService
             .ToListAsync();
     }
 
-    public async Task<(bool Basarili, string Mesaj)> IndirimYapAsync(int urunId, decimal yeniFiyat)
+    // UrunService.cs içindeki metodu şu şekilde güncelle:
+    public async Task<(bool Basarili, string Mesaj)> IndirimYapAsync(int urunId, decimal yeniFiyat, int saat)
     {
         var urun = await _db.Urunler.FindAsync(urunId);
         if (urun == null) return (false, "Ürün bulunamadı.");
 
-        // İndirimli fiyat, asıl fiyattan küçük olmak zorunda
         if (yeniFiyat >= urun.Fiyat) 
             return (false, "İndirimli fiyat, asıl liste fiyatından daha düşük olmalıdır!");
 
-        // Fiyat'a (orijinal değere) ASLA DOKUNMUYORUZ. Sadece IndirimliFiyat'ı güncelliyoruz.
         urun.IndirimliFiyat = yeniFiyat;
+        // Dinamik saat eklemesi
+        urun.IndirimBitisTarihi = DateTime.UtcNow.AddHours(saat);
         
         await _db.SaveChangesAsync();
-        return (true, "İndirim başarıyla uygulandı.");
+        return (true, $"İndirim başarıyla {saat} saat boyunca uygulandı.");
     }
 
     public async Task<(bool Basarili, string Mesaj)> IndirimiKaldirAsync(int urunId)
@@ -194,13 +247,16 @@ public class UrunService : IUrunService
         var urun = await _db.Urunler.FindAsync(urunId);
         if (urun == null) return (false, "Ürün bulunamadı.");
 
-        if (urun.IndirimliFiyat != null)
+        // Eğer ürün indirimdeyse (veya süresi devam ediyorsa)
+        if (urun.IndirimliFiyat != null || urun.IndirimBitisTarihi != null)
         {
-            // İndirimi sıfırlıyoruz. Fiyat sütunu zaten korunduğu için başka işlem gerekmiyor.
-            urun.IndirimliFiyat = null; 
+            urun.IndirimliFiyat = null; // Fiyatı eski haline döndür
+            
+            // --- YENİ EKLENDİ: ZAMANLAYICIYI DA SİL ---
+            urun.IndirimBitisTarihi = null; 
             
             await _db.SaveChangesAsync();
-            return (true, "İndirim başarıyla kaldırıldı ve fiyat eski haline döndü.");
+            return (true, "İndirim admin tarafından iptal edildi ve fiyat eski haline döndü.");
         }
 
         return (false, "Bu ürün zaten indirimde değil.");

@@ -37,8 +37,17 @@ public class SiparisService : ISiparisService
             foreach (var sepetItem in sepetUrunleri)
             {
                 var urun = sepetItem.Urunler;
-                if (urun == null || urun.Stok < sepetItem.Miktar)
-                    throw new Exception($"{urun?.Ad ?? "Bilinmeyen Ürün"} için stok yetersiz!");
+                // 1. Ürün veritabanından tamamen silindiyse
+                if (urun == null)
+                    throw new Exception("Sepetinizdeki bazı ürünler artık mevcut değil.");
+
+                // 2. Ürün stoğu tamamen bittiyse
+                if (urun.Stok == 0)
+                    throw new Exception($"'{urun.Ad}' şu an stokta yok!");
+
+                // 3. İstenen miktar, stoktan fazlaysa (Kullanıcıya kaç adet kaldığını söyle)
+                if (urun.Stok < sepetItem.Miktar)
+                    throw new Exception($"'{urun.Ad}' için stok yetersiz! Stokta sadece {urun.Stok} adet kaldı.");
 
                 // GÜVENLİ FİYAT HESAPLAMASI: İndirimli fiyat varsa onu, yoksa normal fiyatı al
                 decimal gecerliFiyat = urun.IndirimliFiyat ?? urun.Fiyat;

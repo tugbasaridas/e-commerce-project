@@ -9,6 +9,7 @@ public class Oylama
     public int Puan { get; set; }
     public int UrunId { get; set; }
     public int KullaniciId { get; set; }
+    public string? YorumMetni { get; set; }
 
     // İlişkiler
     [ForeignKey(nameof(UrunId))]

@@ -61,21 +61,23 @@ public class AdminController : ControllerBase
         return Ok(new { Mesaj = sonuc.Mesaj });
     }
 
-    // --- YENİ EKLENEN İNDİRİM METOTLARI ---
-    [HttpPost("urunler/{id}/indirim-yap")]
+   [HttpPost("urunler/{id}/indirim-yap")]
     public async Task<IActionResult> IndirimYap(int id, [FromBody] IndirimDTO dto)
     {
-        var sonuc = await _urunService.IndirimYapAsync(id, dto.YeniFiyat);
-        if (!sonuc.Basarili) return BadRequest(new { Mesaj = sonuc.Mesaj });
-        return Ok(new { Mesaj = sonuc.Mesaj });
+        // Servisteki yeni imza ile çağırıyoruz
+        var (basarili, mesaj) = await _urunService.IndirimYapAsync(id, dto.YeniFiyat, dto.Saat);
+        
+        if (!basarili) return BadRequest(new { Mesaj = mesaj });
+        return Ok(new { Mesaj = mesaj });
     }
 
     [HttpPost("urunler/{id}/indirim-kaldir")]
-    public async Task<IActionResult> IndirimiKaldir(int id)
+    public async Task<IActionResult> IndirimKaldir(int id)
     {
-        var sonuc = await _urunService.IndirimiKaldirAsync(id);
-        if (!sonuc.Basarili) return BadRequest(new { Mesaj = sonuc.Mesaj });
-        return Ok(new { Mesaj = sonuc.Mesaj });
+        var (basarili, mesaj) = await _urunService.IndirimiKaldirAsync(id);
+        
+        if (!basarili) return BadRequest(new { Mesaj = mesaj });
+        return Ok(new { Mesaj = mesaj });
     }
 
     

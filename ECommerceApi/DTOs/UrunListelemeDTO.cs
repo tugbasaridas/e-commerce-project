@@ -6,6 +6,7 @@ public class UrunListelemeDTO
     public string Ad { get; set; } = string.Empty;
     public string? Aciklama { get; set; }
     public decimal Fiyat { get; set; }
+    public int Stok { get; set; }
     public decimal? IndirimliFiyat { get; set; }
     public string? ResimUrl { get; set; }
     public int KategoriId { get; set; }

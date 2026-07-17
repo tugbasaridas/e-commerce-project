@@ -10,4 +10,8 @@ public class Kullanicilar
     public DateTime OlusturulmaTarihi { get; set; } = DateTime.UtcNow;
     public bool IsDeleted { get; set; } = false;
     public DateTime? DeletedAt { get; set; }
+    
+    // REFRESH TOKEN ALANLARI
+    public string? RefreshToken { get; set; }
+    public DateTime? RefreshTokenExpiryTime { get; set; }
 }

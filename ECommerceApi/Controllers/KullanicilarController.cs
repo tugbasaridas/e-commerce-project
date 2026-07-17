@@ -52,18 +52,33 @@ public class KullanicilarController : ControllerBase
         return Ok(new { Mesaj = mesaj });
     }
 
-    [HttpPost("giris")]
-    public async Task<IActionResult> GirisYap([FromBody] GirisDTO dto)
-    {
-        var (basarili, mesaj, token, rol,kullaniciId) = await _kullaniciService.GirisYapAsync(dto);
-        
-        if (!basarili) return Unauthorized(new { Mesaj = mesaj });
+   [HttpPost("giris")]
+public async Task<IActionResult> GirisYap([FromBody] GirisDTO dto)
+{
+    var (basarili, mesaj, token, refreshToken, rol, kullaniciId) = await _kullaniciService.GirisYapAsync(dto);
+    
+    if (!basarili) return Unauthorized(new { Mesaj = mesaj });
 
-        return Ok(new { 
-            Token = token, 
-            Rol = rol, 
-            Mesaj = mesaj ,
-            KullaniciId = kullaniciId
-        });
-    }
+    return Ok(new { 
+        Token = token, 
+        RefreshToken = refreshToken, // Artık frontend'e gönderiyoruz
+        Rol = rol, 
+        Mesaj = mesaj,
+        KullaniciId = kullaniciId
+    });
+}
+
+// YENİ ENDPOINT: Frontend'in 15 dakikada bir çağıracağı yer
+[HttpPost("refresh-token")]
+public async Task<IActionResult> RefreshToken([FromBody] TokenRequestDTO dto)
+{
+    var (basarili, mesaj, yeniToken, yeniRefreshToken) = await _kullaniciService.YeniTokenUretAsync(dto.RefreshToken);
+
+    if (!basarili) return Unauthorized(new { Mesaj = mesaj });
+
+    return Ok(new {
+        Token = yeniToken,
+        RefreshToken = yeniRefreshToken
+    });
+}
 }
