@@ -47,14 +47,11 @@ export default function Giris() {
       });
 
       const token = response.data.token;
-      // YENİ EKLENDİ: Backend'den gelen refresh token'ı yakalıyoruz
       const refreshToken = response.data.refreshToken; 
       const rol = response.data.rol;
-      
       const gelenId = response.data.kullaniciId || response.data.userId || response.data.id;
 
       await AsyncStorage.setItem('userToken', token);
-      
       
       if (refreshToken) {
         await AsyncStorage.setItem('refreshToken', refreshToken); 
@@ -69,9 +66,12 @@ export default function Giris() {
       setLoading(false);
       bildirimGoster("Giriş işlemi başarılı! Yönlendiriliyorsunuz...", 'basari');
       
+      // YENİ BACKEND DÜZENİ: Artık 3 farklı rolümüz var (Admin, Satici, Kullanici)
       setTimeout(() => {
         if (rol === 'Admin') {
           router.replace('/admin' as any);
+        } else if (rol === 'Satici') {
+          router.replace('/(satici)/satici-anasayfa' as any); 
         } else {
           router.replace('/(tabs)' as any);
         }

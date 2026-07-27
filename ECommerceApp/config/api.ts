@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import { router } from 'expo-router'; // YENİ: Başarısızlıkta yönlendirme için eklendi
 
 export const API_CONFIG = {
   BASE_URL: 'http://192.168.0.23:5110/api', 
@@ -14,16 +15,30 @@ const api = axios.create({
   }
 });
 
-// 1. İSTEK (REQUEST) İNTERCEPTOR'U: Giden her isteğe Access Token ekler
+// ÇOKLU İSTEK YÖNETİMİ İÇİN DEĞİŞKENLER (Kuyruk Mantığı)
+let isRefreshing = false;
+let failedQueue: Array<{ resolve: Function, reject: Function }> = [];
+
+// Kuyrukta bekleyen tüm istekleri yeni token ile çalıştırır veya hata fırlatır
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+// 1. İSTEK (REQUEST) İNTERCEPTOR'U
 api.interceptors.request.use(
   async (config) => {
     const token = await AsyncStorage.getItem('userToken');
     
-    // KRİTİK KONTROL: Token varsa ve "null" string değilse başlığa ekle
     if (token && token !== 'null' && token !== 'undefined') {
       config.headers.Authorization = `Bearer ${token}`;
     } else {
-      // Eğer token silindiyse, eski isteklerden kalan başlığı tamamen temizle (Misafir Modu)
       delete config.headers.Authorization;
     }
     
@@ -34,51 +49,67 @@ api.interceptors.request.use(
   }
 );
 
-// 2. CEVAP (RESPONSE) İNTERCEPTOR'U: 401 hatası alırsa Refresh Token ile yeni anahtar alır (YENİ EKLENDİ)
+// 2. CEVAP (RESPONSE) İNTERCEPTOR'U
 api.interceptors.response.use(
-  (response) => response, // İstek başarılıysa hiçbir şeye dokunma, aynen devam et
+  (response) => response, 
   async (error) => {
     const originalRequest = error.config;
 
-    // Hata 401 (Yetkisiz) ise ve bu isteği henüz tekrar denemediysek (_retry bayrağı yoksa)
+    // Eğer hata 401 ise ve bu istek henüz tekrar edilmediyse
     if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true; // Sonsuz döngüye girmeyi engelle
+      
+      // EĞER ZATEN YENİLEME İŞLEMİ SÜRÜYORSA: Gelen yeni isteği sıraya (kuyruğa) al
+      if (isRefreshing) {
+        return new Promise(function(resolve, reject) {
+          failedQueue.push({ resolve, reject });
+        }).then(token => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return api(originalRequest);
+        }).catch(err => {
+          return Promise.reject(err);
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
 
       try {
         const refreshToken = await AsyncStorage.getItem('refreshToken');
         
-        // Eğer elde refresh token yoksa mecburen çıkışa yönlendir
         if (!refreshToken) {
           throw new Error("Refresh token bulunamadı.");
         }
 
-        // DİKKAT: Burada kendi 'api' örneğimizi DEĞİL, normal 'axios' kullanıyoruz ki döngüye girmeyelim!
         const refreshResponse = await axios.post(`${API_CONFIG.BASE_URL}/kullanicilar/refresh-token`, {
           refreshToken: refreshToken
         });
 
-        // Backend'den gelen yeni token'ları al (C# JSON standardına göre büyük/küçük harf kontrolü)
         const yeniToken = refreshResponse.data.token || refreshResponse.data.Token;
         const yeniRefreshToken = refreshResponse.data.refreshToken || refreshResponse.data.RefreshToken;
 
-        // Yeni token'ları telefona kaydet
         await AsyncStorage.setItem('userToken', yeniToken);
         await AsyncStorage.setItem('refreshToken', yeniRefreshToken);
 
-        // Başarısız olan orijinal isteğin başlığına yepyeni Access Token'ı ekle
+        // Kuyrukta bekleyen diğer isteklere "Müjde, token geldi!" de ve onları çalıştır
+        processQueue(null, yeniToken);
+
+        // Orijinal başarısız olan isteği yeni token ile tekrar çalıştır
         originalRequest.headers.Authorization = `Bearer ${yeniToken}`;
-        
-        // Orijinal isteği (kullanıcının ruhu bile duymadan) tekrar çalıştır!
         return api(originalRequest);
         
       } catch (refreshError) {
-        // Eğer Refresh Token da süresi dolmuşsa (7 gün girilmediyse) veya hatalıysa, her şeyi temizle
-        await AsyncStorage.removeItem('userToken');
-        await AsyncStorage.removeItem('refreshToken');
-        await AsyncStorage.removeItem('userRole');
+        // Refresh token da patladıysa: Kuyruktakilere iptal haberi ver
+        processQueue(refreshError, null);
         
-        // Kullanıcı giriş ekranına düşecek
+        // Verileri temizle
+        await AsyncStorage.multiRemove(['userToken', 'refreshToken', 'userRole']);
+        
+        // Kullanıcıyı acımasızca ama güvenli bir şekilde Giriş sayfasına postala
+        router.replace('/(auth)/giris' as any);
+        
         return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
 

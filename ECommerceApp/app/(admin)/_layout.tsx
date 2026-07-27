@@ -48,14 +48,11 @@ export default function AdminLayout() {
       />
 
       <Tabs.Screen name="admindestek" options={{ href: null }} />
-      <Tabs.Screen name="admin-urunler" options={{ href: null }} />
       <Tabs.Screen name="admin-siparisler" options={{ href: null }} />
       <Tabs.Screen name="admin-kullanicilar" options={{ href: null }} />
-      <Tabs.Screen name="admin-urun-ekle" options={{ href: null }} />
-      <Tabs.Screen name="admin-urun-guncelle" options={{ href: null }} />
-      <Tabs.Screen name="admin-indirim-yonetimi" options={{ href: null }} />
-      <Tabs.Screen name="admin-stok-yonetimi" options={{ href: null }} />
       <Tabs.Screen name="admin-kategoriler" options={{ href: null }} />
+      <Tabs.Screen name="admin-satici-onay" options={{ href: null }} />
+      <Tabs.Screen name="admin-urun-onay" options={{ href: null }} />
       
     
     </Tabs>

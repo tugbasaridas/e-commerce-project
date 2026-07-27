@@ -19,7 +19,6 @@ export const useDetay = (id: string | string[]) => {
 
   const [oylamaModalGorunur, setOylamaModalGorunur] = useState(false);
   const [secilenPuan, setSecilenPuan] = useState<number>(0); 
-  // YENİ: Yorum metnini tutacak state
   const [yorumMetni, setYorumMetni] = useState(''); 
   const [oyGonderiliyor, setOyGonderiliyor] = useState(false);
 
@@ -30,7 +29,8 @@ export const useDetay = (id: string | string[]) => {
     };
     girisKontrol();
 
-    axios.get(`${API_CONFIG.BASE_URL}/urunler/${id}`)
+    // ROTA DÜZELTİLDİ: /urunler yerine /urun
+    axios.get(`${API_CONFIG.BASE_URL}/urun/${id}`)
       .then((res) => {
         setUrun(res.data);
         setLoading(false);
@@ -57,6 +57,7 @@ export const useDetay = (id: string | string[]) => {
     } 
     try {
       const token = await AsyncStorage.getItem('userToken');
+      // Favori controllerının yolu aynı kaldıysa burası değişmiyor, değiştiyse /favori yapman gerekebilir
       await axios.post(`${API_CONFIG.BASE_URL}/favoriler`, { urunId: Number(id) }, { headers: { Authorization: `Bearer ${token}` } });
       basariliMesajGoster("Favorilere eklendi! ❤️");
     } catch (error: any) {
@@ -71,6 +72,7 @@ export const useDetay = (id: string | string[]) => {
     }
     try {
       const token = await AsyncStorage.getItem('userToken');
+      // Sepet controllerının yolu aynı kaldıysa burası değişmiyor
       await axios.post(`${API_CONFIG.BASE_URL}/sepet`, { urunId: Number(id), miktar: miktar }, { headers: { Authorization: `Bearer ${token}` } });
       basariliMesajGoster(`${miktar} adet sepete eklendi!`);
       router.push('/(tabs)/sepet');
@@ -88,16 +90,16 @@ export const useDetay = (id: string | string[]) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
       
-      // YENİ: Yorum metni ve puan params objesi ile daha güvenli gönderiliyor
+      // ROTA DÜZELTİLDİ: /urunler/{id}/oyla yerine C# tarafındaki DTO parametresiyle post ediliyor
+      // UrunController tarafında: [HttpPost("{id}/oyla")] public async Task<IActionResult> UrunOyla(int id, [FromBody] OylamaDto dto)
       await axios.post(
-        `${API_CONFIG.BASE_URL}/urunler/${id}/oyla`, 
-        {}, 
+        `${API_CONFIG.BASE_URL}/urun/${id}/oyla`, 
         { 
-          headers: { Authorization: `Bearer ${token}` },
-          params: {
-            puan: secilenPuan,
-            yorum: yorumMetni ? yorumMetni : undefined
-          }
+            puan: secilenPuan, 
+            yorum: yorumMetni 
+        }, 
+        { 
+          headers: { Authorization: `Bearer ${token}` }
         }
       );
       
@@ -107,10 +109,11 @@ export const useDetay = (id: string | string[]) => {
       setSecilenPuan(0);
       setYorumMetni(''); 
       
-      const guncelUrun = await axios.get(`${API_CONFIG.BASE_URL}/urunler/${id}`);
+      // Güncel ürünü tekrar çek
+      const guncelUrun = await axios.get(`${API_CONFIG.BASE_URL}/urun/${id}`);
       setUrun(guncelUrun.data);
     } catch (error: any) {
-      Alert.alert("Hata", error.response?.data?.mesaj || "Oylama kaydedilemedi.");
+      Alert.alert("Hata", error.response?.data || error.response?.data?.mesaj || "Oylama kaydedilemedi.");
     } finally {
       setOyGonderiliyor(false);
     }
@@ -122,7 +125,7 @@ export const useDetay = (id: string | string[]) => {
     toastGorunur, toastMesaj,
     oylamaModalGorunur, setOylamaModalGorunur, 
     secilenPuan, setSecilenPuan, 
-    yorumMetni, setYorumMetni, // Dışa aktarıldı
+    yorumMetni, setYorumMetni, 
     oyGonderiliyor,
     favoriButonunaBasildi, sepeteEkle, oyGonder
   };

@@ -30,13 +30,15 @@ builder.Services.AddControllers()
 
 // --- 4. DEPENDENCY INJECTION (SERVİS KAYITLARI) ---
 builder.Services.AddScoped<IUrunService, UrunService>();
+builder.Services.AddScoped<IUrunSoruService, UrunSoruService>();
 builder.Services.AddScoped<ISiparisService, SiparisService>();
 builder.Services.AddScoped<IKullaniciService, KullaniciService>();
 builder.Services.AddScoped<IKategoriService, KategoriService>();
-builder.Services.AddScoped<IKartService, KartService>();
+builder.Services.AddScoped<ISepetService, SepetService>();
 builder.Services.AddScoped<IFavoriService, FavoriService>();
 builder.Services.AddScoped<IDestekService, DestekService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<ISaticiService, SaticiService>();
 
 // --- 5. JWT GÜVENLİK SERVİSİ ---
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

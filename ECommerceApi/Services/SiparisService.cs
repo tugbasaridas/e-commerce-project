@@ -11,6 +11,9 @@ public class SiparisService : ISiparisService
     private readonly AppDbContext _db;
     private readonly ILogger<SiparisService> _logger;
 
+    // Sabit komisyon oranımızı %10 olarak belirliyoruz
+    private const decimal PLATFORM_KOMISYON_ORANI = 0.10m; 
+
     public SiparisService(AppDbContext db, ILogger<SiparisService> logger)
     {
         _db = db;
@@ -37,31 +40,32 @@ public class SiparisService : ISiparisService
             foreach (var sepetItem in sepetUrunleri)
             {
                 var urun = sepetItem.Urunler;
-                // 1. Ürün veritabanından tamamen silindiyse
-                if (urun == null)
-                    throw new Exception("Sepetinizdeki bazı ürünler artık mevcut değil.");
+                if (urun == null || !urun.AktifMi || !urun.AdminOnayliMi)
+                    throw new Exception("Sepetinizdeki bazı ürünler artık satışa kapalıdır.");
 
-                // 2. Ürün stoğu tamamen bittiyse
-                if (urun.Stok == 0)
-                    throw new Exception($"'{urun.Ad}' şu an stokta yok!");
-
-                // 3. İstenen miktar, stoktan fazlaysa (Kullanıcıya kaç adet kaldığını söyle)
                 if (urun.Stok < sepetItem.Miktar)
                     throw new Exception($"'{urun.Ad}' için stok yetersiz! Stokta sadece {urun.Stok} adet kaldı.");
 
-                // GÜVENLİ FİYAT HESAPLAMASI: İndirimli fiyat varsa onu, yoksa normal fiyatı al
                 decimal gecerliFiyat = urun.IndirimliFiyat ?? urun.Fiyat;
-
-                // Satır tutarını geçerli fiyat üzerinden hesapla
                 decimal satirTutari = gecerliFiyat * sepetItem.Miktar;
+                
+                // TRENDYOL ALGORİTMASI: Komisyon ve Kazanç Hesaplama
+                decimal komisyonTutari = satirTutari * PLATFORM_KOMISYON_ORANI;
+                decimal saticiKazanci = satirTutari - komisyonTutari;
+
                 toplamTutar += satirTutari;
+                
+                // Stok Düşme
                 urun.Stok -= sepetItem.Miktar;
 
                 siparisDetaylari.Add(new SiparisDetay
                 {
                     UrunId = urun.Id,
                     Adet = sepetItem.Miktar,
-                    BirimFiyat = gecerliFiyat // Sipariş geçmişinde görünecek asıl fiyat!
+                    BirimFiyat = gecerliFiyat,
+                    PlatformKomisyonu = komisyonTutari, 
+                    SaticiKazanci = saticiKazanci,     
+                    Durum = "Hazırlanıyor"
                 });
             }
 
@@ -78,6 +82,8 @@ public class SiparisService : ISiparisService
             };
 
             _db.Siparisler.Add(yeniSiparis);
+            
+            // Sipariş oluştuktan sonra müşterinin sepetini temizle
             _db.SepetUrunleri.RemoveRange(sepetUrunleri);
 
             await _db.SaveChangesAsync();
@@ -93,7 +99,7 @@ public class SiparisService : ISiparisService
         }
     }
 
-    public async Task<object> SiparisGecmisiniGetirAsync(int userId)
+   public async Task<object> SiparisGecmisiniGetirAsync(int userId)
     {
         return await _db.Siparisler
             .Where(s => s.KullaniciId == userId)
@@ -109,10 +115,15 @@ public class SiparisService : ISiparisService
                 s.Telefon,
                 Urunler = s.Detaylar.Select(d => new
                 {
+                    DetayId = d.Id,
+                    UrunId = d.UrunId,  
                     Ad = d.Urunler != null ? d.Urunler.Ad : "Ürün Silinmiş",
                     ResimUrl = d.Urunler != null ? d.Urunler.ResimUrl : "",
                     Adet = d.Adet,
-                    SatinAlinanFiyat = d.BirimFiyat // Kaydettiğimiz doğru fiyat buradan okunuyor
+                    SatinAlinanFiyat = d.BirimFiyat,
+                    Durum = d.Durum, 
+                    KargoFirma = d.KargoFirma, 
+                    KargoTakipNo = d.KargoTakipNo 
                 })
             })
             .ToListAsync();

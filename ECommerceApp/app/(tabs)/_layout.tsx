@@ -1,19 +1,23 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Tabs, useSegments } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { useEffect, useState } from 'react';
 
 export default function TabLayout() {
-  const [girisYapildiMi, setGirisYapildiMi] = useState(false);
-  const segments = useSegments(); 
+  const [girisYapildiMi, setGirisYapildiMi] = useState(true); // Yükleme sırasında sekmelerin kaybolmaması için varsayılan true
 
   useEffect(() => {
-    const girisKontrol = async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      setGirisYapildiMi(!!token);
+    const tokenKontrol = async () => {
+      try {
+        const token = await AsyncStorage.getItem('userToken');
+        setGirisYapildiMi(!!token);
+      } catch (error) {
+        setGirisYapildiMi(false);
+      }
     };
-    girisKontrol();
-  }, [segments]); // Her sayfa değiştiğinde hafızayı yeniden kontrol et
+    
+    tokenKontrol();
+  }, []); // SADECE SAYFA İLK AÇILDIĞINDA ÇALIŞIR, SEGMENTS DİNLENMEZ!
 
   return (
     <Tabs screenOptions={{ tabBarActiveTintColor: '#FFD700', headerShown: false }}>
@@ -59,7 +63,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Ionicons name="person" size={24} color={color} />,
         }}
       />
-      
     </Tabs>
   );
 }

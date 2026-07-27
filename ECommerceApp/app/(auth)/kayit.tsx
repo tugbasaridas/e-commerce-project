@@ -64,6 +64,7 @@ export default function Kayit() {
     setBildirim(null); 
     
     try {
+      // BACKEND ile %100 uyumlu (KullaniciKayitDto beklediği formatta)
       await axios.post(`${API_CONFIG.BASE_URL}/kullanicilar/kayit`, {
         adSoyad: ad.trim(),
         email: email.trim().toLowerCase(),
@@ -179,6 +180,12 @@ export default function Kayit() {
           <TouchableOpacity onPress={() => router.push('/giris')} style={{ marginTop: 24 }}>
             <Text style={styles.yonlendirme}>Zaten hesabınız var mı? <Text style={{ fontWeight: 'bold', color: 'orange' }}>Giriş Yap</Text></Text>
           </TouchableOpacity>
+
+          {/* YENİ EKLENEN: SATICI KAYIT YÖNLENDİRMESİ */}
+          <TouchableOpacity onPress={() => router.push('/satici-kayit')} style={{ marginTop: 16 }}>
+            <Text style={styles.yonlendirme}>Satış yapmak mı istiyorsunuz? <Text style={{ fontWeight: 'bold', color: 'orange' }}>Mağaza Açın</Text></Text>
+          </TouchableOpacity>
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

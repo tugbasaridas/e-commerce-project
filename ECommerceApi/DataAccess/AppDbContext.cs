@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
 
     public DbSet<Kategori> Kategoriler { get; set; }
     public DbSet<Urunler> Urunler { get; set; }
+    public DbSet<UrunSoru> UrunSorulari { get; set; }
     public DbSet<Kullanicilar> Kullanicilar { get; set; }
     public DbSet<Favori> Favoriler { get; set; }
     public DbSet<Karturun> SepetUrunleri { get; set; }
@@ -19,4 +20,25 @@ public class AppDbContext : DbContext
     public DbSet<SiparisDetay> SiparisDetaylari { get; set; }
     public DbSet<DestekTalepleri> DestekTalepleri { get; set; }
     public DbSet<Oylama> Oylamalar { get; set; }
+    public DbSet<Magaza> Magazalar { get; set; }
+
+    // --- YENİ EKLENEN: İLİŞKİ KURALLARI ---
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        // 1. KULLANICI ve MAĞAZA (Bire-Bir İlişki)
+        modelBuilder.Entity<Magaza>()
+            .HasOne(m => m.Kullanici)
+            .WithOne(k => k.Magaza)
+            .HasForeignKey<Magaza>(m => m.KullaniciId)
+            .OnDelete(DeleteBehavior.Cascade); // Kullanıcı silinirse mağazası da silinsin
+
+        // 2. MAĞAZA ve ÜRÜNLER (Bire-Çok İlişki)
+        modelBuilder.Entity<Urunler>()
+            .HasOne(u => u.Magaza)
+            .WithMany(m => m.Urunler)
+            .HasForeignKey(u => u.MagazaId)
+            .OnDelete(DeleteBehavior.SetNull); // Mağaza kapanırsa ürünler silinmesin, NovaStore'a devrolsun (MagazaId = null)
+    }
 }

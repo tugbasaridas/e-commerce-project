@@ -15,11 +15,13 @@ export default function AdminKullanicilar() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    kullanicileriGetir();
+    kullanicilariGetir();
   }, []);
 
-  const kullanicileriGetir = async () => {
+  const kullanicilariGetir = async () => {
     try {
+      // Not: Kullanıcıları getiren endpoint KullaniciController'da ise /kullanicilar olarak kalabilir. 
+      // Admin içinde özel yazdıysan burayı /admin/kullanicilar yapabilirsin.
       const response = await api.get('/kullanicilar'); 
       setKullanicilar(response.data);
       filtreleUygula(aramaMetni, aktifSekme, response.data);
@@ -70,10 +72,11 @@ export default function AdminKullanicilar() {
         style: suAnkiDurum ? "default" : "destructive",
         onPress: async () => {
           try {
+            // ENDPOINTLER BACKEND'E GÖRE GÜNCELLENDİ
             if (suAnkiDurum) {
-              await api.put(`/admin/aktiflestir/${id}`);
+              await api.put(`/admin/kullanici/${id}/aktiflestir`);
             } else {
-              await api.delete(`/admin/sil/${id}`);
+              await api.delete(`/admin/kullanici/${id}/sil`);
             }
             
             const guncelListe = kullanicilar.map(k => k.id === id ? { ...k, isDeleted: !suAnkiDurum } : k);
@@ -82,7 +85,7 @@ export default function AdminKullanicilar() {
             
             Alert.alert("Başarılı", `Kullanıcı başarıyla ${suAnkiDurum ? 'aktifleştirildi' : 'askıya alındı'}.`);
           } catch (error: any) {
-            Alert.alert("Hata", "İşlem başarısız oldu.");
+            Alert.alert("Hata", error.response?.data?.mesaj || error.response?.data || "İşlem başarısız oldu.");
           }
         }
       }
@@ -167,6 +170,7 @@ export default function AdminKullanicilar() {
           keyExtractor={(item) => item.id.toString()}
           renderItem={renderItem}
           contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
           ListEmptyComponent={<Text style={styles.emptyText}>Kullanıcı bulunamadı.</Text>}
         />
       )}

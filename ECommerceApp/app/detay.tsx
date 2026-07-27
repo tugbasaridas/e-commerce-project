@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import UrunSoruBolumu from '../components/UrunSoruBolumu';
 import { useDetay } from '../hooks/custom/useDetay';
 
 export default function Detay() {
@@ -18,13 +19,17 @@ export default function Detay() {
     favoriButonunaBasildi, sepeteEkle, oyGonder
   } = useDetay(id as string);
 
+  // YENİ: Yorumları sınırlandırmak için state (İlk açılışta 1 yorum)
+  const [tumYorumlariGoster, setTumYorumlariGoster] = useState(false);
+  const MAX_YORUM = 1;
+
   if (loading) return <ActivityIndicator size="large" color="#FFD700" style={{ marginTop: 100 }} />;
   if (!urun) return <Text style={{ textAlign: 'center', marginTop: 50 }}>Ürün bulunamadı.</Text>;
 
   const stoktaVarMi = urun.stok > 0; 
   
-  // DÜZELTME BURADA: Sadece yorum metni dolu olanları yeni bir diziye ayırıyoruz
   const yaziliYorumlar = urun.yorumlar ? urun.yorumlar.filter((y: any) => y.yorumMetni && y.yorumMetni.trim() !== '') : [];
+  const gosterilecekYorumlar = tumYorumlariGoster ? yaziliYorumlar : yaziliYorumlar.slice(0, MAX_YORUM);
 
   return (
     <ScrollView style={styles.container}>
@@ -39,6 +44,15 @@ export default function Detay() {
       <View style={styles.detayBilgi}>
         <Text style={styles.kategori}>{urun.kategori?.ad || "Genel"}</Text>
         <Text style={styles.baslik}>{urun.ad}</Text>
+        
+        {urun.magaza?.magazaAdi ? (
+          <View style={styles.saticiKutusu}>
+            <Ionicons name="storefront-outline" size={16} color="#007AFF" />
+            <Text style={styles.saticiMetni}>
+              Satıcı: <Text style={styles.saticiAdi}>{urun.magaza.magazaAdi}</Text>
+            </Text>
+          </View>
+        ) : null}
         
         <View style={styles.fiyatKapsayici}>
           {urun.indirimliFiyat ? (
@@ -89,28 +103,47 @@ export default function Detay() {
         </TouchableOpacity>
       </View>
 
-      {/* DÜZELTİLDİ: Sadece 'yaziliYorumlar' dizisi ekrana basılıyor */}
+      {/* SATICIYA SOR SİSTEMİ */}
+      <View style={styles.ayiriciCizgi}></View>
+      <UrunSoruBolumu urunId={urun.id} />
+      <View style={styles.ayiriciCizgi}></View>
+      
+      {/* KULLANICI YORUMLARI BÖLÜMÜ */}
       <View style={styles.yorumlarKapsayici}>
-        <Text style={styles.yorumlarBaslik}>Kullanıcı Yorumları</Text>
+        <Text style={styles.yorumlarBaslik}>Kullanıcı Yorumları ({yaziliYorumlar.length})</Text>
         
         {yaziliYorumlar.length > 0 ? (
-          yaziliYorumlar.map((yorumObj: any) => (
-            <View key={yorumObj.id} style={styles.yorumKart}>
-              <View style={styles.yorumKartUst}>
-                <Text style={styles.yorumKullaniciAdi}>{yorumObj.kullaniciAdi}</Text>
-                <View style={styles.yorumPuanKutusu}>
-                  <Ionicons name="star" size={14} color="#FFD700" />
-                  <Text style={styles.yorumPuanYazi}>{yorumObj.puan}</Text>
+          <>
+            {gosterilecekYorumlar.map((yorumObj: any) => (
+              <View key={yorumObj.id} style={styles.yorumKart}>
+                <View style={styles.yorumKartUst}>
+                  <Text style={styles.yorumKullaniciAdi}>{yorumObj.kullaniciAdi}</Text>
+                  <View style={styles.yorumPuanKutusu}>
+                    <Ionicons name="star" size={14} color="#FFD700" />
+                    <Text style={styles.yorumPuanYazi}>{yorumObj.puan}</Text>
+                  </View>
                 </View>
+                <Text style={styles.yorumMetni}>{yorumObj.yorumMetni}</Text>
+                
+                <Text style={styles.yorumTarihi}>
+                  {new Date(yorumObj.tarih).toLocaleDateString('tr-TR')}
+                </Text>
               </View>
-              {/* Artık filtrelenmiş liste geldiği için boş yorum kontrolüne gerek yok */}
-              <Text style={styles.yorumMetni}>{yorumObj.yorumMetni}</Text>
-              
-              <Text style={styles.yorumTarihi}>
-                {new Date(yorumObj.tarih).toLocaleDateString('tr-TR')}
-              </Text>
-            </View>
-          ))
+            ))}
+
+            {/* YORUMLAR İÇİN DEVAMINI GÖR BUTONU */}
+            {yaziliYorumlar.length > MAX_YORUM && (
+              <TouchableOpacity 
+                style={styles.devaminiGorBtn} 
+                onPress={() => setTumYorumlariGoster(!tumYorumlariGoster)}
+              >
+                <Text style={styles.devaminiGorTxt}>
+                  {tumYorumlariGoster ? "Daha Az Göster" : `Tüm Yorumları Gör (${yaziliYorumlar.length})`}
+                </Text>
+                <Ionicons name={tumYorumlariGoster ? "chevron-up" : "chevron-down"} size={16} color="#007AFF" />
+              </TouchableOpacity>
+            )}
+          </>
         ) : (
           <View style={styles.yorumBosKutu}>
             <Ionicons name="chatbubble-ellipses-outline" size={40} color="#ccc" />
@@ -119,6 +152,7 @@ export default function Detay() {
         )}
       </View>
 
+      {/* OYLAMA MODALI */}
       <Modal visible={oylamaModalGorunur} transparent={true} animationType="fade">
         <View style={styles.modalArkaPlan}>
           <View style={styles.modalKutu}>
@@ -168,7 +202,11 @@ const styles = StyleSheet.create({
   kategori: { color: '#888', textTransform: 'uppercase', marginBottom: 5 },
   baslik: { fontSize: 28, fontWeight: 'bold' },
   
-  fiyatKapsayici: { marginTop: 10, marginBottom: 15 },
+  saticiKutusu: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E5F1FF', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, alignSelf: 'flex-start', marginTop: 8 },
+  saticiMetni: { fontSize: 13, color: '#007AFF', marginLeft: 6 },
+  saticiAdi: { fontWeight: 'bold' },
+
+  fiyatKapsayici: { marginTop: 15, marginBottom: 15 },
   indirimliFiyatAlani: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   normalFiyat: { fontSize: 24, color: 'orange', fontWeight: 'bold' }, 
   yeniFiyat: { fontSize: 24, fontWeight: 'bold', color: '#FF4757' }, 
@@ -194,7 +232,9 @@ const styles = StyleSheet.create({
   kalpButon: { position: 'absolute', top: 50, right: 20, backgroundColor: 'rgba(255,255,255,0.8)', padding: 8, borderRadius: 20 },
   butonPasif: { backgroundColor: '#ccc', opacity: 0.5 },
 
-  yorumlarKapsayici: { paddingHorizontal: 20, marginTop: 10, borderTopWidth: 1, borderTopColor: '#F0F0F0', paddingTop: 20 },
+  ayiriciCizgi: { height: 8, backgroundColor: '#F4F5F7' },
+
+  yorumlarKapsayici: { paddingHorizontal: 20, paddingTop: 20 },
   yorumlarBaslik: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 15 },
   yorumKart: { backgroundColor: '#F8F9FA', padding: 15, borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: '#F0F0F0' },
   yorumKartUst: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
@@ -203,6 +243,11 @@ const styles = StyleSheet.create({
   yorumPuanYazi: { fontWeight: 'bold', color: '#333', marginLeft: 4, fontSize: 12 },
   yorumMetni: { fontSize: 14, color: '#555', lineHeight: 20, marginBottom: 8 },
   yorumTarihi: { fontSize: 11, color: '#999', textAlign: 'right' },
+  
+  // YENİ: Yorumlar için devamını gör butonu stili (Soru bileşeniyle aynı şık tasarım)
+  devaminiGorBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, marginTop: 5, marginBottom: 15, backgroundColor: '#F8F9FA', borderRadius: 10, borderWidth: 1, borderColor: '#E5E5EA' },
+  devaminiGorTxt: { color: '#007AFF', fontWeight: 'bold', fontSize: 13, marginRight: 6 },
+
   yorumBosKutu: { alignItems: 'center', justifyContent: 'center', paddingVertical: 30, backgroundColor: '#FAFAFA', borderRadius: 12 },
   yorumBosYazi: { color: '#888', marginTop: 10, fontSize: 15 },
 

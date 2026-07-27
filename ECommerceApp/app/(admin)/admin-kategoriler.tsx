@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -16,6 +17,8 @@ import api from '../../config/api';
 interface Kategori {
   id: number;
   ad: string;
+  ustKategoriId?: number | null;
+  altKategoriler?: Kategori[];
 }
 
 export default function AdminKategoriler() {
@@ -23,6 +26,9 @@ export default function AdminKategoriler() {
   const [kategoriler, setKategoriler] = useState<Kategori[]>([]);
   const [loading, setLoading] = useState(true);
   const [yeniKategoriAd, setYeniKategoriAd] = useState('');
+  
+  // YENİ: Hangi kategorinin altına ekleneceğini seçmek için (null ise Ana Kategori olur)
+  const [secilenUstId, setSecilenUstId] = useState<number | null>(null);
   const [islemde, setIslemde] = useState(false);
 
   useFocusEffect(
@@ -33,7 +39,7 @@ export default function AdminKategoriler() {
 
   const kategorileriGetir = async () => {
     try {
-      const response = await api.get('/kategoriler');
+      const response = await api.get('/kategori');
       setKategoriler(response.data);
     } catch (error) {
       Alert.alert("Hata", "Kategoriler yüklenemedi.");
@@ -50,11 +56,18 @@ export default function AdminKategoriler() {
     
     setIslemde(true);
     try {
-      await api.post('/kategoriler', { ad: yeniKategoriAd });
+     
+      await api.post('/kategori', { 
+        ad: yeniKategoriAd.trim(),
+        ustKategoriId: secilenUstId 
+      });
+      
       setYeniKategoriAd('');
+      setSecilenUstId(null); 
       kategorileriGetir();
     } catch (error: any) {
-      Alert.alert("Hata", error.response?.data?.mesaj || error.response?.data?.Mesaj || "Kategori eklenemedi.");
+      const mesaj = error.response?.data?.mesaj || error.response?.data?.Mesaj || "Kategori eklenemedi.";
+      Alert.alert("Hata", mesaj);
     } finally {
       setIslemde(false);
     }
@@ -68,10 +81,9 @@ export default function AdminKategoriler() {
         style: "destructive",
         onPress: async () => {
           try {
-            await api.delete(`/kategoriler/${id}`);
+            await api.delete(`/kategori/${id}`);
             kategorileriGetir();
           } catch (error: any) {
-            // ARTIK TAHMİN ETMİYORUZ: Direkt backend'den gelen mesajı alıyoruz.
             const mesaj = error.response?.data?.mesaj || error.response?.data?.Mesaj || "Kategori silinemedi.";
             Alert.alert("İşlem Başarısız", mesaj);
           }
@@ -95,13 +107,39 @@ export default function AdminKategoriler() {
       <View style={styles.ekleAlani}>
         <TextInput
           style={styles.input}
-          placeholder="Yeni kategori adı..."
+          placeholder={secilenUstId ? "Alt kategori adı..." : "Ana kategori adı..."}
           placeholderTextColor="#A1A1A1"
           value={yeniKategoriAd}
           onChangeText={setYeniKategoriAd}
           autoCorrect={false}
           autoCapitalize="sentences"
         />
+
+        {/* Üst Kategori Seçim Alanı (Yatay Kaydırmalı ÇiplER) */}
+        <View style={styles.ustSecimContainer}>
+          <Text style={styles.ustSecimBaslik}>
+            {secilenUstId ? `Seçilen Ana Kategori Altına Ekleniyor` : `Ana Kategori Olarak Eklenecek`}
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+            <TouchableOpacity 
+              style={[styles.chip, secilenUstId === null && styles.chipAktif]}
+              onPress={() => setSecilenUstId(null)}
+            >
+              <Text style={[styles.chipYazi, secilenUstId === null && styles.chipYaziAktif]}>Ana Kategori (Yok)</Text>
+            </TouchableOpacity>
+
+            {kategoriler.map((kat) => (
+              <TouchableOpacity 
+                key={kat.id}
+                style={[styles.chip, secilenUstId === kat.id && styles.chipAktif]}
+                onPress={() => setSecilenUstId(kat.id)}
+              >
+                <Text style={[styles.chipYazi, secilenUstId === kat.id && styles.chipYaziAktif]}>{kat.ad}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
         <TouchableOpacity 
           style={[styles.ekleButon, islemde && { opacity: 0.7 }]} 
           onPress={kategoriEkle} 
@@ -124,14 +162,30 @@ export default function AdminKategoriler() {
           keyExtractor={(item) => item.id.toString()}
           contentContainerStyle={styles.liste}
           renderItem={({ item }) => (
-            <View style={styles.kategoriKart}>
-              <Text style={styles.kategoriAd}>{item.ad}</Text>
-              <TouchableOpacity 
-                style={styles.silButon} 
-                onPress={() => kategoriSil(item.id)}
-              >
-                <Ionicons name="trash-outline" size={22} color="#EF233C" />
-              </TouchableOpacity>
+            <View>
+              {/* Ana Kategori Kartı */}
+              <View style={styles.kategoriKart}>
+                <Text style={styles.kategoriAd}>📁 {item.ad}</Text>
+                <TouchableOpacity 
+                  style={styles.silButon} 
+                  onPress={() => kategoriSil(item.id)}
+                >
+                  <Ionicons name="trash-outline" size={22} color="#EF233C" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Varsa Alt Kategorileri Listele */}
+              {item.altKategoriler && item.altKategoriler.map((alt) => (
+                <View key={alt.id} style={styles.altKategoriKart}>
+                  <Text style={styles.altKategoriAd}>↳ 🏷️ {alt.ad}</Text>
+                  <TouchableOpacity 
+                    style={styles.silButon} 
+                    onPress={() => kategoriSil(alt.id)}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#EF233C" />
+                  </TouchableOpacity>
+                </View>
+              ))}
             </View>
           )}
           ListEmptyComponent={
@@ -157,29 +211,43 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F0F0F0'
   },
   headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#1C1C1E' },
-  geriButon: { padding: 4 },
-  ekleAlani: { flexDirection: 'row', padding: 20, gap: 10, backgroundColor: '#fff' },
-  input: { flex: 1, backgroundColor: '#F8F9FA', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: '#E5E5EA', fontSize: 15 },
-  ekleButon: { backgroundColor: '#FF9F00', padding: 15, borderRadius: 12, justifyContent: 'center', minWidth: 80, alignItems: 'center' },
-  ekleButonYazi: { color: '#fff', fontWeight: 'bold' },
+  ekleAlani: { padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  input: { backgroundColor: '#F8F9FA', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: '#E5E5EA', fontSize: 15, marginBottom: 12 },
+  ustSecimContainer: { marginBottom: 12 },
+  ustSecimBaslik: { fontSize: 12, color: '#8E8E93', marginBottom: 6, fontWeight: '500' },
+  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, backgroundColor: '#F2F2F7', borderWidth: 1, borderColor: '#E5E5EA' },
+  chipAktif: { backgroundColor: '#FFF0E6', borderColor: '#FF9F00' },
+  chipYazi: { fontSize: 13, color: '#3A3A3C' },
+  chipYaziAktif: { color: '#FF9F00', fontWeight: 'bold' },
+  ekleButon: { backgroundColor: '#FF9F00', padding: 15, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  ekleButonYazi: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
   liste: { padding: 20 },
   kategoriKart: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center',
     backgroundColor: '#fff', 
-    padding: 20, 
+    padding: 16, 
     borderRadius: 12, 
-    marginBottom: 10, 
+    marginBottom: 8, 
     borderWidth: 1, 
     borderColor: '#E5E5EA',
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2
+    elevation: 1
   },
   kategoriAd: { fontSize: 16, fontWeight: '600', color: '#1C1C1E' },
+  altKategoriKart: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F9F9FB',
+    padding: 12,
+    borderRadius: 10,
+    marginLeft: 20,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#EFEFF4'
+  },
+  altKategoriAd: { fontSize: 14, color: '#3A3A3C', fontWeight: '500' },
   silButon: { padding: 5 },
   bosListe: { textAlign: 'center', color: '#8E8E93', marginTop: 50 }
 });

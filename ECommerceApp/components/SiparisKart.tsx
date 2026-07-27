@@ -14,42 +14,56 @@ const getDurumRenkleri = (durum: string) => {
 
 interface SiparisKartProps {
   item: any;
-  onGuncelle: (siparis: any) => void;
+  onGuncelle: (siparis: any, seciliUrun: any) => void; 
   onKargoTakip: (id: number) => void;
 }
 
 export default function SiparisKart({ item, onGuncelle, onKargoTakip }: SiparisKartProps) {
-  const renkler = getDurumRenkleri(item.durum);
+  const urunListesi = item.satilanUrunler || item.urunler || [];
 
   return (
     <View style={styles.kart}>
       <View style={styles.kartUst}>
         <View style={{ flex: 1, paddingRight: 10 }}>
-          <Text style={styles.siparisNo}>Sipariş #{item.id}</Text>
+          <Text style={styles.siparisNo}>Sipariş #{item.id || item.siparisId}</Text>
           <View style={styles.kullaniciBilgiSatiri}>
             <Ionicons name="person" size={12} color="#8E8E93" />
-            <Text style={styles.kullaniciYazi}>{item.kullaniciAdSoyad || 'İsimsiz Kullanıcı'}</Text>
-          </View>
-          <View style={styles.kullaniciBilgiSatiri}>
-            <Ionicons name="mail" size={12} color="#8E8E93" />
-            <Text style={styles.kullaniciEmailYazi}>{item.kullaniciEmail}</Text>
+            <Text style={styles.kullaniciYazi}>{item.kullaniciAdSoyad || item.musteriAd || 'İsimsiz Kullanıcı'}</Text>
           </View>
         </View>
-        <View style={[styles.durumBadge, { backgroundColor: renkler.bg }]}>
-          <Ionicons name={renkler.icon as any} size={14} color={renkler.text} style={{ marginRight: 4 }} />
-          <Text style={[styles.durumYazi, { color: renkler.text }]}>{item.durum}</Text>
+        <View style={[styles.durumBadge, { backgroundColor: '#F2F2F7' }]}>
+          <Text style={[styles.durumYazi, { color: '#1C1C1E' }]}>{item.durum}</Text>
         </View>
       </View>
 
       <View style={styles.ayiriciCizgi} />
 
       <View style={styles.urunlerKutusu}>
-        {item.urunler && item.urunler.map((urun: any, index: number) => (
-          <Text key={index} style={styles.urunDetayYazi}>
-            <Text style={styles.urunAdet}>{urun.adet}x</Text> {urun.ad} 
-            <Text style={styles.urunFiyat}> ({(urun.birimFiyat * urun.adet).toFixed(2)} TL)</Text>
-          </Text>
-        ))}
+        {urunListesi.map((urun: any, index: number) => {
+          const renkler = getDurumRenkleri(urun.durum || 'Hazırlanıyor');
+          
+          return (
+            <View key={index} style={styles.urunSatiri}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.urunDetayYazi}>
+                  <Text style={styles.urunAdet}>{urun.adet}x</Text> {urun.ad} 
+                  <Text style={styles.urunFiyat}> ({(urun.birimFiyat * urun.adet).toFixed(2)} TL)</Text>
+                </Text>
+                <View style={[styles.kucukDurumBadge, { backgroundColor: renkler.bg }]}>
+                  <Ionicons name={renkler.icon as any} size={12} color={renkler.text} style={{ marginRight: 4 }} />
+                  <Text style={[styles.kucukDurumYazi, { color: renkler.text }]}>{urun.durum || 'Hazırlanıyor'}</Text>
+                </View>
+              </View>
+
+              {urun.durum !== 'Tamamlandı' && urun.durum !== 'İptal' && (
+                <TouchableOpacity style={styles.btnGuncelle} activeOpacity={0.8} onPress={() => onGuncelle(item, urun)}>
+                  <Ionicons name="color-wand-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.btnGuncelleYazi}>Güncelle</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )
+        })}
       </View>
 
       <View style={styles.kargoKutusu}>
@@ -59,37 +73,24 @@ export default function SiparisKart({ item, onGuncelle, onKargoTakip }: SiparisK
         </View>
         <View style={styles.kargoSatiri}>
           <Ionicons name="call-outline" size={14} color="#00529B" />
-          <Text style={[styles.kargoOdemeYazi, { color: '#00529B' }]}>{item.telefon || 'Telefon belirtilmemiş'}</Text>
-        </View>
-        <View style={styles.kargoSatiri}>
-          <Ionicons name="card-outline" size={14} color="#8E8E93" />
-          <Text style={styles.kargoOdemeYazi}>{item.odemeYontemi || 'Belirtilmemiş'}</Text>
+          <Text style={[styles.kargoOdemeYazi, { color: '#00529B' }]}>{item.telefon || item.iletisimTelfonu || 'Belirtilmemiş'}</Text>
         </View>
       </View>
 
       <View style={styles.ayiriciCizgi} />
 
       <View style={styles.kartAlt}>
-        <Text style={styles.fiyatAlan}>
-          Toplam: <Text style={styles.fiyatDeger}>{item.toplamTutar.toFixed(2)} TL</Text>
-        </Text>
-        
-        {/* Tamamlandı veya İptal durumunda güncelleme butonunu gizleyebiliriz veya pasif yapabiliriz */}
-        {item.durum !== 'Tamamlandı' && item.durum !== 'İptal' && (
-          <TouchableOpacity style={styles.btnGuncelle} activeOpacity={0.8} onPress={() => onGuncelle(item)}>
-            <Ionicons name="color-wand-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-            <Text style={styles.btnGuncelleYazi}>Güncelle</Text>
-          </TouchableOpacity>
-        )}
+        <View style={{ flex: 1 }}>
+          <Text style={styles.fiyatBaslik}>Müşterinin Ödediği (Brüt):</Text>
+          <Text style={styles.fiyatDegerBrut}>
+            {urunListesi.reduce((toplam: number, u: any) => toplam + (u.birimFiyat * u.adet), 0).toFixed(2)} TL
+          </Text>
+        </View>
+        <View style={{ alignItems: 'flex-end', flex: 1 }}>
+          <Text style={styles.fiyatBaslik}>Sizin Kazancınız (Net):</Text>
+          <Text style={styles.fiyatDegerNet}>{(item.saticiKazanci || 0).toFixed(2)} TL</Text>
+        </View>
       </View>
-
-      {item.durum === 'Kargoya Verildi' && (
-        <TouchableOpacity style={styles.adminKargoBtn} onPress={() => onKargoTakip(item.id)} activeOpacity={0.7}>
-          <Ionicons name="link-outline" size={18} color="#00529B" style={{ marginRight: 6 }} />
-          <Text style={styles.adminKargoBtnYazi}>Kargo Takibini Gör</Text>
-          <Ionicons name="chevron-forward" size={16} color="#00529B" style={{ marginLeft: 'auto' }} />
-        </TouchableOpacity>
-      )}
     </View>
   );
 }
@@ -100,23 +101,24 @@ const styles = StyleSheet.create({
   siparisNo: { fontWeight: '800', fontSize: 16, color: '#1C1C1E', marginBottom: 6 },
   kullaniciBilgiSatiri: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
   kullaniciYazi: { fontSize: 13, color: '#1C1C1E', marginLeft: 4, fontWeight: '500' },
-  kullaniciEmailYazi: { fontSize: 12, color: '#8E8E93', marginLeft: 4 },
   durumBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
   durumYazi: { fontSize: 12, fontWeight: '700' },
   ayiriciCizgi: { height: 1, backgroundColor: '#F2F2F7', marginVertical: 12 },
   urunlerKutusu: { paddingLeft: 4, marginBottom: 8 },
+  urunSatiri: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FAFAFC', padding: 10, borderRadius: 10, marginBottom: 8 },
   urunDetayYazi: { fontSize: 13, color: '#48484A', marginBottom: 6 },
   urunAdet: { fontWeight: '700', color: '#1C1C1E' },
   urunFiyat: { color: '#BFBFBF', fontSize: 12 },
+  kucukDurumBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, alignSelf: 'flex-start' },
+  kucukDurumYazi: { fontSize: 11, fontWeight: 'bold' },
   kargoKutusu: { backgroundColor: '#F8F9FA', padding: 10, borderRadius: 8, marginTop: 4 },
   kargoSatiri: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 },
   kargoAdresYazi: { fontSize: 12, color: '#48484A', marginLeft: 6, flex: 1, lineHeight: 18 },
   kargoOdemeYazi: { fontSize: 12, color: '#1C1C1E', marginLeft: 6, fontWeight: '600' },
   kartAlt: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
-  fiyatAlan: { fontSize: 13, color: '#8E8E93' },
-  fiyatDeger: { fontWeight: '800', color: '#1C1C1E', fontSize: 18 },
-  btnGuncelle: { flexDirection: 'row', backgroundColor: '#4EA8DE', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center', shadowColor: '#4EA8DE', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
-  btnGuncelleYazi: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
-  adminKargoBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E6F2FF', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, marginTop: 12 },
-  adminKargoBtnYazi: { color: '#00529B', fontWeight: '700', fontSize: 13 }
+  fiyatBaslik: { fontSize: 11, color: '#8E8E93', fontWeight: '500' },
+  fiyatDegerBrut: { fontWeight: '700', color: '#8E8E93', fontSize: 14, marginTop: 2 },
+  fiyatDegerNet: { fontWeight: '800', color: '#28A745', fontSize: 16, marginTop: 2 },
+  btnGuncelle: { flexDirection: 'row', backgroundColor: '#4EA8DE', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center', shadowColor: '#4EA8DE', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
+  btnGuncelleYazi: { color: '#FFFFFF', fontWeight: '700', fontSize: 12 },
 });

@@ -16,31 +16,40 @@ export default function RootLayout() {
 
         const inAuthGroup = segments[0] === '(auth)';
         const isAdminGroup = segments[0] === '(admin)';
+        const isSaticiGroup = segments[0] === '(satici)'; 
         const isRoot = (segments as string[]).length === 0; 
 
         if (!token) {
           // --- MİSAFİR (GUEST) DURUMU ---
-          if (isAdminGroup) {
-            router.replace('/(auth)/giris');
-          }
-          if (isRoot) {
-            router.replace('/(tabs)');
+          // Misafirler Admin veya Satıcı sayfalarına giremez, girişe at
+          if (isAdminGroup || isSaticiGroup) {
+            router.replace('/(auth)/giris' as any);
+          } else if (isRoot) {
+            router.replace('/(tabs)' as any);
           }
         } else {
           // --- GİRİŞ YAPMIŞ KİŞİ ---
           if (role === 'Admin') {
-            // Eğer Admin ise ve (tabs) veya (auth) kısmındaysa panele yolla
-            if (!isAdminGroup && (segments[0] === '(tabs)' || inAuthGroup || isRoot)) {
-              router.replace('/(admin)/admin');
+            // 1. ADMİN: Kendi klasöründe değilse (tabs, auth, satici vb) panele yolla
+            if (!isAdminGroup) {
+              router.replace('/(admin)/admin-islemler' as any); 
             }
-          } else {
-            // Normal Kullanıcı ise ve Admin klasörüne girmeye çalışırsa (tabs)'a yolla
-            if (isAdminGroup) {
-              router.replace('/(tabs)');
+          } 
+          else if (role === 'Satici') {
+            // 2. SATICI: Kendi klasöründe değilse, satıcı paneline yolla
+            if (!isSaticiGroup) {
+              router.replace('/(satici)/satici-anasayfa' as any);
             }
-            // Müşteri root veya auth'daysa tabs'a yolla
+          } 
+          else {
+            // 3. NORMAL KULLANICI: 
+            // Admin veya Satıcı klasörüne girmeye çalışırsa sekmelere (tabs) yolla
+            if (isAdminGroup || isSaticiGroup) {
+              router.replace('/(tabs)' as any);
+            }
+            // Müşteri root veya auth'daysa sekmelere (tabs) yolla
             else if (inAuthGroup || isRoot) {
-              router.replace('/(tabs)');
+              router.replace('/(tabs)' as any);
             }
           }
         }
@@ -67,6 +76,8 @@ export default function RootLayout() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(admin)" />
+      {/* YENİ EKLENDİ: Sisteme satıcı sayfalarının var olduğunu tanıtıyoruz */}
+      <Stack.Screen name="(satici)" />
     </Stack>
   );
 }

@@ -1,4 +1,4 @@
-import api, { API_CONFIG } from '@/config/api';
+import { API_CONFIG } from '@/config/api';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,7 +17,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Oluşturduğumuz bileşenleri içe aktarıyoruz
 import SiparisDurumModal from '../../components/SiparisDurumModal';
 import SiparisKart from '../../components/SiparisKart';
 
@@ -28,7 +26,8 @@ export default function AdminSiparisler() {
   const [loading, setLoading] = useState(true);
   
   const [modalGorunur, setModalGorunur] = useState(false);
-  const [seciliSiparis, setSeciliSiparis] = useState<any | null>(null); // Sadece ID değil, tüm objeyi tutuyoruz
+  const [seciliSiparis, setSeciliSiparis] = useState<any | null>(null); 
+  const [seciliUrun, setSeciliUrun] = useState<any | null>(null);
 
   const [aramaMetni, setAramaMetni] = useState('');
   const [seciliDurum, setSeciliDurum] = useState('Tümü');
@@ -42,54 +41,39 @@ export default function AdminSiparisler() {
   const siparisleriGetir = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/admin/siparisler'); 
+      const token = await AsyncStorage.getItem('userToken');
+      const response = await axios.get(`${API_CONFIG.BASE_URL}/admin/siparisler`, {
+        headers: { Authorization: `Bearer ${token}` }
+      }); 
       setSiparisler(response.data);
     } catch (error: any) {
-      Alert.alert("Hata", "Siparişler yüklenemedi. Lütfen backend rotasını kontrol et.");
+      Alert.alert("Hata", "Siparişler yüklenemedi. Lütfen backend bağlantınızı kontrol edin.");
     } finally {
       setLoading(false);
     }
   };
 
-  const durumSec = (yeniDurum: string) => {
-    if (seciliSiparis !== null) {
-      guncelleApi(seciliSiparis.id, yeniDurum);
+  const durumSec = (yeniDurum: string, kargoFirma?: string, kargoTakipNo?: string) => {
+    if (seciliUrun !== null) {
+      guncelleApi(seciliUrun.detayId, yeniDurum, kargoFirma, kargoTakipNo);
     }
-    setModalGorunur(false);
   };
 
-  const guncelleApi = async (id: number, yeniDurum: string) => {
+  const guncelleApi = async (detayId: number, yeniDurum: string, kargoFirma?: string, kargoTakipNo?: string) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      await axios.put(`${API_CONFIG.BASE_URL}/admin/siparisler/${id}/durum`, 
-        { yeniDurum }, 
+      
+      await axios.put(`${API_CONFIG.BASE_URL}/admin/siparis-detay/${detayId}/durum`, 
+        { yeniDurum, kargoFirma, kargoTakipNo }, 
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      
+      Alert.alert("Başarılı", "Ürün durumu başarıyla güncellendi.");
+      setModalGorunur(false);
       siparisleriGetir(); 
     } catch (error) {
-      Alert.alert("Hata", "Güncelleme başarısız.");
+      Alert.alert("Hata", "Güncelleme başarısız oldu.");
     }
-  };
-
-  const kargoTakipBaslat = async (siparisId: number) => {
-    const kargoNo = `ARS${Math.floor(100000000 + Math.random() * 900000000)}`;
-    const kargoUrl = `https://www.araskargo.com.tr/kargo-takip`;
-
-    Alert.alert(
-      "Kargo Takip", 
-      `Sipariş #${siparisId}\nTakip No: ${kargoNo}\n\nKargo firmasının takip sayfasına gitmek ister misiniz?`,
-      [
-        { text: "Vazgeç", style: "cancel" },
-        { 
-          text: "Siteye Git", 
-          onPress: async () => {
-            const supported = await Linking.canOpenURL(kargoUrl);
-            if (supported) await Linking.openURL(kargoUrl);
-            else Alert.alert("Hata", "Takip sayfası açılamadı.");
-          } 
-        }
-      ]
-    );
   };
 
   const filtrelenmisSiparisler = useMemo(() => {
@@ -164,11 +148,12 @@ export default function AdminSiparisler() {
         renderItem={({ item }) => (
           <SiparisKart 
             item={item} 
-            onGuncelle={(siparis) => {
+            onGuncelle={(siparis, urun) => {
               setSeciliSiparis(siparis);
+              setSeciliUrun(urun);
               setModalGorunur(true);
             }} 
-            onKargoTakip={kargoTakipBaslat} 
+            onKargoTakip={() => {}} // Admin tarafında ürün içindeki kargo butonunu SiparisKart zaten render etmiyor
           />
         )}
       />
@@ -176,6 +161,7 @@ export default function AdminSiparisler() {
       <SiparisDurumModal 
         visible={modalGorunur}
         siparis={seciliSiparis}
+        seciliUrun={seciliUrun} 
         onClose={() => setModalGorunur(false)}
         onDurumSec={durumSec}
       />

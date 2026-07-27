@@ -1,3 +1,4 @@
+import { kategorileriGetir } from '@/services/KategoriService'; // Doğrudan kategori servisinden çekiyoruz
 import { urunleriGetir } from '@/services/UrunService';
 import { Kategori, Urun } from '@/types/Urun';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,9 +15,12 @@ export default function Anasayfa() {
   const [tumUrunler, setTumUrunler] = useState<Urun[]>([]);
   const [gorunenUrunler, setGorunenUrunler] = useState<Urun[]>([]);
   const [kategoriler, setKategoriler] = useState<Kategori[]>([]);
-  const [seciliKategori, setSeciliKategori] = useState<number | null>(null);
-  const [aramaMetni, setAramaMetni] = useState('');
   
+  // Hiyerarşik Kategori Yönetimi
+  const [seciliAnaKategori, setSeciliAnaKategori] = useState<Kategori | null>(null);
+  const [seciliAltKategoriId, setSeciliAltKategoriId] = useState<number | null>(null);
+
+  const [aramaMetni, setAramaMetni] = useState('');
   const [siralama, setSiralama] = useState<SiralamaTipi>(null);
   const [sadeceIndirimli, setSadeceIndirimli] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -25,44 +29,38 @@ export default function Anasayfa() {
     useCallback(() => {
       setLoading(true); 
       
-      urunleriGetir()
-        .then((data: Urun[]) => {
-          if (!data) return;
-          setTumUrunler(data);
-          
-          filtreleriUygula(data, aramaMetni, seciliKategori, siralama, sadeceIndirimli);
-
-          const cikanKategoriler: Kategori[] = [];
-          
-          data.forEach(urun => {
-            if (urun?.kategori?.id) {
-              const zatenVarMi = cikanKategoriler.some(k => k.id === urun.kategori.id);
-              
-              if (!zatenVarMi) {
-                cikanKategoriler.push({
-                  id: urun.kategori.id,
-                  ad: urun.kategori.ad
-                });
-              }
-            }
-          });
-          
-          setKategoriler(cikanKategoriler);
+      // Ürünleri ve kategorileri paralel olarak backend'den çekiyoruz
+      Promise.all([urunleriGetir(), kategorileriGetir()])
+        .then(([urunData, kategoriData]) => {
+          if (urunData) {
+            setTumUrunler(urunData);
+            filtreleriUygula(urunData, aramaMetni, seciliAltKategoriId, seciliAnaKategori?.id || null, siralama, sadeceIndirimli);
+          }
+          if (kategoriData) {
+            setKategoriler(kategoriData);
+          }
         })
         .catch((error) => {
-          console.log("Ürünleri Getirme Hatası:", error);
+          console.log("Veri Getirme Hatası:", error);
         })
         .finally(() => {
           setLoading(false);
         });
-    }, [aramaMetni, seciliKategori, siralama, sadeceIndirimli]) 
+    }, [aramaMetni, seciliAltKategoriId, seciliAnaKategori, siralama, sadeceIndirimli]) 
   );
 
-  const filtreleriUygula = (liste: Urun[], aranan: string, kategoriId: number | null, seciliSiralama: SiralamaTipi, indirimliMi: boolean) => {
+  const filtreleriUygula = (liste: Urun[], aranan: string, altKategoriId: number | null, anaKategoriId: number | null, seciliSiralama: SiralamaTipi, indirimliMi: boolean) => {
     let sonuc = [...liste]; 
 
-    if (kategoriId !== null) {
-      sonuc = sonuc.filter(u => u.kategoriId === kategoriId);
+    // Eğer alt kategori seçildiyse ona göre filtrele
+    if (altKategoriId !== null) {
+      sonuc = sonuc.filter(u => u.kategoriId === altKategoriId);
+    } 
+    // Eğer sadece ana kategori seçildiyse ve alt kategori seçilmediyse, o ana kategoriye ait tüm alt kategorilerdeki ürünleri getir
+    else if (anaKategoriId !== null) {
+      const secilenAna = kategoriler.find(k => k.id === anaKategoriId);
+      const altIds = secilenAna?.altKategoriler?.map(ak => ak.id) || [];
+      sonuc = sonuc.filter(u => u.kategoriId === anaKategoriId || altIds.includes(u.kategoriId));
     }
 
     if (aranan) {
@@ -86,25 +84,43 @@ export default function Anasayfa() {
 
   const aramaYap = (text: string) => {
     setAramaMetni(text);
-    filtreleriUygula(tumUrunler, text, seciliKategori, siralama, sadeceIndirimli);
+    filtreleriUygula(tumUrunler, text, seciliAltKategoriId, seciliAnaKategori?.id || null, siralama, sadeceIndirimli);
   };
 
-  const kategoriSec = (id: number | null) => {
-    const yeniKategori = seciliKategori === id ? null : id;
-    setSeciliKategori(yeniKategori);
-    filtreleriUygula(tumUrunler, aramaMetni, yeniKategori, siralama, sadeceIndirimli);
+  const anaKategoriSec = (kat: Kategori | null) => {
+    if (kat === null) {
+      setSeciliAnaKategori(null);
+      setSeciliAltKategoriId(null);
+      filtreleriUygula(tumUrunler, aramaMetni, null, null, siralama, sadeceIndirimli);
+    } else {
+      if (seciliAnaKategori?.id === kat.id) {
+        setSeciliAnaKategori(null);
+        setSeciliAltKategoriId(null);
+        filtreleriUygula(tumUrunler, aramaMetni, null, null, siralama, sadeceIndirimli);
+      } else {
+        setSeciliAnaKategori(kat);
+        setSeciliAltKategoriId(null); 
+        filtreleriUygula(tumUrunler, aramaMetni, null, kat.id, siralama, sadeceIndirimli);
+      }
+    }
+  };
+
+  const altKategoriSec = (altId: number) => {
+    const yeniAltId = seciliAltKategoriId === altId ? null : altId;
+    setSeciliAltKategoriId(yeniAltId);
+    filtreleriUygula(tumUrunler, aramaMetni, yeniAltId, seciliAnaKategori?.id || null, siralama, sadeceIndirimli);
   };
 
   const siralamaSec = (tip: SiralamaTipi) => {
     const yeniSiralama = siralama === tip ? null : tip; 
     setSiralama(yeniSiralama);
-    filtreleriUygula(tumUrunler, aramaMetni, seciliKategori, yeniSiralama, sadeceIndirimli);
+    filtreleriUygula(tumUrunler, aramaMetni, seciliAltKategoriId, seciliAnaKategori?.id || null, yeniSiralama, sadeceIndirimli);
   };
 
   const indirimFiltresiSec = () => {
     const yeniDurum = !sadeceIndirimli;
     setSadeceIndirimli(yeniDurum);
-    filtreleriUygula(tumUrunler, aramaMetni, seciliKategori, siralama, yeniDurum);
+    filtreleriUygula(tumUrunler, aramaMetni, seciliAltKategoriId, seciliAnaKategori?.id || null, siralama, yeniDurum);
   };
 
   if (loading && tumUrunler.length === 0) {
@@ -170,28 +186,48 @@ export default function Anasayfa() {
         </ScrollView>
       </View>
 
+      {/* ANA KATEGORİLER (Örn: Giyim) */}
       <View style={styles.kategoriAlani}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 15 }}>
           <TouchableOpacity 
-            style={[styles.kategoriHap, seciliKategori === null && styles.kategoriHapAktif]} 
-            onPress={() => kategoriSec(null)}
+            style={[styles.kategoriHap, seciliAnaKategori === null && styles.kategoriHapAktif]} 
+            onPress={() => anaKategoriSec(null)}
           >
-            <Text style={[styles.kategoriYazi, seciliKategori === null && styles.kategoriYaziAktif]}>Tümü</Text>
+            <Text style={[styles.kategoriYazi, seciliAnaKategori === null && styles.kategoriYaziAktif]}>Tümü</Text>
           </TouchableOpacity>
 
           {kategoriler.map((kat) => (
             <TouchableOpacity 
               key={kat.id} 
-              style={[styles.kategoriHap, seciliKategori === kat.id && styles.kategoriHapAktif]} 
-              onPress={() => kategoriSec(kat.id)}
+              style={[styles.kategoriHap, seciliAnaKategori?.id === kat.id && styles.kategoriHapAktif]} 
+              onPress={() => anaKategoriSec(kat)}
             >
-              <Text style={[styles.kategoriYazi, seciliKategori === kat.id && styles.kategoriYaziAktif]}>
+              <Text style={[styles.kategoriYazi, seciliAnaKategori?.id === kat.id && styles.kategoriYaziAktif]}>
                 {kat.ad}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
       </View>
+
+      {/* ALT KATEGORİLER (Açılır-Kapanır Alan: Örn: Giyim seçilince altında Elbise çıkması) */}
+      {seciliAnaKategori && seciliAnaKategori.altKategoriler && seciliAnaKategori.altKategoriler.length > 0 && (
+        <View style={styles.altKategoriAlani}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 15 }}>
+            {seciliAnaKategori.altKategoriler.map((altKat) => (
+              <TouchableOpacity 
+                key={altKat.id} 
+                style={[styles.altKategoriHap, seciliAltKategoriId === altKat.id && styles.altKategoriHapAktif]} 
+                onPress={() => altKategoriSec(altKat.id)}
+              >
+                <Text style={[styles.altKategoriYazi, seciliAltKategoriId === altKat.id && styles.altKategoriYaziAktif]}>
+                  {altKat.ad}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       <FlatList 
         style={{ flex: 1 }}
@@ -210,7 +246,7 @@ export default function Anasayfa() {
           <TouchableOpacity 
             style={styles.kart} 
             activeOpacity={0.9}
-            onPress={() => router.push(`/detay?id=${item.id}`)}
+            onPress={() => router.push(`/detay?id=${item.id}` as any)}
           >
             <View>
               {item.resimUrl ? (
@@ -308,7 +344,7 @@ const styles = StyleSheet.create({
   siralamaYazi: { fontSize: 12, fontWeight: '600', color: '#666', marginLeft: 4 },
   siralamaYaziAktif: { color: '#fff' },
 
-  kategoriAlani: { marginBottom: 15 },
+  kategoriAlani: { marginBottom: 10 },
   kategoriHap: { 
     paddingHorizontal: 18, 
     paddingVertical: 8, 
@@ -321,6 +357,20 @@ const styles = StyleSheet.create({
   kategoriHapAktif: { backgroundColor: 'orange', borderColor: 'orange' },
   kategoriYazi: { fontSize: 13, fontWeight: '600', color: '#555' },
   kategoriYaziAktif: { color: '#fff' },
+
+  altKategoriAlani: { marginBottom: 15, paddingLeft: 5 },
+  altKategoriHap: { 
+    paddingHorizontal: 14, 
+    paddingVertical: 6, 
+    backgroundColor: '#FFF3E0', 
+    borderRadius: 16, 
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#FFE0B2'
+  },
+  altKategoriHapAktif: { backgroundColor: '#FB8C00', borderColor: '#FB8C00' },
+  altKategoriYazi: { fontSize: 12, fontWeight: '600', color: '#E65100' },
+  altKategoriYaziAktif: { color: '#fff' },
 
   listeSutunYapisi: { justifyContent: 'space-between' },
   kart: { 

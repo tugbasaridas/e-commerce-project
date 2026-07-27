@@ -1,15 +1,23 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Dimensions, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAdminDashboard } from '../../hooks/custom/useAdminDashboard';
 
 const { width } = Dimensions.get('window');
 
 export default function AdminDashboard() {
   const router = useRouter();
-  // YENİ: adminAdi değişkenini hook'tan çekiyoruz
   const { stats, loading, oturumuKapat, yenile, adminAdi } = useAdminDashboard();
+
+  // KESİN ÇÖZÜM: Backend'den (C#) veriler büyük veya küçük harfle dönse de güvenle yakalıyoruz
+  const ciro = stats?.toplamCiro ?? (stats as any)?.ToplamCiro ?? 0;
+  const netKazanc = stats?.platformKazanci ?? (stats as any)?.PlatformKazanci ?? 0;
+  const musteriSayisi = stats?.toplamMusteri ?? (stats as any)?.ToplamMusteri ?? 0;
+  const saticiSayisi = stats?.toplamSatici ?? (stats as any)?.ToplamSatici ?? 0;
+  const aktifUrunSayisi = stats?.aktifUrun ?? (stats as any)?.AktifUrun ?? 0;
+  const pasifUrunSayisi = stats?.pasifUrun ?? (stats as any)?.PasifUrun ?? 0;
+  const topSatanlar = stats?.enCokSatanlar ?? (stats as any)?.EnCokSatanlar ?? [];
 
   return (
     <ScrollView 
@@ -20,7 +28,6 @@ export default function AdminDashboard() {
       {/* ÜST BANNER / BAŞLIK */}
       <View style={styles.headerBanner}>
         <View>
-          {/* YENİ: Dinamik karşılama mesajı eklendi */}
           <Text style={styles.welcomeText}>Hoş geldin, {adminAdi} 👋</Text>
           <Text style={styles.headerTitle}>Raporlar & Analiz</Text>
         </View>
@@ -32,79 +39,144 @@ export default function AdminDashboard() {
         </View>
       </View>
 
-      {/* FİNANSAL DURUM */}
+      {/* FİNANSAL DURUM - YENİLENEN İKİLİ KART YAPISI */}
       <Text style={styles.sectionTitle}>Finansal Durum</Text>
-      <View style={styles.ciroCard}>
-        <View style={styles.ciroIconContainer}>
-          <Ionicons name="wallet" size={28} color="#28A745" />
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
+        
+        {/* TOPLAM İŞLEM HACMİ (Müşterinin Ödediği) */}
+        <View style={[styles.ciroCard, { flex: 1, marginRight: 10, marginBottom: 0, flexDirection: 'column', alignItems: 'flex-start', padding: 16, borderLeftColor: '#1E90FF' }]}>
+          <View style={[styles.ciroIconContainer, { backgroundColor: '#E6F2FF', marginBottom: 12, marginRight: 0 }]}>
+            <Ionicons name="swap-horizontal" size={24} color="#1E90FF" />
+          </View>
+          <View>
+            <Text style={styles.ciroLabel}>Toplam Hacim</Text>
+            <Text style={[styles.ciroValue, { color: '#1E90FF', fontSize: 18 }]} numberOfLines={1} adjustsFontSizeToFit>
+              {Number(ciro).toFixed(2)} ₺
+            </Text>
+          </View>
         </View>
-        <View style={styles.ciroTextContainer}>
-          <Text style={styles.ciroLabel}>Toplam Kazanç (Ciro)</Text>
-          <Text style={styles.ciroValue} numberOfLines={1} adjustsFontSizeToFit={true}>
-            {stats.toplamCiro ? stats.toplamCiro.toFixed(2) : "0.00"} ₺
-          </Text>
+
+        {/* ADMİN NET KAZANCI (%10 Komisyon) */}
+        <View style={[styles.ciroCard, { flex: 1, marginBottom: 0, flexDirection: 'column', alignItems: 'flex-start', padding: 16, borderLeftColor: '#28A745' }]}>
+          <View style={[styles.ciroIconContainer, { backgroundColor: '#E8F5E9', marginBottom: 12, marginRight: 0 }]}>
+            <Ionicons name="wallet" size={24} color="#28A745" />
+          </View>
+          <View>
+            <Text style={styles.ciroLabel}>Net Kazancımız</Text>
+            <Text style={[styles.ciroValue, { color: '#28A745', fontSize: 18 }]} numberOfLines={1} adjustsFontSizeToFit>
+              {Number(netKazanc).toFixed(2)} ₺
+            </Text>
+          </View>
         </View>
+
       </View>
 
       {/* İSTATİSTİK KARTLARI GRİD YAPISI */}
       <Text style={styles.sectionTitle}>Genel Bakış</Text>
       <View style={styles.statsGrid}>
+        
+        {/* MÜŞTERİ KARTI */}
         <View style={[styles.card, { borderLeftColor: '#4EA8DE' }]}>
           <View style={styles.cardHeader}>
             <View style={[styles.iconContainer, { backgroundColor: '#E1F5FE' }]}>
               <Ionicons name="people" size={24} color="#4EA8DE" />
             </View>
           </View>
-          <Text style={styles.cardValue}>{stats.toplamKullanici}</Text>
-          <Text style={styles.cardLabel}>Toplam Kullanıcı</Text>
+          <Text style={styles.cardValue}>{musteriSayisi}</Text>
+          <Text style={styles.cardLabel}>Toplam Müşteri</Text>
         </View>
 
+        {/* SATICI KARTI */}
+        <View style={[styles.card, { borderLeftColor: '#9D4EDD' }]}>
+          <View style={styles.cardHeader}>
+            <View style={[styles.iconContainer, { backgroundColor: '#F3E8FF' }]}>
+              <Ionicons name="storefront" size={24} color="#9D4EDD" />
+            </View>
+          </View>
+          <Text style={styles.cardValue}>{saticiSayisi}</Text>
+          <Text style={styles.cardLabel}>Toplam Satıcı</Text>
+        </View>
+
+        {/* AKTİF ÜRÜN KARTI */}
         <View style={[styles.card, { borderLeftColor: '#70E000' }]}>
           <View style={styles.cardHeader}>
             <View style={[styles.iconContainer, { backgroundColor: '#F0FDF4' }]}>
               <Ionicons name="cube" size={24} color="#70E000" />
             </View>
           </View>
-          <Text style={styles.cardValue}>{stats.toplamUrun}</Text>
+          <Text style={styles.cardValue}>{aktifUrunSayisi}</Text>
           <Text style={styles.cardLabel}>Aktif Ürün</Text>
         </View>
+
+        {/* PASİF ÜRÜN KARTI */}
+        <View style={[styles.card, { borderLeftColor: '#EF233C' }]}>
+          <View style={styles.cardHeader}>
+            <View style={[styles.iconContainer, { backgroundColor: '#FFF0F0' }]}>
+              <Ionicons name="archive" size={24} color="#EF233C" />
+            </View>
+          </View>
+          <Text style={styles.cardValue}>{pasifUrunSayisi}</Text>
+          <Text style={styles.cardLabel}>Pasif Ürün</Text>
+        </View>
+        
       </View>
 
-      {/* AKTİF SİPARİŞ KARTI */}
-      <TouchableOpacity 
-        style={[styles.longCard, { borderLeftColor: '#FF9F00' }]}
-        activeOpacity={0.8}
-        onPress={() => router.push('/admin-siparisler' as any)} 
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <View style={[styles.iconContainer, { backgroundColor: '#FFF4E5' }]}>
-            <Ionicons name="cart" size={24} color="#FF9F00" />
-          </View>
-          <View style={{ marginLeft: 15 }}>
-            <Text style={styles.longCardLabel}>Bekleyen Siparişler</Text>
-            <Text style={styles.longCardSub}>Siparişleri incelemek için dokunun</Text> 
-          </View>
-        </View>
-        <Text style={[styles.cardValue, { color: '#FF9F00' }]}>{stats.bekleyenSiparisler || 0}</Text>
-      </TouchableOpacity>
-
       {/* EN ÇOK SATANLAR LİSTESİ */}
-      {stats.enCokSatanlar && stats.enCokSatanlar.length > 0 && (
+      {topSatanlar && topSatanlar.length > 0 && (
         <>
-          <Text style={styles.sectionTitle}>En Çok Satan Ürünler (Top 5)</Text>
-          <View style={[styles.menuContainer, { paddingVertical: 0 }]}>
-            {stats.enCokSatanlar.map((urun, index) => (
-              <View key={urun.urunId} style={[styles.topProductRow, index !== 0 && styles.rowDivider]}>
-                <Text style={styles.rankText}>#{index + 1}</Text>
-                <View style={styles.productInfoContainer}>
-                  <Text style={styles.productName} numberOfLines={1} ellipsizeMode="tail">
-                    {urun.urunAdi}
-                  </Text>
-                  <Text style={styles.productSales}>{urun.toplamSatisAdedi} Adet Satıldı</Text>
+          <Text style={[styles.sectionTitle, { marginTop: 15 }]}>En Çok Satanlar (Top 5)</Text>
+          <View style={styles.topSellerContainer}>
+            {topSatanlar.map((urun: any, index: number) => {
+              
+              // Backend JSON dönüşü (Büyük/Küçük harf duyarlılığı kontrolü)
+              const urunId = urun?.urunId ?? urun?.UrunId;
+              const urunAdi = urun?.urunAdi ?? urun?.UrunAdi ?? "Bilinmeyen Ürün";
+              const magazaAdi = urun?.magazaAdi ?? urun?.MagazaAdi ?? "Bilinmiyor";
+              
+              // RESİM İÇİN KESİN GÜVENLİK KONTROLÜ
+              let resimLink = 'https://via.placeholder.com/150';
+              if (urun?.resimUrl && typeof urun.resimUrl === 'string' && urun.resimUrl.length > 5) {
+                resimLink = urun.resimUrl;
+              } else if (urun?.ResimUrl && typeof urun.ResimUrl === 'string' && urun.ResimUrl.length > 5) {
+                resimLink = urun.ResimUrl;
+              }
+
+              const kazanc = urun?.toplamKazanc ?? urun?.ToplamKazanc ?? 0;
+              const satisAdedi = urun?.toplamSatisAdedi ?? urun?.ToplamSatisAdedi ?? 0;
+
+              return (
+                <View key={urunId} style={[styles.topSellerRow, index !== topSatanlar.length - 1 && styles.rowDivider]}>
+                  
+                  <View style={styles.rankBadge}>
+                    <Text style={styles.rankText}>#{index + 1}</Text>
+                  </View>
+
+                  <Image 
+                    source={{ uri: resimLink }} 
+                    style={styles.productImage} 
+                  />
+
+                  <View style={styles.productInfoContainer}>
+                    <Text style={styles.productName} numberOfLines={2}>
+                      {urunAdi}
+                    </Text>
+                    <View style={styles.storeContainer}>
+                      <Ionicons name="storefront-outline" size={12} color="#8E8E93" />
+                      <Text style={styles.storeName} numberOfLines={1}>{magazaAdi}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.productStatsContainer}>
+                    <Text style={styles.productRevenue}>{Number(kazanc).toFixed(2)} ₺</Text>
+                    <View style={styles.salesBadge}>
+                      <Ionicons name="trending-up" size={10} color="#FF9F00" />
+                      <Text style={styles.productSales}>{satisAdedi} Satış</Text>
+                    </View>
+                  </View>
+                  
                 </View>
-                <Text style={styles.productRevenue}>{urun.toplamKazanc.toFixed(2)} ₺</Text>
-              </View>
-            ))}
+              );
+            })}
           </View>
         </>
       )}
@@ -122,26 +194,36 @@ const styles = StyleSheet.create({
   adminBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF4E5', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
   adminBadgeText: { color: '#FF9F00', fontWeight: '600', fontSize: 12, marginLeft: 4 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1C1C1E', marginBottom: 12, marginTop: 10 },
-  ciroCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, flexDirection: 'row', alignItems: 'center', marginBottom: 20, borderLeftWidth: 5, borderLeftColor: '#28A745', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2 },
-  ciroIconContainer: { backgroundColor: '#E8F5E9', padding: 14, borderRadius: 12, marginRight: 16 },
+  
+  ciroCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, flexDirection: 'row', alignItems: 'center', marginBottom: 20, borderLeftWidth: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2 },
+  ciroIconContainer: { padding: 14, borderRadius: 12, marginRight: 16 },
   ciroTextContainer: { flex: 1, justifyContent: 'center' },
   ciroLabel: { fontSize: 13, color: '#8E8E93', fontWeight: '500', marginBottom: 4 },
-  ciroValue: { fontSize: 26, fontWeight: '800', color: '#28A745' },
-  statsGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
-  card: { backgroundColor: '#FFFFFF', width: (width - 55) / 2, padding: 16, borderRadius: 14, borderLeftWidth: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2 },
+  ciroValue: { fontSize: 26, fontWeight: '800' },
+  
+  statsGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5, flexWrap: 'wrap' },
+  card: { backgroundColor: '#FFFFFF', width: (width - 55) / 2, padding: 16, borderRadius: 14, borderLeftWidth: 4, marginBottom: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   iconContainer: { padding: 8, borderRadius: 10 },
   cardValue: { fontSize: 26, fontWeight: '800', color: '#1C1C1E' },
   cardLabel: { fontSize: 13, color: '#8E8E93', marginTop: 4, fontWeight: '500' },
-  longCard: { backgroundColor: '#FFFFFF', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 14, borderLeftWidth: 4, marginBottom: 25, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2 },
-  longCardLabel: { fontSize: 15, fontWeight: '600', color: '#1C1C1E' },
-  longCardSub: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
-  menuContainer: { backgroundColor: '#FFFFFF', borderRadius: 16, paddingVertical: 5, marginBottom: 25, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2 },
-  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E5E5EA' },
-  topProductRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16 },
-  rankText: { fontSize: 16, fontWeight: '800', color: '#FF9F00', width: 32 },
+  
+  topSellerContainer: { backgroundColor: '#FFFFFF', borderRadius: 16, paddingVertical: 5, marginBottom: 25, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2 },
+  rowDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E5E5EA' },
+  topSellerRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16 },
+  
+  rankBadge: { width: 28, height: 28, backgroundColor: '#FFF4E5', borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  rankText: { fontSize: 12, fontWeight: '800', color: '#FF9F00' },
+  
+  productImage: { width: 45, height: 45, borderRadius: 8, backgroundColor: '#F2F2F7', marginRight: 12 },
+  
   productInfoContainer: { flex: 1, paddingRight: 10, justifyContent: 'center' },
-  productName: { fontSize: 15, fontWeight: '600', color: '#1C1C1E', marginBottom: 3 },
-  productSales: { fontSize: 12, color: '#8E8E93' },
-  productRevenue: { fontSize: 15, fontWeight: '700', color: '#28A745', textAlign: 'right' }
+  productName: { fontSize: 14, fontWeight: '600', color: '#1C1C1E', marginBottom: 4, lineHeight: 18 },
+  storeContainer: { flexDirection: 'row', alignItems: 'center' },
+  storeName: { fontSize: 12, color: '#8E8E93', marginLeft: 4, flex: 1 },
+  
+  productStatsContainer: { alignItems: 'flex-end', justifyContent: 'center' },
+  productRevenue: { fontSize: 15, fontWeight: '700', color: '#28A745', marginBottom: 4 },
+  salesBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF4E5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  productSales: { fontSize: 11, fontWeight: '600', color: '#FF9F00', marginLeft: 4 }
 });
