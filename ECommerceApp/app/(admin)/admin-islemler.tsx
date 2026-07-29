@@ -3,11 +3,25 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Alert, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAdminDashboard } from '../../hooks/custom/useAdminDashboard';
 
 const { width } = Dimensions.get('window');
 
+// BİLDİRİM BALONCUĞU (BADGE) BİLEŞENİ
+const BildirimRozeti = ({ sayi }: { sayi: number }) => {
+  if (!sayi || sayi <= 0) return null; // Sıfırsa veya yoksa hiç gösterme
+  
+  return (
+    <View style={styles.badgeContainer}>
+      <Text style={styles.badgeText}>{sayi > 99 ? '99+' : sayi}</Text>
+    </View>
+  );
+};
+
 export default function AdminIslemler() {
   const router = useRouter();
+  // YENİ: Backend'deki istatistik (ve bildirim) sayılarını çeken hook'umuzu dahil ettik
+  const { stats } = useAdminDashboard();
 
   const cikisYap = async () => {
     Alert.alert(
@@ -51,43 +65,43 @@ export default function AdminIslemler() {
 
       <View style={styles.gridContainer}>
         
-        {/* SİPARİŞLER (Platformdaki Tüm Siparişleri Görüntüleme) */}
+        {/* SİPARİŞLER (Hazırlanan sipariş sayısı) */}
         <TouchableOpacity style={styles.card} activeOpacity={0.7} onPress={() => router.push('/admin-siparisler' as any)}>
           <View style={styles.cardTop}>
             <View style={[styles.iconBox, { backgroundColor: '#FFF4E5' }]}>
               <Ionicons name="cart" size={26} color="#FF9F00" />
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#D1D1D6" />
+            <BildirimRozeti sayi={stats?.bekleyenSiparis || (stats as any)?.BekleyenSiparis || 0} />
           </View>
           <Text style={styles.cardTitle}>Siparişler</Text>
           <Text style={styles.cardDesc}>Platformdaki tüm siparişlerin durumunu izle</Text>
         </TouchableOpacity>
 
-        {/* ÜRÜN ONAY (Satıcıların Eklediği Ürünleri İnceleme) */}
+        {/* ÜRÜN ONAY */}
         <TouchableOpacity style={styles.card} activeOpacity={0.7} onPress={() => router.push('/admin-urun-onay' as any)}>
           <View style={styles.cardTop}>
             <View style={[styles.iconBox, { backgroundColor: '#E0F7FA' }]}>
               <Ionicons name="checkmark-done-circle" size={26} color="#00BCD4" />
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#D1D1D6" />
+            <BildirimRozeti sayi={stats?.bekleyenUrun || (stats as any)?.BekleyenUrun || 0} />
           </View>
           <Text style={styles.cardTitle}>Ürün Onay</Text>
           <Text style={styles.cardDesc}>Satıcıların eklediği yeni ürünleri incele ve onayla</Text>
         </TouchableOpacity>
 
-        {/* MAĞAZA YÖNETİMİ (Satıcı Onay ve Yönetimi) */}
+        {/* MAĞAZA YÖNETİMİ */}
         <TouchableOpacity style={styles.card} activeOpacity={0.7} onPress={() => router.push('/admin-satici-onay' as any)}>
           <View style={styles.cardTop}>
             <View style={[styles.iconBox, { backgroundColor: '#E8EAF6' }]}>
               <Ionicons name="storefront" size={26} color="#3F51B5" />
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#D1D1D6" />
+            <BildirimRozeti sayi={stats?.bekleyenMagaza || (stats as any)?.BekleyenMagaza || 0} />
           </View>
           <Text style={styles.cardTitle}>Mağaza Yönetimi</Text>
           <Text style={styles.cardDesc}>Onay bekleyen ve aktif satıcıları yönet</Text>
         </TouchableOpacity>
 
-        {/* KULLANICILAR (Müşteri ve Satıcı Hesapları) */}
+        {/* KULLANICILAR */}
         <TouchableOpacity style={styles.card} activeOpacity={0.7} onPress={() => router.push('/admin-kullanicilar' as any)}>
           <View style={styles.cardTop}>
             <View style={[styles.iconBox, { backgroundColor: '#F3E5F5' }]}>
@@ -96,7 +110,7 @@ export default function AdminIslemler() {
             <Ionicons name="chevron-forward" size={20} color="#D1D1D6" />
           </View>
           <Text style={styles.cardTitle}>Kullanıcılar</Text>
-          <Text style={styles.cardDesc}>Müşteri hesaplarını yönet, askıya al veya sil</Text>
+          <Text style={styles.cardDesc}>Müşteri hesaplarını yönet, askıya al veya aktifleştir</Text>
         </TouchableOpacity>
 
         {/* KATEGORİLER */}
@@ -117,7 +131,7 @@ export default function AdminIslemler() {
             <View style={[styles.iconBox, { backgroundColor: '#F0FDF4' }]}>
               <Ionicons name="chatbubbles" size={26} color="#28A745" />
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#D1D1D6" />
+            <BildirimRozeti sayi={stats?.bekleyenDestek || (stats as any)?.BekleyenDestek || 0} />
           </View>
           <Text style={styles.cardTitle}>Müşteri Destek</Text>
           <Text style={styles.cardDesc}>Gelen soruları ve talepleri anında yanıtla</Text>
@@ -142,5 +156,28 @@ const styles = StyleSheet.create({
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
   iconBox: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   cardTitle: { fontSize: 16, fontWeight: '700', color: '#1C1C1E', marginBottom: 6 },
-  cardDesc: { fontSize: 12, color: '#8E8E93', lineHeight: 18 }
-});
+  cardDesc: { fontSize: 12, color: '#8E8E93', lineHeight: 18 },
+  
+  // YENİ EKLENEN BİLDİRİM (BADGE) STİLLERİ
+  badgeContainer: {
+    backgroundColor: '#FF3B30',
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    marginTop: -5,
+    marginRight: -5,
+    shadowColor: '#FF3B30',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 4
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  }
+}); 

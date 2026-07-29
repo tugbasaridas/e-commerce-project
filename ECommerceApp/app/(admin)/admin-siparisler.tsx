@@ -91,6 +91,7 @@ export default function AdminSiparisler() {
     });
   }, [siparisler, aramaMetni, seciliDurum]);
 
+  // İŞTE BURAYI DA EŞİTLEDİK
   const durumSecenekleri = ['Tümü', 'Hazırlanıyor', 'Kargoya Verildi', 'Tamamlandı', 'İptal'];
 
   if (loading) return <View style={styles.merkez}><ActivityIndicator size="large" color="#FF9F00" /></View>;
@@ -145,23 +146,54 @@ export default function AdminSiparisler() {
         ListEmptyComponent={
           <Text style={styles.bosListeMetni}>Aradığınız kriterlere uygun sipariş bulunamadı.</Text>
         }
-        renderItem={({ item }) => (
-          <SiparisKart 
-            item={item} 
-            onGuncelle={(siparis, urun) => {
-              setSeciliSiparis(siparis);
-              setSeciliUrun(urun);
-              setModalGorunur(true);
-            }} 
-            onKargoTakip={() => {}} // Admin tarafında ürün içindeki kargo butonunu SiparisKart zaten render etmiyor
-          />
-        )}
+        renderItem={({ item }) => {
+          const toplam = item.toplamTutar ?? item.ToplamTutar ?? 0;
+          const saticiKazanc = item.saticiKazanci ?? item.SaticiKazanci ?? (toplam * 0.90);
+          const adminKazanc = item.adminKazanci ?? item.AdminKazanci ?? (toplam * 0.10);
+
+          return (
+            <View style={styles.siparisKapsayici}>
+              <SiparisKart 
+                item={item} 
+                isAdmin={true} 
+                onGuncelle={(siparis, urun) => {
+                  setSeciliSiparis(siparis);
+                  setSeciliUrun(urun);
+                  setModalGorunur(true);
+                }} 
+                onKargoTakip={() => {}} 
+              />
+
+              <View style={styles.adminPanelKutu}>
+                <View style={styles.adminPanelHeader}>
+                  <Ionicons name="shield-checkmark" size={16} color="#007AFF" />
+                  <Text style={styles.adminPanelBaslik}>Admin Yetkileri & Finans</Text>
+                </View>
+
+                <View style={styles.finansSatir}>
+                  <Text style={styles.finansEtiket}>Müşteri Ödediği:</Text>
+                  <Text style={styles.finansTutarMusteri}>{toplam.toFixed(2)} ₺</Text>
+                </View>
+                <View style={styles.finansAyrac} />
+                <View style={styles.finansSatir}>
+                  <Text style={styles.finansEtiket}>Satıcı Kazancı (%90):</Text>
+                  <Text style={styles.finansTutarSatici}>{saticiKazanc.toFixed(2)} ₺</Text>
+                </View>
+                <View style={styles.finansSatir}>
+                  <Text style={styles.finansEtiket}>Admin Kazancı (%10):</Text>
+                  <Text style={styles.finansTutarAdmin}>{adminKazanc.toFixed(2)} ₺</Text>
+                </View>
+              </View>
+            </View>
+          );
+        }}
       />
 
       <SiparisDurumModal 
         visible={modalGorunur}
         siparis={seciliSiparis}
         seciliUrun={seciliUrun} 
+        isAdmin={true} 
         onClose={() => setModalGorunur(false)}
         onDurumSec={durumSec}
       />
@@ -185,5 +217,15 @@ const styles = StyleSheet.create({
   filtreChipYazi: { fontSize: 13, color: '#48484A', fontWeight: '600' },
   aktifFiltreChipYazi: { color: '#FFFFFF' },
   bosListeMetni: { textAlign: 'center', color: '#8E8E93', marginTop: 50, fontSize: 15 },
-  listContainer: { padding: 20, paddingBottom: 100 }
+  listContainer: { padding: 20, paddingBottom: 100 },
+  siparisKapsayici: { marginBottom: 25 },
+  adminPanelKutu: { backgroundColor: '#E5F1FF', borderRadius: 12, padding: 15, marginTop: -10, marginHorizontal: 5, borderWidth: 1, borderColor: '#CCE4FF' },
+  adminPanelHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  adminPanelBaslik: { fontSize: 14, fontWeight: 'bold', color: '#007AFF', marginLeft: 6 },
+  finansSatir: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  finansEtiket: { fontSize: 13, color: '#48484A', fontWeight: '500' },
+  finansAyrac: { height: 1, backgroundColor: '#CCE4FF', marginVertical: 8 },
+  finansTutarMusteri: { fontSize: 14, fontWeight: 'bold', color: '#1C1C1E' },
+  finansTutarSatici: { fontSize: 14, fontWeight: 'bold', color: '#28A745' },
+  finansTutarAdmin: { fontSize: 14, fontWeight: 'bold', color: '#007AFF' }
 });

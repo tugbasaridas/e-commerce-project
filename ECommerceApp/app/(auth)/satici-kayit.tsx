@@ -34,7 +34,7 @@ export default function SaticiKayit() {
     if (tip !== 'basari') {
       setTimeout(() => {
         setBildirim(null);
-      }, 4000);
+      }, 5000); // Hata okunabilsin diye 5 saniyeye çıkardık
     }
   };
 
@@ -75,7 +75,7 @@ export default function SaticiKayit() {
     setBildirim(null); 
     
     try {
-      await axios.post(`${API_CONFIG.BASE_URL}/satici/kayit`, {
+      await axios.post(`${API_CONFIG.BASE_URL}/satici/basvuru`, {
         adSoyad: adSoyad.trim(),
         email: email.trim().toLowerCase(),
         sifre: sifre,
@@ -95,14 +95,26 @@ export default function SaticiKayit() {
     } catch (error: any) {
       setLoading(false);
       
+      // 1. Arka plandaki gerçek hatayı Metro (Terminal) ekranına yazdırıyoruz
+      console.log("🚨 KAYIT HATASI DETAYI:", error.response?.data || error.message);
+      
       let hataMesaji = "Başvuru işlemi sırasında bir hata oluştu.";
       const veri = error.response?.data;
 
-      if (veri) {
-        if (typeof veri === 'string') hataMesaji = veri;
-        else if (veri.mesaj) hataMesaji = veri.mesaj;
+      // 2. Hatayı ekranda (Kırmızı Banner) göstermek için ayıklıyoruz
+      if (!error.response) {
+        hataMesaji = "Sunucuya bağlanılamadı. Backend API çalışıyor mu?";
+      } else if (veri) {
+        if (veri.mesaj) hataMesaji = veri.mesaj;
         else if (veri.Mesaj) hataMesaji = veri.Mesaj;
-        else if (veri.title) hataMesaji = veri.title;
+        else if (veri.errors) hataMesaji = "Girdiğiniz bilgiler formata uygun değil."; // Doğrulama hatası
+        else if (typeof veri === 'string') {
+          if (veri.includes("zaten kullanımda") || veri.includes("already exists")) {
+            hataMesaji = "Bu e-posta adresi zaten sistemde kayıtlı.";
+          } else {
+            hataMesaji = `Hata Detayı: ${veri.substring(0, 100)}`;
+          }
+        }
       }
       
       bildirimGoster(hataMesaji, 'hata');

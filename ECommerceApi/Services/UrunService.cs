@@ -90,4 +90,27 @@ public class UrunService : IUrunService
         await _db.SaveChangesAsync();
         return (true, "Oylama başarılı.");
     }
+    public async Task<object> BenzerUrunleriGetirAsync(int urunId, int kategoriId)
+    {
+        return await _db.Urunler
+            .Include(u => u.Magaza)
+            .Where(u => u.KategoriId == kategoriId 
+                     && u.Id != urunId 
+                     && u.AktifMi == true 
+                     && u.AdminOnayliMi == true
+                     && u.Magaza != null 
+                     && u.Magaza.OnaylandiMi == true
+                     && !u.Magaza.Kullanici.IsDeleted)
+            .OrderBy(x => Guid.NewGuid()) 
+            .Take(6) 
+            .Select(u => new 
+            {
+                Id = u.Id,
+                Ad = u.Ad,
+                Fiyat = u.IndirimliFiyat ?? u.Fiyat,
+                ResimUrl = string.IsNullOrEmpty(u.ResimUrl) ? "https://via.placeholder.com/150" : u.ResimUrl,
+                MagazaAdi = u.Magaza!.MagazaAdi
+            })
+            .ToListAsync();
+    }
 }

@@ -48,5 +48,12 @@ public class UrunController : ControllerBase
         if (!sonuc.Basarili) return BadRequest(sonuc.Mesaj);
         return Ok(sonuc.Mesaj);
     }
+    [HttpGet("{id}/benzer/{kategoriId}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> BenzerUrunleriGetir(int id, int kategoriId)
+    {
+        var urunler = await _urunService.BenzerUrunleriGetirAsync(id, kategoriId);
+        return Ok(urunler);
+    }
 }
 

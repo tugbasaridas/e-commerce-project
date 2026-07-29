@@ -7,10 +7,23 @@ import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+// BİLDİRİM BALONCUĞU (BADGE) BİLEŞENİ
+const BildirimRozeti = ({ sayi }: { sayi: number }) => {
+  if (!sayi || sayi <= 0) return null;
+  
+  return (
+    <View style={styles.badgeContainer}>
+      <Text style={styles.badgeText}>{sayi > 99 ? '99+' : sayi}</Text>
+    </View>
+  );
+};
+
 export default function SaticiAnasayfa() {
   const router = useRouter();
   const [urunler, setUrunler] = useState<any[]>([]);
   const [siparisler, setSiparisler] = useState<any[]>([]);
+  const [bekleyenSoruSayisi, setBekleyenSoruSayisi] = useState(0); 
+  const [bekleyenSiparisSayisi, setBekleyenSiparisSayisi] = useState(0); // YENİ: Bekleyen Sipariş Sayısı
   const [loading, setLoading] = useState(true);
 
   useFocusEffect(
@@ -26,14 +39,36 @@ export default function SaticiAnasayfa() {
 
       const headers = { Authorization: `Bearer ${token}` };
 
-      // Ürünleri ve Siparişleri paralel olarak çekiyoruz
-      const [urunResponse, siparisResponse] = await Promise.all([
+      // Ürünleri, Siparişleri ve Soruları PARALEL olarak çekiyoruz
+      const [urunResponse, siparisResponse, soruResponse] = await Promise.all([
         axios.get(`${API_CONFIG.BASE_URL}/satici/urunlerim`, { headers }),
-        axios.get(`${API_CONFIG.BASE_URL}/satici/siparislerim`, { headers })
+        axios.get(`${API_CONFIG.BASE_URL}/satici/siparislerim`, { headers }),
+        axios.get(`${API_CONFIG.BASE_URL}/urunsoru/satici-sorulari`, { headers }).catch(() => ({ data: [] }))
       ]);
 
       setUrunler(urunResponse.data);
       setSiparisler(siparisResponse.data);
+
+      // Soru Bildirim Sayısını Hesapla
+      if (soruResponse.data && Array.isArray(soruResponse.data)) {
+        const bekleyenler = soruResponse.data.filter((soru: any) => !soru.cevaplandiMi);
+        setBekleyenSoruSayisi(bekleyenler.length);
+      }
+
+      // YENİ: Sipariş Bildirim Sayısını Hesapla (Durumu "Hazırlanıyor" olanlar)
+      if (siparisResponse.data && Array.isArray(siparisResponse.data)) {
+        let hazirlanacakSiparisAdedi = 0;
+        siparisResponse.data.forEach((siparis: any) => {
+          const urunlerListesi = siparis.satilanUrunler || siparis.urunler || [];
+          // Siparişin içinde bize ait olan ve durumu "Hazırlanıyor" olan ürün var mı kontrol et
+          const bekleyenUrunVarMi = urunlerListesi.some((urun: any) => urun.durum === 'Hazırlanıyor');
+          if (bekleyenUrunVarMi) {
+            hazirlanacakSiparisAdedi++;
+          }
+        });
+        setBekleyenSiparisSayisi(hazirlanacakSiparisAdedi);
+      }
+
     } catch (error) {
       console.log("Veriler getirilemedi:", error);
     } finally {
@@ -141,25 +176,28 @@ export default function SaticiAnasayfa() {
                 <Text style={styles.islemKartYazi}>Stok Yönetimi</Text>
               </TouchableOpacity>
 
+              {/* YENİ: SİPARİŞLER KARTI (Bildirim Rozetli) */}
               <TouchableOpacity 
                 style={styles.islemKart} 
                 activeOpacity={0.8}
                 onPress={() => router.push('/(satici)/satici-siparisler' as any)}
               >
-                <View style={[styles.islemIkonKutu, { backgroundColor: '#E3F2FD' }]}>
+                <View style={[styles.islemIkonKutu, { backgroundColor: '#E3F2FD', position: 'relative' }]}>
                   <Ionicons name="basket" size={26} color="#1565C0" />
+                  <BildirimRozeti sayi={bekleyenSiparisSayisi} />
                 </View>
                 <Text style={styles.islemKartYazi}>Siparişler</Text>
               </TouchableOpacity>
 
-              {/* YENİ EKLENEN KART: MÜŞTERİ SORULARI */}
+              {/* MÜŞTERİ SORULARI (Bildirim Rozetli) */}
               <TouchableOpacity 
                 style={styles.islemKart} 
                 activeOpacity={0.8}
                 onPress={() => router.push('/(satici)/satici-sorulari' as any)}
               >
-                <View style={[styles.islemIkonKutu, { backgroundColor: '#F3E5F5' }]}>
+                <View style={[styles.islemIkonKutu, { backgroundColor: '#F3E5F5', position: 'relative' }]}>
                   <Ionicons name="chatbubbles" size={26} color="#9C27B0" />
+                  <BildirimRozeti sayi={bekleyenSoruSayisi} />
                 </View>
                 <Text style={styles.islemKartYazi}>Müşteri Soruları</Text>
               </TouchableOpacity>
@@ -189,5 +227,32 @@ const styles = StyleSheet.create({
   islemGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   islemKart: { width: '48%', backgroundColor: '#fff', paddingVertical: 22, borderRadius: 16, alignItems: 'center', marginBottom: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 },
   islemIkonKutu: { padding: 16, borderRadius: 14, marginBottom: 12 },
-  islemKartYazi: { fontSize: 14, fontWeight: '700', color: '#333', textAlign: 'center' }
+  islemKartYazi: { fontSize: 14, fontWeight: '700', color: '#333', textAlign: 'center' },
+
+  // BİLDİRİM (BADGE) STİLLERİ
+  badgeContainer: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#FF3B30',
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    shadowColor: '#FF3B30',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 4,
+    zIndex: 10
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: 'bold',
+  }
 });

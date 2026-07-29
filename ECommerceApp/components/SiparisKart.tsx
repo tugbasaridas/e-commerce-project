@@ -7,6 +7,7 @@ const getDurumRenkleri = (durum: string) => {
     case 'Hazırlanıyor': return { bg: '#FFF4E5', text: '#FF9F00', icon: 'time-outline' };
     case 'Kargoya Verildi': return { bg: '#E1F5FE', text: '#4EA8DE', icon: 'cube-outline' };
     case 'Tamamlandı': return { bg: '#F0FDF4', text: '#28A745', icon: 'checkmark-circle-outline' };
+    case 'İptal Edildi':
     case 'İptal': return { bg: '#FFEBEA', text: '#EF233C', icon: 'close-circle-outline' };
     default: return { bg: '#F8F9FA', text: '#8E8E93', icon: 'ellipse-outline' };
   }
@@ -16,9 +17,10 @@ interface SiparisKartProps {
   item: any;
   onGuncelle: (siparis: any, seciliUrun: any) => void; 
   onKargoTakip: (id: number) => void;
+  isAdmin?: boolean; 
 }
 
-export default function SiparisKart({ item, onGuncelle, onKargoTakip }: SiparisKartProps) {
+export default function SiparisKart({ item, onGuncelle, onKargoTakip, isAdmin = false }: SiparisKartProps) {
   const urunListesi = item.satilanUrunler || item.urunler || [];
 
   return (
@@ -55,10 +57,14 @@ export default function SiparisKart({ item, onGuncelle, onKargoTakip }: SiparisK
                 </View>
               </View>
 
-              {urun.durum !== 'Tamamlandı' && urun.durum !== 'İptal' && (
-                <TouchableOpacity style={styles.btnGuncelle} activeOpacity={0.8} onPress={() => onGuncelle(item, urun)}>
-                  <Ionicons name="color-wand-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                  <Text style={styles.btnGuncelleYazi}>Güncelle</Text>
+              {urun.durum !== 'Tamamlandı' && urun.durum !== 'İptal' && urun.durum !== 'İptal Edildi' && (
+                <TouchableOpacity 
+                  style={[styles.btnGuncelle, isAdmin && { backgroundColor: '#FF3B30', shadowColor: '#FF3B30' }]} 
+                  activeOpacity={0.8} 
+                  onPress={() => onGuncelle(item, urun)}
+                >
+                  <Ionicons name={isAdmin ? "warning-outline" : "color-wand-outline"} size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.btnGuncelleYazi}>{isAdmin ? "Müdahale Et" : "Güncelle"}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -77,20 +83,23 @@ export default function SiparisKart({ item, onGuncelle, onKargoTakip }: SiparisK
         </View>
       </View>
 
-      <View style={styles.ayiriciCizgi} />
-
-      <View style={styles.kartAlt}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.fiyatBaslik}>Müşterinin Ödediği (Brüt):</Text>
-          <Text style={styles.fiyatDegerBrut}>
-            {urunListesi.reduce((toplam: number, u: any) => toplam + (u.birimFiyat * u.adet), 0).toFixed(2)} TL
-          </Text>
-        </View>
-        <View style={{ alignItems: 'flex-end', flex: 1 }}>
-          <Text style={styles.fiyatBaslik}>Sizin Kazancınız (Net):</Text>
-          <Text style={styles.fiyatDegerNet}>{(item.saticiKazanci || 0).toFixed(2)} TL</Text>
-        </View>
-      </View>
+      {!isAdmin && (
+        <>
+          <View style={styles.ayiriciCizgi} />
+          <View style={styles.kartAlt}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.fiyatBaslik}>Müşterinin Ödediği (Brüt):</Text>
+              <Text style={styles.fiyatDegerBrut}>
+                {urunListesi.reduce((toplam: number, u: any) => toplam + (u.birimFiyat * u.adet), 0).toFixed(2)} TL
+              </Text>
+            </View>
+            <View style={{ alignItems: 'flex-end', flex: 1 }}>
+              <Text style={styles.fiyatBaslik}>Sizin Kazancınız (Net):</Text>
+              <Text style={styles.fiyatDegerNet}>{(item.saticiKazanci || 0).toFixed(2)} TL</Text>
+            </View>
+          </View>
+        </>
+      )}
     </View>
   );
 }

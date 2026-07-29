@@ -2,6 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+
+// BİLEŞENLER VE HOOK'LAR
+import BenzerUrunler from '../components/BenzerUrunler'; // YENİ EKLENEN BENZER ÜRÜNLER BİLEŞENİ
 import UrunSoruBolumu from '../components/UrunSoruBolumu';
 import { useDetay } from '../hooks/custom/useDetay';
 
@@ -19,7 +22,7 @@ export default function Detay() {
     favoriButonunaBasildi, sepeteEkle, oyGonder
   } = useDetay(id as string);
 
-  // YENİ: Yorumları sınırlandırmak için state (İlk açılışta 1 yorum)
+  // Yorumları sınırlandırmak için state (İlk açılışta 1 yorum)
   const [tumYorumlariGoster, setTumYorumlariGoster] = useState(false);
   const MAX_YORUM = 1;
 
@@ -37,8 +40,12 @@ export default function Detay() {
 
       <View>
         <Image source={{ uri: urun.resimUrl }} style={styles.buyukResim} />
-        <TouchableOpacity style={styles.geriButon} onPress={() => router.back()}><Ionicons name="arrow-back" size={28} color="#000" /></TouchableOpacity>
-        <TouchableOpacity style={styles.kalpButon} onPress={favoriButonunaBasildi}><Ionicons name="heart-outline" size={28} color="#ff4757" /></TouchableOpacity>
+        <TouchableOpacity style={styles.geriButon} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={28} color="#000" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.kalpButon} onPress={favoriButonunaBasildi}>
+          <Ionicons name="heart-outline" size={28} color="#ff4757" />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.detayBilgi}>
@@ -71,7 +78,10 @@ export default function Detay() {
         </View>
 
         <TouchableOpacity style={styles.degerlendirmeSatiri} onPress={() => girisYapildiMi ? setOylamaModalGorunur(true) : Alert.alert("Giriş Gerekli", "Puanlamak ve yorum yapmak için giriş yapın.")}>
-          <View style={styles.yildizGrup}><Ionicons name="star" size={18} color="#FFD700" /><Text style={styles.yildizPuanYazi}>{urun.ortalamaPuan?.toFixed(1) || "0.0"}</Text></View>
+          <View style={styles.yildizGrup}>
+            <Ionicons name="star" size={18} color="#FFD700" />
+            <Text style={styles.yildizPuanYazi}>{urun.ortalamaPuan?.toFixed(1) || "0.0"}</Text>
+          </View>
           <Text style={styles.oyVerLinkYazi}>({urun.oylamaSayisi || 0} Değerlendirme)</Text>
         </TouchableOpacity>
 
@@ -151,6 +161,10 @@ export default function Detay() {
           </View>
         )}
       </View>
+
+      {/* YENİ EKLENEN: BENZER ÜRÜNLER LİSTESİ */}
+      <View style={styles.ayiriciCizgi}></View>
+      <BenzerUrunler urunId={urun.id} kategoriId={urun.kategoriId} />
 
       {/* OYLAMA MODALI */}
       <Modal visible={oylamaModalGorunur} transparent={true} animationType="fade">
@@ -244,7 +258,6 @@ const styles = StyleSheet.create({
   yorumMetni: { fontSize: 14, color: '#555', lineHeight: 20, marginBottom: 8 },
   yorumTarihi: { fontSize: 11, color: '#999', textAlign: 'right' },
   
-  // YENİ: Yorumlar için devamını gör butonu stili (Soru bileşeniyle aynı şık tasarım)
   devaminiGorBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, marginTop: 5, marginBottom: 15, backgroundColor: '#F8F9FA', borderRadius: 10, borderWidth: 1, borderColor: '#E5E5EA' },
   devaminiGorTxt: { color: '#007AFF', fontWeight: 'bold', fontSize: 13, marginRight: 6 },
 

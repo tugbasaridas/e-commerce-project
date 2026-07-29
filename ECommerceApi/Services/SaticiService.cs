@@ -255,12 +255,22 @@ public class SaticiService : ISaticiService
         {
             var tumDurumlar = siparis.Detaylar.Where(x => x != null).Select(d => d!.Durum ?? "").ToList();
 
-            if (tumDurumlar.All(d => d == "Tamamlandı" || d == "İptal"))
+            if (tumDurumlar.All(d => d == "İptal Edildi" || d == "İptal"))
+            {
+                siparis.Durum = "İptal Edildi";
+            }
+            else if (tumDurumlar.All(d => d == "Tamamlandı" || d == "İptal Edildi" || d == "İptal"))
+            {
                 siparis.Durum = "Tamamlandı";
-            else if (tumDurumlar.All(d => d == "Kargoya Verildi" || d == "Tamamlandı" || d == "İptal"))
+            }
+            else if (tumDurumlar.All(d => d == "Kargoya Verildi" || d == "Tamamlandı" || d == "İptal Edildi" || d == "İptal"))
+            {
                 siparis.Durum = "Kargoya Verildi";
+            }
             else
+            {
                 siparis.Durum = "Hazırlanıyor";
+            }
         }
 
         await _context.SaveChangesAsync();

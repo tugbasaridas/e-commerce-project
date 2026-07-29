@@ -8,9 +8,10 @@ interface SiparisDurumModalProps {
   seciliUrun: any; 
   onClose: () => void;
   onDurumSec: (durum: string, kargoFirma?: string, kargoTakipNo?: string) => void;
+  isAdmin?: boolean; 
 }
 
-export default function SiparisDurumModal({ visible, siparis, seciliUrun, onClose, onDurumSec }: SiparisDurumModalProps) {
+export default function SiparisDurumModal({ visible, siparis, seciliUrun, onClose, onDurumSec, isAdmin = false }: SiparisDurumModalProps) {
   const [kargoGirisiAcik, setKargoGirisiAcik] = useState(false);
   const [kargoFirma, setKargoFirma] = useState('');
   const [kargoTakipNo, setKargoTakipNo] = useState('');
@@ -33,37 +34,38 @@ export default function SiparisDurumModal({ visible, siparis, seciliUrun, onClos
             <View style={styles.modalContent}>
               <View style={styles.modalTutacak} />
               
-              <Text style={styles.modalBaslik}>Ürün Durumunu Güncelle</Text>
+              <Text style={styles.modalBaslik}>{isAdmin ? "Admin Müdahale Paneli" : "Ürün Durumunu Güncelle"}</Text>
               <Text style={styles.modalAltBaslik}>
                 #{siparis.id || siparis.siparisId} nolu siparişteki <Text style={{fontWeight: 'bold', color: '#1C1C1E'}}>{seciliUrun.ad}</Text> ürünü şu an {mevcutDurum} aşamasında.
               </Text>
               
               {!kargoGirisiAcik && (
                 <>
-                  {mevcutDurum === 'Hazırlanıyor' && (
+                  {!isAdmin && mevcutDurum === 'Hazırlanıyor' && (
                     <TouchableOpacity style={[styles.modalSecenek, { borderLeftColor: '#4EA8DE' }]} onPress={() => setKargoGirisiAcik(true)}>
                       <View style={[styles.modalSecenekIcon, { backgroundColor: '#E1F5FE' }]}><Ionicons name="cube-outline" size={20} color="#4EA8DE" /></View>
                       <Text style={styles.modalSecenekYazi}>Kargoya Verildi (Takip No Gir)</Text>
                     </TouchableOpacity>
                   )}
 
-                  {mevcutDurum === 'Kargoya Verildi' && (
+                  {!isAdmin && mevcutDurum === 'Kargoya Verildi' && (
                     <TouchableOpacity style={[styles.modalSecenek, { borderLeftColor: '#28A745' }]} onPress={() => onDurumSec('Tamamlandı')}>
                       <View style={[styles.modalSecenekIcon, { backgroundColor: '#F0FDF4' }]}><Ionicons name="checkmark-circle-outline" size={20} color="#28A745" /></View>
                       <Text style={styles.modalSecenekYazi}>Teslim Edildi (Tamamlandı)</Text>
                     </TouchableOpacity>
                   )}
 
+                  {/* İŞTE BURAYI DÜZELTTİK: Admin de olsa Satıcı da olsa SADECE "İptal" statüsü gönderilecek */}
                   {(mevcutDurum === 'Hazırlanıyor' || mevcutDurum === 'Kargoya Verildi') && (
                     <TouchableOpacity style={[styles.modalSecenek, { borderLeftColor: '#EF233C' }]} onPress={() => onDurumSec('İptal')}>
                       <View style={[styles.modalSecenekIcon, { backgroundColor: '#FFEBEA' }]}><Ionicons name="close-circle-outline" size={20} color="#EF233C" /></View>
-                      <Text style={styles.modalSecenekYazi}>Siparişi İptal Et</Text>
+                      <Text style={styles.modalSecenekYazi}>{isAdmin ? "Admin Olarak Ürünü İptal Et" : "Siparişi İptal Et"}</Text>
                     </TouchableOpacity>
                   )}
                 </>
               )}
 
-              {kargoGirisiAcik && (
+              {kargoGirisiAcik && !isAdmin && (
                 <View style={styles.kargoGirisAlan}>
                   <Text style={styles.kargoBaslik}>Kargo Bilgileri</Text>
                   

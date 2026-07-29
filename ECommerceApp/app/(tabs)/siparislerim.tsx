@@ -79,12 +79,15 @@ export default function Siparislerim() {
     return tarih.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
+  // İPTAL EDİLDİ durumunu da ekleyerek güncelledik
   const getDurumStili = (durum: string) => {
     switch (durum) {
       case 'Hazırlanıyor': return { color: '#FFA500', bgColor: '#FFF3E0', icon: 'time-outline' };
       case 'Kargoya Verildi': return { color: '#1E90FF', bgColor: '#E6F2FF', icon: 'cube-outline' };
-      case 'Tamamlandı': return { color: '#28A745', bgColor: '#E8F5E9', icon: 'checkmark-circle-outline' };
-      case 'İptal': return { color: '#EF233C', bgColor: '#FFEBEA', icon: 'close-circle-outline' };
+      case 'Tamamlandı':
+      case 'Teslim Edildi': return { color: '#28A745', bgColor: '#E8F5E9', icon: 'checkmark-circle-outline' };
+      case 'İptal':
+      case 'İptal Edildi': return { color: '#EF233C', bgColor: '#FFEBEA', icon: 'close-circle-outline' };
       default: return { color: '#6C757D', bgColor: '#F8F9FA', icon: 'information-circle-outline' };
     }
   };
@@ -116,71 +119,78 @@ export default function Siparislerim() {
     );
   }
 
-  const siparisKartiCiz = ({ item }: { item: any }) => (
-    <View style={styles.kart}>
-      <View style={styles.kartUst}>
-        <View>
-          <Text style={styles.siparisNo}>Sipariş No: #{item.id}</Text>
-          <Text style={styles.tarih}>{tarihFormatla(item.siparisTarihi)}</Text>
-        </View>
-        <View style={[styles.durumRozeti, { backgroundColor: '#F2F2F7' }]}>
-          <Text style={[styles.durumYazi, { color: '#1C1C1E' }]}>{item.durum}</Text>
-        </View>
-      </View>
+  const siparisKartiCiz = ({ item }: { item: any }) => {
+    // ANA SİPARİŞ KARTININ RENGİNİ DİNAMİK ALIYORUZ
+    const anaDurumStil = getDurumStili(item.durum);
 
-      <View style={styles.urunlerAlani}>
-        {item.urunler.map((urun: any, index: number) => {
-          const dStil = getDurumStili(urun.durum);
-          return (
-            <View key={index} style={{ marginBottom: 15 }}>
-              <View style={styles.urunSatiri}>
-                <Image source={{ uri: urun.resimUrl || 'https://via.placeholder.com/150' }} style={styles.urunResim} />
-                <View style={styles.urunBilgi}>
-                  <Text style={styles.urunAd} numberOfLines={2}>{urun.ad}</Text>
-                  <Text style={styles.urunAdetFiyat}>
-                    {urun.adet} adet x {urun.satinAlinanFiyat.toFixed(2)} TL
-                  </Text>
-                  <View style={[styles.kucukDurumRozet, { backgroundColor: dStil.bgColor }]}>
-                    <Ionicons name={dStil.icon as any} size={12} color={dStil.color} style={{ marginRight: 4 }} />
-                    <Text style={{ fontSize: 11, fontWeight: 'bold', color: dStil.color }}>{urun.durum}</Text>
+    return (
+      <View style={styles.kart}>
+        <View style={styles.kartUst}>
+          <View>
+            <Text style={styles.siparisNo}>Sipariş No: #{item.id}</Text>
+            <Text style={styles.tarih}>{tarihFormatla(item.siparisTarihi)}</Text>
+          </View>
+          
+          {/* DURUM ROZETİ ARTIK İPTAL İSE KIRMIZI OLACAK */}
+          <View style={[styles.durumRozeti, { backgroundColor: anaDurumStil.bgColor }]}>
+            <Text style={[styles.durumYazi, { color: anaDurumStil.color }]}>{item.durum}</Text>
+          </View>
+        </View>
+
+        <View style={styles.urunlerAlani}>
+          {item.urunler.map((urun: any, index: number) => {
+            const dStil = getDurumStili(urun.durum);
+            return (
+              <View key={index} style={{ marginBottom: 15 }}>
+                <View style={styles.urunSatiri}>
+                  <Image source={{ uri: urun.resimUrl || 'https://via.placeholder.com/150' }} style={styles.urunResim} />
+                  <View style={styles.urunBilgi}>
+                    <Text style={styles.urunAd} numberOfLines={2}>{urun.ad}</Text>
+                    <Text style={styles.urunAdetFiyat}>
+                      {urun.adet} adet x {urun.satinAlinanFiyat.toFixed(2)} TL
+                    </Text>
+                    <View style={[styles.kucukDurumRozet, { backgroundColor: dStil.bgColor }]}>
+                      <Ionicons name={dStil.icon as any} size={12} color={dStil.color} style={{ marginRight: 4 }} />
+                      <Text style={{ fontSize: 11, fontWeight: 'bold', color: dStil.color }}>{urun.durum}</Text>
+                    </View>
                   </View>
                 </View>
+
+                {/* Kargom Nerede Butonu */}
+                {urun.durum === 'Kargoya Verildi' && (
+                  <TouchableOpacity style={styles.kargoButon} onPress={() => kargoTakipBaslat(urun.kargoTakipNo, urun.kargoFirma)}>
+                    <Ionicons name="location" size={16} color="#00529B" style={{marginRight: 6}} />
+                    <Text style={styles.kargoButonYazi}>Kargom Nerede?</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#00529B" />
+                  </TouchableOpacity>
+                )}
+
+                {/* Ürünü Değerlendir Butonu */}
+                {urun.durum === 'Tamamlandı' && (
+                  <TouchableOpacity style={styles.degerlendirButon} onPress={() => urunDegerlendir(urun)}>
+                    <Ionicons name="star" size={16} color="#FF9F00" style={{marginRight: 6}}/>
+                    <Text style={styles.degerlendirButonYazi}>Ürünü Değerlendir / İncele</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#FF9F00" />
+                  </TouchableOpacity>
+                )}
               </View>
-
-              {/* Kargom Nerede Butonu */}
-              {urun.durum === 'Kargoya Verildi' && (
-                <TouchableOpacity style={styles.kargoButon} onPress={() => kargoTakipBaslat(urun.kargoTakipNo, urun.kargoFirma)}>
-                  <Ionicons name="location" size={16} color="#00529B" style={{marginRight: 6}} />
-                  <Text style={styles.kargoButonYazi}>Kargom Nerede?</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#00529B" />
-                </TouchableOpacity>
-              )}
-
-              {/* Ürünü Değerlendir Butonu */}
-              {urun.durum === 'Tamamlandı' && (
-                <TouchableOpacity style={styles.degerlendirButon} onPress={() => urunDegerlendir(urun)}>
-                  <Ionicons name="star" size={16} color="#FF9F00" style={{marginRight: 6}}/>
-                  <Text style={styles.degerlendirButonYazi}>Ürünü Değerlendir / İncele</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#FF9F00" />
-                </TouchableOpacity>
-              )}
-            </View>
-          );
-        })}
-      </View>
-
-      <View style={styles.kartAlt}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.toplamYazi}>Ödeme: {item.odemeYontemi}</Text>
-          <Text style={styles.adresYazi} numberOfLines={1}>{item.teslimatAdresi}</Text>
+            );
+          })}
         </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <Text style={styles.toplamYazi}>Toplam:</Text>
-          <Text style={styles.toplamFiyat}>{item.toplamTutar.toFixed(2)} TL</Text>
+
+        <View style={styles.kartAlt}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.toplamYazi}>Ödeme: {item.odemeYontemi}</Text>
+            <Text style={styles.adresYazi} numberOfLines={1}>{item.teslimatAdresi}</Text>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={styles.toplamYazi}>Toplam:</Text>
+            <Text style={styles.toplamFiyat}>{item.toplamTutar.toFixed(2)} TL</Text>
+          </View>
         </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>

@@ -6,8 +6,8 @@ import api from '../../config/api';
 export interface EnCokSatanUrun {
   urunId: number;
   urunAdi: string;
-  resimUrl?: string;     // YENİ: Backend'den gelecek ürün resmi
-  magazaAdi?: string;    // YENİ: Backend'den gelecek satıcı/mağaza adı
+  resimUrl?: string;     
+  magazaAdi?: string;    
   toplamSatisAdedi: number;
   toplamKazanc: number;
 }
@@ -17,12 +17,17 @@ export interface DashboardVeri {
   pasifUrun: number;
   toplamMusteri: number; 
   toplamSatici: number;  
-  bekleyenSiparisler: number;
   toplamCiro: number;
-  platformKazanci: number; // YENİ: Senin cebine girecek %10 komisyon toplamı
+  platformKazanci: number; 
   aylikCiro: number;
   basariliSiparisSayisi: number;
   enCokSatanlar: EnCokSatanUrun[];
+  
+  // YENİ: BİLDİRİM SAYILARI EKLENDİ
+  bekleyenSiparis: number;
+  bekleyenMagaza: number;
+  bekleyenUrun: number;
+  bekleyenDestek: number;
 }
 
 export const useAdminDashboard = () => {
@@ -33,12 +38,16 @@ export const useAdminDashboard = () => {
     pasifUrun: 0, 
     toplamMusteri: 0, 
     toplamSatici: 0, 
-    bekleyenSiparisler: 0,
     toplamCiro: 0, 
     platformKazanci: 0, 
     aylikCiro: 0, 
     basariliSiparisSayisi: 0, 
-    enCokSatanlar: []
+    enCokSatanlar: [],
+    
+    bekleyenSiparis: 0,
+    bekleyenMagaza: 0,
+    bekleyenUrun: 0,
+    bekleyenDestek: 0
   });
   
   const [loading, setLoading] = useState(true);
