@@ -21,4 +21,5 @@ public interface IAdminService
     Task<object> OnayBekleyenUrunleriGetirAsync();
     Task<(bool Basarili, string Mesaj)> UrunuOnaylaAsync(int urunId);
     Task<(bool Basarili, string Mesaj)> UrunuReddetAsync(int urunId);
+    Task<object> OnaylananUrunleriGetirAsync();
 }

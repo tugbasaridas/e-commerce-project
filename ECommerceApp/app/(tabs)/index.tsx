@@ -1,4 +1,5 @@
-import { kategorileriGetir } from '@/services/KategoriService'; // Doğrudan kategori servisinden çekiyoruz
+import BildirimZili from '@/components/BildirimZili';
+import { kategorileriGetir } from '@/services/KategoriService';
 import { urunleriGetir } from '@/services/UrunService';
 import { Kategori, Urun } from '@/types/Urun';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,7 +17,6 @@ export default function Anasayfa() {
   const [gorunenUrunler, setGorunenUrunler] = useState<Urun[]>([]);
   const [kategoriler, setKategoriler] = useState<Kategori[]>([]);
   
-  // Hiyerarşik Kategori Yönetimi
   const [seciliAnaKategori, setSeciliAnaKategori] = useState<Kategori | null>(null);
   const [seciliAltKategoriId, setSeciliAltKategoriId] = useState<number | null>(null);
 
@@ -29,7 +29,6 @@ export default function Anasayfa() {
     useCallback(() => {
       setLoading(true); 
       
-      // Ürünleri ve kategorileri paralel olarak backend'den çekiyoruz
       Promise.all([urunleriGetir(), kategorileriGetir()])
         .then(([urunData, kategoriData]) => {
           if (urunData) {
@@ -52,11 +51,9 @@ export default function Anasayfa() {
   const filtreleriUygula = (liste: Urun[], aranan: string, altKategoriId: number | null, anaKategoriId: number | null, seciliSiralama: SiralamaTipi, indirimliMi: boolean) => {
     let sonuc = [...liste]; 
 
-    // Eğer alt kategori seçildiyse ona göre filtrele
     if (altKategoriId !== null) {
       sonuc = sonuc.filter(u => u.kategoriId === altKategoriId);
     } 
-    // Eğer sadece ana kategori seçildiyse ve alt kategori seçilmediyse, o ana kategoriye ait tüm alt kategorilerdeki ürünleri getir
     else if (anaKategoriId !== null) {
       const secilenAna = kategoriler.find(k => k.id === anaKategoriId);
       const altIds = secilenAna?.altKategoriler?.map(ak => ak.id) || [];
@@ -135,7 +132,11 @@ export default function Anasayfa() {
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       
       <View style={styles.ustAlan}>
-        <Text style={styles.hosgeldinYazi}>Keşfet</Text>
+        {/* YENİ: Başlık ve Bildirim Zili yan yana eklendi */}
+        <View style={styles.baslikSatiri}>
+            <Text style={styles.hosgeldinYazi}>Keşfet</Text>
+            <BildirimZili />
+        </View>
         
         <View style={styles.aramaKutusu}>
           <Ionicons name="search" size={20} color="#888" style={{ marginRight: 10 }} />
@@ -186,7 +187,6 @@ export default function Anasayfa() {
         </ScrollView>
       </View>
 
-      {/* ANA KATEGORİLER (Örn: Giyim) */}
       <View style={styles.kategoriAlani}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 15 }}>
           <TouchableOpacity 
@@ -210,7 +210,6 @@ export default function Anasayfa() {
         </ScrollView>
       </View>
 
-      {/* ALT KATEGORİLER (Açılır-Kapanır Alan: Örn: Giyim seçilince altında Elbise çıkması) */}
       {seciliAnaKategori && seciliAnaKategori.altKategoriler && seciliAnaKategori.altKategoriler.length > 0 && (
         <View style={styles.altKategoriAlani}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 15 }}>
@@ -298,7 +297,15 @@ const styles = StyleSheet.create({
   merkez: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   
   ustAlan: { paddingHorizontal: 15, paddingTop: 10, paddingBottom: 15 },
-  hosgeldinYazi: { fontSize: 26, fontWeight: 'bold', color: '#111', marginBottom: 15 },
+  
+  baslikSatiri: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginBottom: 15 
+  },
+  hosgeldinYazi: { fontSize: 26, fontWeight: 'bold', color: '#111' },
+  
   aramaKutusu: { 
     flexDirection: 'row', 
     alignItems: 'center', 

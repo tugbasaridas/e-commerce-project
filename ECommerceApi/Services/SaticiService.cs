@@ -1,6 +1,7 @@
 using ECommerceApi.DataAccess;
 using ECommerceApi.DTOs;
 using ECommerceApi.Entities;
+using ECommerceApi.Services; // YENİ: IBildirimService için eklendi
 using Microsoft.EntityFrameworkCore;
 
 namespace ECommerceApi.Services;
@@ -8,10 +9,13 @@ namespace ECommerceApi.Services;
 public class SaticiService : ISaticiService
 {
     private readonly AppDbContext _context;
+    private readonly IBildirimService _bildirimService; // YENİ: Bildirim Servisi eklendi
 
-    public SaticiService(AppDbContext context)
+    // Constructor güncellendi
+    public SaticiService(AppDbContext context, IBildirimService bildirimService)
     {
         _context = context;
+        _bildirimService = bildirimService;
     }
 
     public async Task<bool> SaticiKayitAsync(MagazaBasvuruDto dto)
@@ -61,7 +65,7 @@ public class SaticiService : ISaticiService
             ResimUrl = dto.ResimUrl,
             KategoriId = dto.KategoriId,
             
-            MagazaId = magaza.Id,       
+            MagazaId = magaza.Id,        
             AdminOnayliMi = false,      
             AktifMi = true              
         };
@@ -122,7 +126,7 @@ public class SaticiService : ISaticiService
         return true;
     }
 
-    // --- YENİ EKLENEN İNDİRİM METOTLARI ---
+    // --- İNDİRİM METOTLARI ---
     
     public async Task<(bool Basarili, string Mesaj)> IndirimYapAsync(int kullaniciId, int urunId, decimal yeniFiyat, int saat)
     {
@@ -139,6 +143,37 @@ public class SaticiService : ISaticiService
         urun.IndirimBitisTarihi = DateTime.UtcNow.AddHours(saat);
         
         await _context.SaveChangesAsync();
+
+        // =========================================================================
+        // YENİ EKLENDİ: Ürün indirime girdiğinde bu mağazayı takip eden herkese bildirim at!
+        // =========================================================================
+        try
+        {
+            // 1. Bu mağazayı takip eden kullanıcıların ID'lerini bul
+            var takipciIdleri = await _context.Takipciler
+                .Where(t => t.MagazaId == magaza.Id)
+                .Select(t => t.KullaniciId)
+                .ToListAsync();
+
+            // 2. Takip eden herkese bildirim fırlat
+            foreach (var tId in takipciIdleri)
+            {
+                await _bildirimService.BildirimGonderAsync(
+                    tId,
+                    "🔥 Takip Ettiğin Mağazada İndirim!",
+                    $"{magaza.MagazaAdi} mağazası '{urun.Ad}' ürününde indirime gitti. Fırsatı kaçırma!",
+                    "Indirim",
+                    $"/detay?id={urun.Id}" // Tıklayınca direkt ilgili ürüne gitsin
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            // Bildirim hatası indirim yapılmasını engellemesin diye loglayıp geçiyoruz
+            Console.WriteLine("İndirim bildirimi gönderilemedi: " + ex.Message);
+        }
+        // =========================================================================
+
         return (true, $"İndirim başarıyla {saat} saat boyunca uygulandı.");
     }
 
@@ -170,7 +205,7 @@ public class SaticiService : ISaticiService
         if (magaza == null) throw new Exception("Mağaza bulunamadı.");
 
         var hamSiparisler = await _context.Siparisler
-            .Include(s => s.Kupon) // YENİ EKLENDİ: Kupon detaylarını da çekiyoruz
+            .Include(s => s.Kupon) 
             .Include(s => s.Detaylar)
                 .ThenInclude(d => d.Urunler)
             .Where(s => s.Detaylar!.Any(d => d.Urunler != null && d.Urunler.MagazaId == magaza.Id)) 
@@ -189,7 +224,6 @@ public class SaticiService : ISaticiService
                 IletisimTelfonu = x.Siparis.Telefon,
                 OdemeYontemi = x.Siparis.OdemeYontemi,
                 
-                // YENİ EKLENEN KISIM: Arayüze kupon ve genel tutar bilgilerini gönderiyoruz
                 ToplamTutar = x.Siparis.ToplamTutar,
                 KullanilanKuponKodu = x.Siparis.Kupon != null ? x.Siparis.Kupon.Kodu : null,
                 KuponIndirimTutari = x.Siparis.IndirimTutari ?? 0,
@@ -222,7 +256,6 @@ public class SaticiService : ISaticiService
             s.IletisimTelfonu,
             s.OdemeYontemi,
             
-            // JSON serileştirmesinde aktarılacak yeni alanlar
             s.ToplamTutar,
             s.KullanilanKuponKodu,
             s.KuponIndirimTutari,
@@ -283,6 +316,35 @@ public class SaticiService : ISaticiService
         }
 
         await _context.SaveChangesAsync();
+
+        // =========================================================================
+        // Kargoya Verildi veya Tamamlandı olduğunda müşteriye bildirim at!
+        // =========================================================================
+        if (siparis != null)
+        {
+            if (dto.YeniDurum == "Kargoya Verildi")
+            {
+                await _bildirimService.BildirimGonderAsync(
+                    siparis.KullaniciId,
+                    "🚚 Siparişiniz Kargoya Verildi",
+                    $"#{siparis.Id} numaralı siparişiniz kargo firmasına teslim edilmiştir.",
+                    "Siparis",
+                    "/siparislerim"
+                );
+            }
+            else if (dto.YeniDurum == "Tamamlandı")
+            {
+                await _bildirimService.BildirimGonderAsync(
+                    siparis.KullaniciId,
+                    "✅ Siparişiniz Teslim Edildi",
+                    $"#{siparis.Id} numaralı siparişiniz başarıyla tamamlandı. Bizi tercih ettiğiniz için teşekkür ederiz!",
+                    "Siparis",
+                    "/siparislerim"
+                );
+            }
+        }
+        // =========================================================================
+
         return (true, "Sipariş kalemi başarıyla güncellendi.");
     }
 }

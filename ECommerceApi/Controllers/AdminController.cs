@@ -102,6 +102,14 @@ public class AdminController : ControllerBase
         return Ok(urunler);
     }
 
+    // YENİ EKLENDİ: Onaylanmış ürünleri getiren endpoint
+    [HttpGet("urunler/onaylanan")]
+    public async Task<IActionResult> OnaylananUrunleriGetir()
+    {
+        var urunler = await _adminService.OnaylananUrunleriGetirAsync();
+        return Ok(urunler);
+    }
+
     [HttpPut("urun/{id}/onayla")]
     public async Task<IActionResult> UrunuOnayla(int id)
     {

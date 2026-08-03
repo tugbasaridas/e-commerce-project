@@ -25,11 +25,27 @@ export default function AdminKupon() {
   // Kullanıcıya Kupon Tanımlama State'leri
   const [kullaniciModalGorunur, setKullaniciModalGorunur] = useState(false);
   const [kullanicilar, setKullanicilar] = useState<any[]>([]);
+  const [filtrelenmisKullanicilar, setFiltrelenmisKullanicilar] = useState<any[]>([]); // YENİ: Filtrelenmiş liste
+  const [kullaniciAramaMetni, setKullaniciAramaMetni] = useState(''); // YENİ: Arama metni
   const [kullanicilarYukleniyor, setKullanicilarYukleniyor] = useState(false);
   const [seciliKullanicilar, setSeciliKullanicilar] = useState<number[]>([]);
   const [seciliKupon, setSeciliKupon] = useState<any>(null);
 
   useEffect(() => { kuponlariGetir(); }, []);
+
+  // YENİ: Kullanıcı arama filtresi mantığı
+  useEffect(() => {
+    if (kullaniciAramaMetni.trim() === '') {
+      setFiltrelenmisKullanicilar(kullanicilar);
+    } else {
+      const aranan = kullaniciAramaMetni.toLowerCase();
+      const sonuc = kullanicilar.filter(u => 
+        (u.adSoyad && u.adSoyad.toLowerCase().includes(aranan)) || 
+        (u.email && u.email.toLowerCase().includes(aranan))
+      );
+      setFiltrelenmisKullanicilar(sonuc);
+    }
+  }, [kullaniciAramaMetni, kullanicilar]);
 
   const kuponlariGetir = async () => {
     setLoading(true);
@@ -82,12 +98,16 @@ export default function AdminKupon() {
 
   const kullanicilariGetir = async () => {
     setKullanicilarYukleniyor(true);
+    setKullaniciAramaMetni(''); // Modal açıldığında aramayı sıfırla
     try {
       const token = await AsyncStorage.getItem('userToken');
       const response = await axios.get(`${API_CONFIG.BASE_URL}/kullanicilar`, { headers: { Authorization: `Bearer ${token}` } });
       
       const sadeceMusteriler = response.data.filter((u: any) => u.rol === 'Kullanici');
-      setKullanicilar(sadeceMusteriler.length > 0 ? sadeceMusteriler : response.data);
+      const liste = sadeceMusteriler.length > 0 ? sadeceMusteriler : response.data;
+      
+      setKullanicilar(liste);
+      setFiltrelenmisKullanicilar(liste);
     } catch (error) {
       Alert.alert("Hata", "Kullanıcı listesi alınamadı.");
     } finally {
@@ -106,8 +126,6 @@ export default function AdminKupon() {
       
       Alert.alert("Başarılı", "Kupon atamaları güncellendi.");
       setKullaniciModalGorunur(false);
-      
-      // Kuponlar listesini yenile
       kuponlariGetir();
     } catch (error: any) {
       Alert.alert("Hata", error.response?.data?.mesaj || "Kupon tanımlanırken hata oluştu.");
@@ -228,24 +246,43 @@ export default function AdminKupon() {
         </View>
       </Modal>
 
-      {/* 2. MODAL: Kullanıcılara Kupon Tanımlama / Geri Alma Modalı */}
+      {/* 2. MODAL: Kullanıcılara Kupon Tanımlama / Geri Alma Modalı (Arama Özellikli) */}
       <Modal visible={kullaniciModalGorunur} animationType="slide" transparent={true}>
         <View style={styles.modalBg}>
-          <View style={[styles.modalKutu, { flex: 0.8 }]}>
+          <View style={[styles.modalKutu, { flex: 0.85 }]}>
             <Text style={styles.modalBaslik}>{seciliKupon?.kodu} Tanımla / Kaldır</Text>
-            <Text style={{marginBottom: 10, color: '#666'}}>
-              Kuponu eklemek veya geri almak (iptal etmek) istediğiniz kişileri seçin.
+            <Text style={{marginBottom: 10, color: '#666', fontSize: 13}}>
+              Kuponu eklemek veya geri almak istediğiniz kişileri arayın ve seçin.
             </Text>
+
+            {/* YENİ: Kullanıcı Arama Çubuğu */}
+            <View style={styles.aramaKutusu}>
+              <Ionicons name="search" size={18} color="#8E8E93" style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.aramaInput}
+                placeholder="İsim veya e-posta ile ara..."
+                placeholderTextColor="#8E8E93"
+                value={kullaniciAramaMetni}
+                onChangeText={setKullaniciAramaMetni}
+              />
+              {kullaniciAramaMetni.length > 0 && (
+                <TouchableOpacity onPress={() => setKullaniciAramaMetni('')}>
+                  <Ionicons name="close-circle" size={16} color="#8E8E93" />
+                </TouchableOpacity>
+              )}
+            </View>
 
             {kullanicilarYukleniyor ? (
                <ActivityIndicator size="large" color="#4CAF50" style={{ margin: 20 }} />
             ) : (
               <FlatList
-                data={kullanicilar}
+                data={filtrelenmisKullanicilar}
                 keyExtractor={(item) => item.id.toString()}
+                initialNumToRender={20}
+                maxToRenderPerBatch={20}
+                windowSize={10}
                 renderItem={({ item }) => {
                   const seciliMi = seciliKullanicilar.includes(item.id);
-                  // Backend'de IsDeleted olduğu için UI'da da bu şekilde kontrol etmeliyiz.
                   const isPasif = item.isDeleted === true; 
 
                   return (
@@ -254,16 +291,16 @@ export default function AdminKupon() {
                       onPress={() => !isPasif && toggleKullanici(item.id)} 
                       activeOpacity={isPasif ? 1 : 0.7}
                     >
-                      <View>
-                        <Text style={[styles.kullaniciAd, isPasif && { color: '#999' }]}>
+                      <View style={{flex: 1, marginRight: 10}}>
+                        <Text style={[styles.kullaniciAd, isPasif && { color: '#999' }]} numberOfLines={1}>
                           {item.adSoyad || 'İsimsiz Kullanıcı'} 
-                          {isPasif && <Text style={{color: '#FF3B30', fontSize: 12}}> (Pasif / Yasaklı)</Text>}
+                          {isPasif && <Text style={{color: '#FF3B30', fontSize: 11}}> (Pasif)</Text>}
                         </Text>
-                        <Text style={styles.kullaniciMail}>{item.email}</Text>
+                        <Text style={styles.kullaniciMail} numberOfLines={1}>{item.email}</Text>
                       </View>
                       <Ionicons 
                         name={isPasif ? "close-circle" : (seciliMi ? "checkbox" : "square-outline")} 
-                        size={26} 
+                        size={24} 
                         color={isPasif ? "#FF3B30" : (seciliMi ? "#4CAF50" : "#ccc")} 
                       />
                     </TouchableOpacity>
@@ -309,8 +346,27 @@ const styles = StyleSheet.create({
   tipBtn: { flex: 1, padding: 10, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   tipAktif: { backgroundColor: '#007AFF', borderColor: '#007AFF' },
   btn: { flex: 1, padding: 15, borderRadius: 8, alignItems: 'center' },
-  kullaniciSatiri: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee', backgroundColor: '#fafafa', borderRadius: 8, marginBottom: 5 },
+  
+  // ARAMA ÇUBUĞU STİLLERİ
+  aramaKutusu: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F2F2F7',
+    paddingHorizontal: 10,
+    height: 40,
+    borderRadius: 8,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E5E5EA'
+  },
+  aramaInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#1C1C1E',
+  },
+
+  kullaniciSatiri: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 10, borderBottomWidth: 1, borderBottomColor: '#eee', backgroundColor: '#fafafa', borderRadius: 8, marginBottom: 5 },
   kullaniciSatiriAktif: { backgroundColor: '#E8F5E9', borderColor: '#4CAF50', borderWidth: 1 },
-  kullaniciAd: { fontSize: 15, fontWeight: 'bold', color: '#333' },
-  kullaniciMail: { fontSize: 12, color: '#666' }
+  kullaniciAd: { fontSize: 14, fontWeight: 'bold', color: '#333' },
+  kullaniciMail: { fontSize: 11, color: '#666' }
 });

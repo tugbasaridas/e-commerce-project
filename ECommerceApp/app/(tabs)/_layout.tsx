@@ -79,6 +79,13 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Ionicons name="person" size={24} color={color} />,
         }}
       />
+
+      <Tabs.Screen
+        name="bildirimler"
+        options={{
+          href: null, // Bu özellik sayesinde alt menüde ASLA görünmez
+        }}
+      />
       
     </Tabs>
   );

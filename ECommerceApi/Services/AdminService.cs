@@ -414,4 +414,21 @@ public async Task<(bool Basarili, string Mesaj)> SiparisDetayDurumGuncelleAsync(
         
         return (true, "Ürün reddedildi ve sistemden kalıcı olarak silindi.");
     }
+
+    public async Task<object> OnaylananUrunleriGetirAsync()
+    {
+        return await _db.Urunler
+            .Include(u => u.Magaza)
+            .Include(u => u.Kategori)
+            .Where(u => u.AdminOnayliMi == true && u.AktifMi == true)
+            .Select(u => new {
+                id = u.Id,
+                ad = u.Ad,
+                fiyat = u.Fiyat,
+                stok = u.Stok,
+                resimUrl = u.ResimUrl,
+                magazaAdi = u.Magaza != null ? u.Magaza.MagazaAdi : "Bilinmiyor"
+            })
+            .ToListAsync();
+    }
 }

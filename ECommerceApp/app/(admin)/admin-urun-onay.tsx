@@ -1,34 +1,52 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import api from '../../config/api';
 
 export default function AdminUrunOnay() {
   const router = useRouter();
-  const [urunler, setUrunler] = useState<any[]>([]);
+  const [tumUrunler, setTumUrunler] = useState<any[]>([]); // Orijinal tam liste
+  const [filtrelenmisUrunler, setFiltrelenmisUrunler] = useState<any[]>([]); // Ekranda gösterilen filtrelenmiş liste
   const [loading, setLoading] = useState(true);
   
-  // YENİ: Aktif sekmeyi tutan state ('bekleyen' veya 'onaylanan')
+  // YENİ: Arama metni için state
+  const [aramaMetni, setAramaMetni] = useState('');
+  
   const [aktifSekme, setAktifSekme] = useState<'bekleyen' | 'onaylanan'>('bekleyen');
 
-  // Sekme değiştiğinde ürünleri yeniden çek
   useEffect(() => {
     fetchUrunler();
   }, [aktifSekme]);
 
+  // Arama metni değiştikçe listeyi filtrele
+  useEffect(() => {
+    if (aramaMetni.trim() === '') {
+      setFiltrelenmisUrunler(tumUrunler);
+    } else {
+      const arananKucuk = aramaMetni.toLowerCase();
+      const sonuc = tumUrunler.filter(u => 
+        (u.ad && u.ad.toLowerCase().includes(arananKucuk)) || 
+        (u.magazaAdi && u.magazaAdi.toLowerCase().includes(arananKucuk))
+      );
+      setFiltrelenmisUrunler(sonuc);
+    }
+  }, [aramaMetni, tumUrunler]);
+
   const fetchUrunler = async () => {
     try {
       setLoading(true);
-      setUrunler([]); // Sekme geçişinde listeyi temizle
+      setTumUrunler([]); 
+      setFiltrelenmisUrunler([]);
+      setAramaMetni(''); // Sekme değiştiğinde arama kutusunu sıfırla
       
-      // Aktif sekmeye göre endpoint'i belirliyoruz
       const endpoint = aktifSekme === 'bekleyen' 
         ? '/Admin/urunler/bekleyen' 
-        : '/Admin/urunler/onaylanan'; // Onaylananlar için varsayılan endpoint
+        : '/Admin/urunler/onaylanan'; 
 
       const response = await api.get(endpoint);
-      setUrunler(response.data);
+      setTumUrunler(response.data);
+      setFiltrelenmisUrunler(response.data);
     } catch (error: any) {
       console.error("API Hatası:", error);
       Alert.alert("Hata", error.response?.data?.message || "Ürünler getirilemedi.");
@@ -41,7 +59,7 @@ export default function AdminUrunOnay() {
     try {
       const response = await api.put(`/Admin/urun/${id}/onayla`);
       Alert.alert("Başarılı", response.data || "Ürün başarıyla vitrine eklendi.");
-      setUrunler(prev => prev.filter(u => u.id !== id)); 
+      setTumUrunler(prev => prev.filter(u => u.id !== id)); 
     } catch (error: any) {
       Alert.alert("Hata", error.response?.data || "Ürün onaylanamadı.");
     }
@@ -59,7 +77,7 @@ export default function AdminUrunOnay() {
           onPress: async () => {
             try {
               await api.delete(`/Admin/urun/${id}/reddet`);
-              setUrunler(prev => prev.filter(u => u.id !== id)); 
+              setTumUrunler(prev => prev.filter(u => u.id !== id)); 
             } catch (error: any) {
               Alert.alert("Hata", error.response?.data || "Ürün reddedilemedi.");
             }
@@ -87,7 +105,6 @@ export default function AdminUrunOnay() {
         </View>
       </View>
       
-      {/* YENİ: Sekmeye göre alt kısmı dinamik göster */}
       {aktifSekme === 'bekleyen' ? (
         <View style={styles.actionButtons}>
           <TouchableOpacity style={styles.rejectButton} onPress={() => urunReddet(item.id)}>
@@ -119,7 +136,23 @@ export default function AdminUrunOnay() {
         <View style={{ width: 26 }} />
       </View>
 
-      {/* YENİ: Sekme (Tab) Menüsü */}
+      {/* YENİ: Arama Çubuğu */}
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={20} color="#8E8E93" style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Ürün adı veya mağaza ara..."
+          placeholderTextColor="#8E8E93"
+          value={aramaMetni}
+          onChangeText={setAramaMetni}
+        />
+        {aramaMetni.length > 0 && (
+          <TouchableOpacity onPress={() => setAramaMetni('')}>
+            <Ionicons name="close-circle" size={18} color="#8E8E93" />
+          </TouchableOpacity>
+        )}
+      </View>
+
       <View style={styles.tabContainer}>
         <TouchableOpacity 
           style={[styles.tabButton, aktifSekme === 'bekleyen' && styles.activeTabButton]} 
@@ -141,16 +174,16 @@ export default function AdminUrunOnay() {
           <ActivityIndicator size="large" color="#00BCD4" />
           <Text style={styles.loadingText}>Ürünler yükleniyor...</Text>
         </View>
-      ) : urunler.length === 0 ? (
+      ) : filtrelenmisUrunler.length === 0 ? (
         <View style={styles.centerContainer}>
-          <Ionicons name="checkmark-done-circle-outline" size={60} color="#D1D1D6" />
+          <Ionicons name="search-outline" size={60} color="#D1D1D6" />
           <Text style={styles.emptyText}>
-            {aktifSekme === 'bekleyen' ? 'Harika! Onay bekleyen ürün kalmadı.' : 'Henüz onaylanmış bir ürün bulunmuyor.'}
+            {aramaMetni ? 'Aradığınız kriterlere uygun ürün bulunamadı.' : (aktifSekme === 'bekleyen' ? 'Harika! Onay bekleyen ürün kalmadı.' : 'Henüz onaylanmış bir ürün bulunmuyor.')}
           </Text>
         </View>
       ) : (
         <FlatList
-          data={urunler}
+          data={filtrelenmisUrunler}
           keyExtractor={(item) => item.id.toString()}
           renderItem={renderItem}
           contentContainerStyle={styles.listContainer}
@@ -167,8 +200,12 @@ const styles = StyleSheet.create({
   geriButon: { padding: 4, marginLeft: -4 },
   headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#1C1C1E' },
   
-  // SEKME (TAB) STİLLERİ
-  tabContainer: { flexDirection: 'row', backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  // ARAMA ÇUBUĞU STİLLERİ
+  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', marginHorizontal: 16, marginTop: 12, paddingHorizontal: 12, height: 45, borderRadius: 12, borderWidth: 1, borderColor: '#E5E5EA' },
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1, fontSize: 15, color: '#1C1C1E' },
+
+  tabContainer: { flexDirection: 'row', backgroundColor: '#FFFFFF', paddingHorizontal: 16, marginTop: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   tabButton: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
   activeTabButton: { borderBottomColor: '#00BCD4' },
   tabText: { fontSize: 15, fontWeight: '600', color: '#8E8E93' },
@@ -193,7 +230,6 @@ const styles = StyleSheet.create({
   approveButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 10, backgroundColor: '#00BCD4', marginLeft: 8 },
   approveButtonText: { color: '#FFFFFF', fontWeight: '600', marginLeft: 6 },
 
-  // ONAYLANANLAR ETİKET STİLİ
   approvedBadgeBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#E0F7FA', paddingVertical: 10, borderRadius: 10, marginTop: 8 },
   approvedBadgeText: { color: '#00BCD4', fontWeight: 'bold', marginLeft: 6, fontSize: 14 }
 });

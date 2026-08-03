@@ -25,6 +25,7 @@ public class AppDbContext : DbContext
     public DbSet<Kupon> Kuponlar { get; set; }
     public DbSet<KullaniciKupon> KullaniciKuponlari { get; set; }
     public DbSet<KuponUrun> KuponUrunleri { get; set; }
+    public DbSet<Bildirim> Bildirimler { get; set; }
 
     // --- YENİ EKLENEN: İLİŞKİ KURALLARI ---
     protected override void OnModelCreating(ModelBuilder modelBuilder)
