@@ -14,26 +14,32 @@ public class SepetService : ISepetService
         _db = db;
     }
 
-    public async Task<object> SepetiGetirAsync(int userId)
+  public async Task<object> SepetiGetirAsync(int userId)
     {
         return await _db.SepetUrunleri
             .Where(c => c.KullaniciId == userId)
             .Include(c => c.Urunler)
+                .ThenInclude(u => u!.Magaza) // Mağaza ilişkisini dahil ediyoruz
             .Select(c => new 
             {
                 Id = c.Id,
-                UrunId = c.UrunId,
+                UrunId = c.UrunId, // Sepet satırındaki UrunId
                 Miktar = c.Miktar,
                 Urunler = c.Urunler != null ? new 
                 {
+                    Id = c.Urunler.Id, // Ürünün kendi ID'si
+                    MagazaId = c.Urunler.MagazaId, // Ürünün ait olduğu mağazanın ID'si
                     Ad = c.Urunler.Ad,
                     Fiyat = c.Urunler.IndirimliFiyat ?? c.Urunler.Fiyat, 
-                    ResimUrl = c.Urunler.ResimUrl 
+                    ResimUrl = c.Urunler.ResimUrl,
+                    Magaza = c.Urunler.Magaza != null ? new {
+                        Id = c.Urunler.Magaza.Id,
+                        MagazaAdi = c.Urunler.Magaza.MagazaAdi
+                    } : null
                 } : null
             })
             .ToListAsync();
     }
-
    
     public async Task<(bool Basarili, string Mesaj)> SepeteEkleAsync(int userId, SepeteEkleDTO dto)
     {

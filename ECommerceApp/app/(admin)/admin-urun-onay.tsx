@@ -8,20 +8,30 @@ export default function AdminUrunOnay() {
   const router = useRouter();
   const [urunler, setUrunler] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // YENİ: Aktif sekmeyi tutan state ('bekleyen' veya 'onaylanan')
+  const [aktifSekme, setAktifSekme] = useState<'bekleyen' | 'onaylanan'>('bekleyen');
 
+  // Sekme değiştiğinde ürünleri yeniden çek
   useEffect(() => {
-    fetchBekleyenUrunler();
-  }, []);
+    fetchUrunler();
+  }, [aktifSekme]);
 
-  const fetchBekleyenUrunler = async () => {
+  const fetchUrunler = async () => {
     try {
       setLoading(true);
-      // Hazır api instance'ımız Token'ı otomatik ekliyor!
-      const response = await api.get('/Admin/urunler/bekleyen');
+      setUrunler([]); // Sekme geçişinde listeyi temizle
+      
+      // Aktif sekmeye göre endpoint'i belirliyoruz
+      const endpoint = aktifSekme === 'bekleyen' 
+        ? '/Admin/urunler/bekleyen' 
+        : '/Admin/urunler/onaylanan'; // Onaylananlar için varsayılan endpoint
+
+      const response = await api.get(endpoint);
       setUrunler(response.data);
     } catch (error: any) {
       console.error("API Hatası:", error);
-      Alert.alert("Hata", error.response?.data?.message || "Bekleyen ürünler getirilemedi.");
+      Alert.alert("Hata", error.response?.data?.message || "Ürünler getirilemedi.");
     } finally {
       setLoading(false);
     }
@@ -77,17 +87,25 @@ export default function AdminUrunOnay() {
         </View>
       </View>
       
-      <View style={styles.actionButtons}>
-        <TouchableOpacity style={styles.rejectButton} onPress={() => urunReddet(item.id)}>
-          <Ionicons name="close-circle-outline" size={20} color="#EF233C" />
-          <Text style={styles.rejectButtonText}>Reddet</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.approveButton} onPress={() => urunOnayla(item.id)}>
-          <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
-          <Text style={styles.approveButtonText}>Vitrine Ekle</Text>
-        </TouchableOpacity>
-      </View>
+      {/* YENİ: Sekmeye göre alt kısmı dinamik göster */}
+      {aktifSekme === 'bekleyen' ? (
+        <View style={styles.actionButtons}>
+          <TouchableOpacity style={styles.rejectButton} onPress={() => urunReddet(item.id)}>
+            <Ionicons name="close-circle-outline" size={20} color="#EF233C" />
+            <Text style={styles.rejectButtonText}>Reddet</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.approveButton} onPress={() => urunOnayla(item.id)}>
+            <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
+            <Text style={styles.approveButtonText}>Vitrine Ekle</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.approvedBadgeBox}>
+           <Ionicons name="checkmark-done-circle" size={18} color="#00BCD4" />
+           <Text style={styles.approvedBadgeText}>Vitrin'de Yayında</Text>
+        </View>
+      )}
     </View>
   );
 
@@ -97,8 +115,25 @@ export default function AdminUrunOnay() {
         <TouchableOpacity style={styles.geriButon} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={26} color="#1C1C1E" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Onay Bekleyen Ürünler</Text>
+        <Text style={styles.headerTitle}>Ürün Yönetimi</Text>
         <View style={{ width: 26 }} />
+      </View>
+
+      {/* YENİ: Sekme (Tab) Menüsü */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity 
+          style={[styles.tabButton, aktifSekme === 'bekleyen' && styles.activeTabButton]} 
+          onPress={() => setAktifSekme('bekleyen')}
+        >
+          <Text style={[styles.tabText, aktifSekme === 'bekleyen' && styles.activeTabText]}>Bekleyenler</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.tabButton, aktifSekme === 'onaylanan' && styles.activeTabButton]} 
+          onPress={() => setAktifSekme('onaylanan')}
+        >
+          <Text style={[styles.tabText, aktifSekme === 'onaylanan' && styles.activeTabText]}>Onaylananlar</Text>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -109,7 +144,9 @@ export default function AdminUrunOnay() {
       ) : urunler.length === 0 ? (
         <View style={styles.centerContainer}>
           <Ionicons name="checkmark-done-circle-outline" size={60} color="#D1D1D6" />
-          <Text style={styles.emptyText}>Harika! Onay bekleyen ürün kalmadı.</Text>
+          <Text style={styles.emptyText}>
+            {aktifSekme === 'bekleyen' ? 'Harika! Onay bekleyen ürün kalmadı.' : 'Henüz onaylanmış bir ürün bulunmuyor.'}
+          </Text>
         </View>
       ) : (
         <FlatList
@@ -126,9 +163,17 @@ export default function AdminUrunOnay() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 15, backgroundColor: '#FFFFFF' },
   geriButon: { padding: 4, marginLeft: -4 },
   headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#1C1C1E' },
+  
+  // SEKME (TAB) STİLLERİ
+  tabContainer: { flexDirection: 'row', backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  tabButton: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  activeTabButton: { borderBottomColor: '#00BCD4' },
+  tabText: { fontSize: 15, fontWeight: '600', color: '#8E8E93' },
+  activeTabText: { color: '#00BCD4' },
+
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   loadingText: { marginTop: 12, color: '#8E8E93' },
   emptyText: { marginTop: 16, fontSize: 16, color: '#8E8E93', textAlign: 'center' },
@@ -146,5 +191,9 @@ const styles = StyleSheet.create({
   rejectButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 10, backgroundColor: '#FFEBEA', marginRight: 8 },
   rejectButtonText: { color: '#EF233C', fontWeight: '600', marginLeft: 6 },
   approveButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 10, backgroundColor: '#00BCD4', marginLeft: 8 },
-  approveButtonText: { color: '#FFFFFF', fontWeight: '600', marginLeft: 6 }
+  approveButtonText: { color: '#FFFFFF', fontWeight: '600', marginLeft: 6 },
+
+  // ONAYLANANLAR ETİKET STİLİ
+  approvedBadgeBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#E0F7FA', paddingVertical: 10, borderRadius: 10, marginTop: 8 },
+  approvedBadgeText: { color: '#00BCD4', fontWeight: 'bold', marginLeft: 6, fontSize: 14 }
 });

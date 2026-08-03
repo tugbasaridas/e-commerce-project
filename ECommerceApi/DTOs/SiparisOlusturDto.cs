@@ -5,7 +5,10 @@ public class SiparisOlusturDto
     public string OdemeYontemi { get; set; } = "Kredi Kartı";
     public string TeslimatAdresi { get; set; } = string.Empty;
     public string Telefon { get; set; } = string.Empty;
+    public int? KuponId { get; set; }
+    public int? KullanilanKuponId { get; set; }
 }
+
 public class SiparisDetayGuncelleDTO
 {
     public string YeniDurum { get; set; } = string.Empty;

@@ -8,7 +8,9 @@ import { useOdeme } from '../hooks/custom/useOdeme';
 
 export default function OdemeEkrani() {
   const router = useRouter();
-  const { tutar, dogrulandi } = useLocalSearchParams<{ tutar: string, dogrulandi: string }>();
+  
+  // 1. DEĞİŞİKLİK: kuponId'yi URL parametrelerinden yakalıyoruz
+  const { tutar, dogrulandi, kuponId } = useLocalSearchParams<{ tutar: string, dogrulandi: string, kuponId?: string }>();
   
   const {
     odemeYontemi, setOdemeYontemi,
@@ -17,7 +19,7 @@ export default function OdemeEkrani() {
     bilgileriKaydet, setBilgileriKaydet,
     isFlipped, setIsFlipped, odemeyiBaslat,
     kayitliAdreslerList, kayitliKartlarList, adresSec, kartSec
-  } = useOdeme(dogrulandi);
+  } = useOdeme(dogrulandi, kuponId); // 2. DEĞİŞİKLİK: kuponId'yi hook'a gönderdik
 
   return (
     <SafeAreaView style={styles.container}>

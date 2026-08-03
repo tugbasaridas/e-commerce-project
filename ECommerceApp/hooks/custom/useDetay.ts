@@ -90,8 +90,6 @@ export const useDetay = (id: string | string[]) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
       
-      // ROTA DÜZELTİLDİ: /urunler/{id}/oyla yerine C# tarafındaki DTO parametresiyle post ediliyor
-      // UrunController tarafında: [HttpPost("{id}/oyla")] public async Task<IActionResult> UrunOyla(int id, [FromBody] OylamaDto dto)
       await axios.post(
         `${API_CONFIG.BASE_URL}/urun/${id}/oyla`, 
         { 

@@ -39,6 +39,7 @@ builder.Services.AddScoped<IFavoriService, FavoriService>();
 builder.Services.AddScoped<IDestekService, DestekService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<ISaticiService, SaticiService>();
+builder.Services.AddScoped<IKuponService, KuponService>();
 
 // --- 5. JWT GÜVENLİK SERVİSİ ---
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

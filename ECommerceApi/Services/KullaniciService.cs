@@ -15,11 +15,14 @@ public class KullaniciService : IKullaniciService
 {
     private readonly AppDbContext _db;
     private readonly IConfiguration _config;
+    private readonly IKuponService _kuponService; // 1. KUPON SERVİSİNİ TANIMLADIK
 
-    public KullaniciService(AppDbContext db, IConfiguration config)
+    // 2. CONSTRUCTOR (YAPICI METOT) İÇİNE ENJEKTE ETTİK
+    public KullaniciService(AppDbContext db, IConfiguration config, IKuponService kuponService)
     {
         _db = db;
         _config = config;
+        _kuponService = kuponService;
     }
 
     public async Task<object> TumKullanicilariGetirAsync()
@@ -71,8 +74,13 @@ public class KullaniciService : IKullaniciService
         };
 
         _db.Kullanicilar.Add(yeniKullanici);
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(); // Kullanıcı veritabanına eklendi ve bir ID aldı!
         
+        // --- 3. YENİ EKLENEN KISIM: HOŞ GELDİN KUPONU TANIMLAMA ---
+        // Kullanıcı başarıyla kaydedilir kaydedilmez otomatik kuponunu veriyoruz
+        await _kuponService.YeniKullaniciyaHosgeldinKuponuVerAsync(yeniKullanici.Id);
+        // -----------------------------------------------------------
+
         return (true, "Kayıt başarılı.");
     }
 
@@ -91,19 +99,15 @@ public class KullaniciService : IKullaniciService
         
         if (!sifreDogruMu) return (false, "Kullanıcı bulunamadı veya şifre hatalı.", null, null, null, null);
 
-        // --- YENİ EKLENEN KISIM: SATICI ONAY KONTROLÜ ---
         if (kullanici.Rol == "Satici")
         {
-            // Kullanıcının mağazasını bul
             var magaza = await _db.Magazalar.FirstOrDefaultAsync(m => m.KullaniciId == kullanici.Id);
             
-            // Eğer mağaza var ama henüz onaylanmamışsa girişi engelle
             if (magaza != null && magaza.OnaylandiMi == false)
             {
                 return (false, "Mağaza başvurunuz yöneticiler tarafından değerlendirilmektedir. Onaylandıktan sonra giriş yapabilirsiniz.", null, null, null, null);
             }
         }
-        // ------------------------------------------------
 
         var claims = new[]
         {

@@ -140,6 +140,36 @@ namespace ECommerceApi.Migrations
                     b.ToTable("Kategoriler");
                 });
 
+            modelBuilder.Entity("ECommerceApi.Entities.KullaniciKupon", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("KullaniciId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("KullanildiMi")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("KuponId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("TanimlanmaTarihi")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KuponId");
+
+                    b.HasIndex("KullaniciId", "KuponId")
+                        .IsUnique();
+
+                    b.ToTable("KullaniciKuponlari");
+                });
+
             modelBuilder.Entity("ECommerceApi.Entities.Kullanicilar", b =>
                 {
                     b.Property<int>("Id")
@@ -181,6 +211,74 @@ namespace ECommerceApi.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Kullanicilar");
+                });
+
+            modelBuilder.Entity("ECommerceApi.Entities.Kupon", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AktifMi")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("AltLimit")
+                        .HasColumnType("numeric");
+
+                    b.Property<DateTime?>("BitisTarihi")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("HerkeseAcikMi")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("IndirimDegeri")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("IndirimTipi")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Kodu")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("MagazaId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("OlusturanRol")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MagazaId");
+
+                    b.ToTable("Kuponlar");
+                });
+
+            modelBuilder.Entity("ECommerceApi.Entities.KuponUrun", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("KuponId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UrunId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KuponId");
+
+                    b.HasIndex("UrunId");
+
+                    b.ToTable("KuponUrunleri");
                 });
 
             modelBuilder.Entity("ECommerceApi.Entities.Magaza", b =>
@@ -262,7 +360,13 @@ namespace ECommerceApi.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<decimal?>("IndirimTutari")
+                        .HasColumnType("numeric");
+
                     b.Property<int>("KullaniciId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("KuponId")
                         .HasColumnType("integer");
 
                     b.Property<string>("OdemeYontemi")
@@ -286,6 +390,8 @@ namespace ECommerceApi.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("KullaniciId");
+
+                    b.HasIndex("KuponId");
 
                     b.ToTable("Siparisler");
                 });
@@ -333,6 +439,33 @@ namespace ECommerceApi.Migrations
                     b.HasIndex("UrunId");
 
                     b.ToTable("SiparisDetaylari");
+                });
+
+            modelBuilder.Entity("ECommerceApi.Entities.Takipci", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("KullaniciId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MagazaId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("TakipTarihi")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MagazaId");
+
+                    b.HasIndex("KullaniciId", "MagazaId")
+                        .IsUnique();
+
+                    b.ToTable("Takipciler");
                 });
 
             modelBuilder.Entity("ECommerceApi.Entities.UrunSoru", b =>
@@ -486,6 +619,53 @@ namespace ECommerceApi.Migrations
                     b.Navigation("UstKategori");
                 });
 
+            modelBuilder.Entity("ECommerceApi.Entities.KullaniciKupon", b =>
+                {
+                    b.HasOne("ECommerceApi.Entities.Kullanicilar", "Kullanici")
+                        .WithMany()
+                        .HasForeignKey("KullaniciId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ECommerceApi.Entities.Kupon", "Kupon")
+                        .WithMany("KullaniciKuponlari")
+                        .HasForeignKey("KuponId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Kullanici");
+
+                    b.Navigation("Kupon");
+                });
+
+            modelBuilder.Entity("ECommerceApi.Entities.Kupon", b =>
+                {
+                    b.HasOne("ECommerceApi.Entities.Magaza", "Magaza")
+                        .WithMany()
+                        .HasForeignKey("MagazaId");
+
+                    b.Navigation("Magaza");
+                });
+
+            modelBuilder.Entity("ECommerceApi.Entities.KuponUrun", b =>
+                {
+                    b.HasOne("ECommerceApi.Entities.Kupon", "Kupon")
+                        .WithMany("KuponUrunleri")
+                        .HasForeignKey("KuponId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ECommerceApi.Entities.Urunler", "Urun")
+                        .WithMany()
+                        .HasForeignKey("UrunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Kupon");
+
+                    b.Navigation("Urun");
+                });
+
             modelBuilder.Entity("ECommerceApi.Entities.Magaza", b =>
                 {
                     b.HasOne("ECommerceApi.Entities.Kullanicilar", "Kullanici")
@@ -524,7 +704,13 @@ namespace ECommerceApi.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("ECommerceApi.Entities.Kupon", "Kupon")
+                        .WithMany()
+                        .HasForeignKey("KuponId");
+
                     b.Navigation("Kullanici");
+
+                    b.Navigation("Kupon");
                 });
 
             modelBuilder.Entity("ECommerceApi.Entities.SiparisDetay", b =>
@@ -544,6 +730,25 @@ namespace ECommerceApi.Migrations
                     b.Navigation("Siparis");
 
                     b.Navigation("Urunler");
+                });
+
+            modelBuilder.Entity("ECommerceApi.Entities.Takipci", b =>
+                {
+                    b.HasOne("ECommerceApi.Entities.Kullanicilar", "Kullanici")
+                        .WithMany()
+                        .HasForeignKey("KullaniciId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ECommerceApi.Entities.Magaza", "Magaza")
+                        .WithMany()
+                        .HasForeignKey("MagazaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Kullanici");
+
+                    b.Navigation("Magaza");
                 });
 
             modelBuilder.Entity("ECommerceApi.Entities.UrunSoru", b =>
@@ -596,6 +801,13 @@ namespace ECommerceApi.Migrations
                     b.Navigation("Magaza");
 
                     b.Navigation("Siparisler");
+                });
+
+            modelBuilder.Entity("ECommerceApi.Entities.Kupon", b =>
+                {
+                    b.Navigation("KullaniciKuponlari");
+
+                    b.Navigation("KuponUrunleri");
                 });
 
             modelBuilder.Entity("ECommerceApi.Entities.Magaza", b =>

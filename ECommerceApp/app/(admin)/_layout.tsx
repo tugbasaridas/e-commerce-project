@@ -53,6 +53,7 @@ export default function AdminLayout() {
       <Tabs.Screen name="admin-kategoriler" options={{ href: null }} />
       <Tabs.Screen name="admin-satici-onay" options={{ href: null }} />
       <Tabs.Screen name="admin-urun-onay" options={{ href: null }} />
+       <Tabs.Screen name="admin-kupon" options={{ href: null }} />
       
     
     </Tabs>

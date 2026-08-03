@@ -11,8 +11,20 @@ public class Siparis
     [ForeignKey(nameof(KullaniciId))]
     [JsonIgnore]
     public Kullanicilar? Kullanici { get; set; }
+    
     public DateTime SiparisTarihi { get; set; } = DateTime.UtcNow;
-    public decimal ToplamTutar { get; set; }
+    
+    // İndirim uygulandıktan sonraki son ödenen net tutar
+    public decimal ToplamTutar { get; set; } 
+    
+    // --- YENİ EKLENEN KUPON ALANLARI ---
+    public int? KuponId { get; set; } // Hangi kupon kullanıldı?
+    public decimal? IndirimTutari { get; set; } // Bu siparişte kupondan dolayı kaç TL indirim yapıldı?
+    
+    [ForeignKey(nameof(KuponId))]
+    [JsonIgnore] // JSON döngüsüne girmemesi için
+    public Kupon? Kupon { get; set; }
+    // -----------------------------------
     
     // Ana sipariş durumu artık sepetin genel durumunu ifade eder
     public string Durum { get; set; } = "Hazırlanıyor"; 

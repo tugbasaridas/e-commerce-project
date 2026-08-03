@@ -27,5 +27,8 @@ export interface Urun {
   ortalamaPuan?: number;
   oylamaSayisi?: number;
   yorumlar?: Yorum[];
-  magaza: { magazaAdi: string };
+  magaza: { 
+    id: number;
+    magazaAdi: string
+  };
 }

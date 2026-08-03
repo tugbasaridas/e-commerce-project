@@ -47,11 +47,10 @@ public class SaticiService : ISaticiService
 
    public async Task<bool> UrunEkleAsync(int kullaniciId, SaticiUrunEkleDto dto)
     {
-        // 1. Ürünü eklemeye çalışan satıcının mağazasını bul
         var magaza = await _context.Magazalar.FirstOrDefaultAsync(m => m.KullaniciId == kullaniciId);
         
         if (magaza == null) 
-            return false; // Satıcının henüz bir mağazası yoksa ürün ekleyemez
+            return false;
 
         var yeniUrun = new Urunler
         {
@@ -62,9 +61,8 @@ public class SaticiService : ISaticiService
             ResimUrl = dto.ResimUrl,
             KategoriId = dto.KategoriId,
             
-            // YENİ PAZARYERİ KURALLARI
-            MagazaId = magaza.Id,       // Ürün artık satıcının mağazasına mühürlendi
-            AdminOnayliMi = false,      // Ürün havuza düştü, onay bekliyor
+            MagazaId = magaza.Id,       
+            AdminOnayliMi = false,      
             AktifMi = true              
         };
 
@@ -172,6 +170,7 @@ public class SaticiService : ISaticiService
         if (magaza == null) throw new Exception("Mağaza bulunamadı.");
 
         var hamSiparisler = await _context.Siparisler
+            .Include(s => s.Kupon) // YENİ EKLENDİ: Kupon detaylarını da çekiyoruz
             .Include(s => s.Detaylar)
                 .ThenInclude(d => d.Urunler)
             .Where(s => s.Detaylar!.Any(d => d.Urunler != null && d.Urunler.MagazaId == magaza.Id)) 
@@ -190,6 +189,11 @@ public class SaticiService : ISaticiService
                 IletisimTelfonu = x.Siparis.Telefon,
                 OdemeYontemi = x.Siparis.OdemeYontemi,
                 
+                // YENİ EKLENEN KISIM: Arayüze kupon ve genel tutar bilgilerini gönderiyoruz
+                ToplamTutar = x.Siparis.ToplamTutar,
+                KullanilanKuponKodu = x.Siparis.Kupon != null ? x.Siparis.Kupon.Kodu : null,
+                KuponIndirimTutari = x.Siparis.IndirimTutari ?? 0,
+                
                 SatilanUrunler = x.Siparis.Detaylar!
                     .Where(d => d.Urunler != null && d.Urunler!.MagazaId == magaza.Id)
                     .Select(d => new
@@ -199,7 +203,7 @@ public class SaticiService : ISaticiService
                         Ad = d.Urunler != null ? d.Urunler!.Ad : "Silinmiş Ürün",
                         Adet = d.Adet,
                         BirimFiyat = d.BirimFiyat,
-                        SaticiKazanci = d.SaticiKazanci, // NET KAZANÇ VERİSİNİ ÇEKİYORUZ
+                        SaticiKazanci = d.SaticiKazanci,
                         ResimUrl = d.Urunler != null ? d.Urunler!.ResimUrl : "",
                         Durum = d.Durum, 
                         KargoFirma = d.KargoFirma, 
@@ -217,7 +221,12 @@ public class SaticiService : ISaticiService
             s.TeslimatAdresi,
             s.IletisimTelfonu,
             s.OdemeYontemi,
-            // SADECE NET KAZANÇLARI TOPLUYORUZ (Komisyon düşülmüş tutarlar)
+            
+            // JSON serileştirmesinde aktarılacak yeni alanlar
+            s.ToplamTutar,
+            s.KullanilanKuponKodu,
+            s.KuponIndirimTutari,
+            
             SaticiKazanci = s.SatilanUrunler.Sum(u => u.SaticiKazanci), 
             s.SatilanUrunler
         }).ToList();

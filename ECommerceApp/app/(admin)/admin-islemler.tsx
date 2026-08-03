@@ -137,6 +137,18 @@ export default function AdminIslemler() {
           <Text style={styles.cardDesc}>Gelen soruları ve talepleri anında yanıtla</Text>
         </TouchableOpacity>
 
+        {/* KUPON YÖNETİMİ (YENİ EKLENEN) */}
+        <TouchableOpacity style={styles.card} activeOpacity={0.7} onPress={() => router.push('/admin-kupon' as any)}>
+          <View style={styles.cardTop}>
+            <View style={[styles.iconBox, { backgroundColor: '#FFF3E0' }]}>
+              <Ionicons name="ticket" size={26} color="#FF9800" />
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#D1D1D6" />
+          </View>
+          <Text style={styles.cardTitle}>Kupon Yönetimi</Text>
+          <Text style={styles.cardDesc}>Sisteme özel indirim kuponları oluştur ve yönet</Text>
+        </TouchableOpacity>
+
       </View>
       <View style={{ height: 40 }} />
     </ScrollView>
@@ -180,4 +192,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   }
-}); 
+});

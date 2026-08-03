@@ -21,6 +21,10 @@ public class AppDbContext : DbContext
     public DbSet<DestekTalepleri> DestekTalepleri { get; set; }
     public DbSet<Oylama> Oylamalar { get; set; }
     public DbSet<Magaza> Magazalar { get; set; }
+    public DbSet<Takipci> Takipciler { get; set; }
+    public DbSet<Kupon> Kuponlar { get; set; }
+    public DbSet<KullaniciKupon> KullaniciKuponlari { get; set; }
+    public DbSet<KuponUrun> KuponUrunleri { get; set; }
 
     // --- YENİ EKLENEN: İLİŞKİ KURALLARI ---
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -40,5 +44,13 @@ public class AppDbContext : DbContext
             .WithMany(m => m.Urunler)
             .HasForeignKey(u => u.MagazaId)
             .OnDelete(DeleteBehavior.SetNull); // Mağaza kapanırsa ürünler silinmesin, NovaStore'a devrolsun (MagazaId = null)
+
+            // Bir kullanıcı bir mağazayı sadece 1 kere takip edebilir
+    modelBuilder.Entity<Takipci>()
+        .HasIndex(t => new { t.KullaniciId, t.MagazaId }).IsUnique();
+
+    // Bir kullanıcıya aynı kupon 2 kere tanımlanamaz
+    modelBuilder.Entity<KullaniciKupon>()
+        .HasIndex(kk => new { kk.KullaniciId, kk.KuponId }).IsUnique();
     }
 }

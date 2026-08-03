@@ -1,10 +1,14 @@
+import { API_CONFIG } from '@/config/api';
 import { Ionicons } from '@expo/vector-icons';
+import axios from 'axios';
+import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 // BİLEŞENLER VE HOOK'LAR
-import BenzerUrunler from '../components/BenzerUrunler'; // YENİ EKLENEN BENZER ÜRÜNLER BİLEŞENİ
+import BenzerUrunler from '../components/BenzerUrunler';
+import TakipEtButonu from '../components/TakipButonu';
 import UrunSoruBolumu from '../components/UrunSoruBolumu';
 import { useDetay } from '../hooks/custom/useDetay';
 
@@ -21,6 +25,22 @@ export default function Detay() {
     yorumMetni, setYorumMetni,
     favoriButonunaBasildi, sepeteEkle, oyGonder
   } = useDetay(id as string);
+
+  // YENİ: Ürüne özel kuponlar için state ve çekme işlemi
+  const [kuponlar, setKuponlar] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (id) {
+      axios.get(`${API_CONFIG.BASE_URL}/kupon/urun/${id}`)
+        .then((res) => setKuponlar(res.data))
+        .catch((err) => console.log("Kuponlar getirilemedi:", err));
+    }
+  }, [id]);
+
+  const kuponKopyala = async (kod: string) => {
+    await Clipboard.setStringAsync(kod);
+    Alert.alert("Kupon Kodu Kopyalandı", `${kod} kodunu kopyalayıp sepette kullanabilirsiniz!`);
+  };
 
   // Yorumları sınırlandırmak için state (İlk açılışta 1 yorum)
   const [tumYorumlariGoster, setTumYorumlariGoster] = useState(false);
@@ -40,9 +60,6 @@ export default function Detay() {
 
       <View>
         <Image source={{ uri: urun.resimUrl }} style={styles.buyukResim} />
-        <TouchableOpacity style={styles.geriButon} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={28} color="#000" />
-        </TouchableOpacity>
         <TouchableOpacity style={styles.kalpButon} onPress={favoriButonunaBasildi}>
           <Ionicons name="heart-outline" size={28} color="#ff4757" />
         </TouchableOpacity>
@@ -52,12 +69,21 @@ export default function Detay() {
         <Text style={styles.kategori}>{urun.kategori?.ad || "Genel"}</Text>
         <Text style={styles.baslik}>{urun.ad}</Text>
         
+        {/* SATICI VE MAĞAZA TAKİP ALANI */}
         {urun.magaza?.magazaAdi ? (
-          <View style={styles.saticiKutusu}>
-            <Ionicons name="storefront-outline" size={16} color="#007AFF" />
-            <Text style={styles.saticiMetni}>
-              Satıcı: <Text style={styles.saticiAdi}>{urun.magaza.magazaAdi}</Text>
-            </Text>
+          <View style={styles.saticiKapsayici}>
+            <TouchableOpacity 
+              style={styles.saticiSol} 
+              onPress={() => router.push({ pathname: '/magaza-detay' as any, params: { magazaId: urun.magaza?.id } })}
+            >
+              <Ionicons name="storefront-outline" size={18} color="#007AFF" />
+              <Text style={styles.saticiMetni}>
+                Satıcı: <Text style={styles.saticiAdi}>{urun.magaza.magazaAdi}</Text>
+              </Text>
+            </TouchableOpacity>
+
+            {/* Takip Et / Takip Ediliyor Butonu */}
+            <TakipEtButonu magazaId={urun.magaza?.id as number} />
           </View>
         ) : null}
         
@@ -76,6 +102,37 @@ export default function Detay() {
             <Text style={styles.normalFiyat}>{urun.fiyat.toFixed(2)} TL</Text>
           )}
         </View>
+
+        {/* YENİ: KUPONLAR ALANI (GÜNCELLENDİ: VIP Kupon Tasarımı) */}
+        {kuponlar.length > 0 && (
+          <View style={styles.kuponAlani}>
+            <Text style={styles.kuponBaslik}>🎁 Fırsatları Kaçırma</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
+              {kuponlar.map((kupon) => (
+                <TouchableOpacity 
+                  key={kupon.id} 
+                  style={[styles.musteriKuponKart, !kupon.herkeseAcikMi && {borderColor: '#8E44AD', backgroundColor: '#F9F0FF'}]} 
+                  onPress={() => kuponKopyala(kupon.kodu)}
+                >
+                  <View style={[styles.kuponSol, !kupon.herkeseAcikMi && { backgroundColor: '#8E44AD' }]}>
+                    <Text style={styles.kuponIndirim}>
+                      {kupon.indirimTipi === 'Yuzde' ? `%${kupon.indirimDegeri}` : `${kupon.indirimDegeri} TL`}
+                    </Text>
+                    <Text style={styles.kuponTipi}>
+                      {!kupon.herkeseAcikMi ? '👑 Takipçilere Özel' : (kupon.urunKuponuMu ? 'Ürüne Özel' : 'Mağaza')}
+                    </Text>
+                  </View>
+                  <View style={styles.kuponSag}>
+                    <Text style={styles.kuponKoduGoster}>{kupon.kodu}</Text>
+                    <Text style={styles.kuponAltLimit}>
+                      {kupon.altLimit > 0 ? `${kupon.altLimit} TL ve üzeri` : 'Alt Limit Yok'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         <TouchableOpacity style={styles.degerlendirmeSatiri} onPress={() => girisYapildiMi ? setOylamaModalGorunur(true) : Alert.alert("Giriş Gerekli", "Puanlamak ve yorum yapmak için giriş yapın.")}>
           <View style={styles.yildizGrup}>
@@ -162,7 +219,7 @@ export default function Detay() {
         )}
       </View>
 
-      {/* YENİ EKLENEN: BENZER ÜRÜNLER LİSTESİ */}
+      {/* BENZER ÜRÜNLER LİSTESİ */}
       <View style={styles.ayiriciCizgi}></View>
       <BenzerUrunler urunId={urun.id} kategoriId={urun.kategoriId} />
 
@@ -216,9 +273,10 @@ const styles = StyleSheet.create({
   kategori: { color: '#888', textTransform: 'uppercase', marginBottom: 5 },
   baslik: { fontSize: 28, fontWeight: 'bold' },
   
-  saticiKutusu: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E5F1FF', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, alignSelf: 'flex-start', marginTop: 8 },
+  saticiKapsayici: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#E5F1FF', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, marginTop: 10, marginBottom: 5 },
+  saticiSol: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 },
   saticiMetni: { fontSize: 13, color: '#007AFF', marginLeft: 6 },
-  saticiAdi: { fontWeight: 'bold' },
+  saticiAdi: { fontWeight: 'bold', textDecorationLine: 'underline' },
 
   fiyatKapsayici: { marginTop: 15, marginBottom: 15 },
   indirimliFiyatAlani: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -227,6 +285,17 @@ const styles = StyleSheet.create({
   eskiFiyat: { fontSize: 18, color: '#999', textDecorationLine: 'line-through' }, 
   rozet: { backgroundColor: '#FF4757', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   rozetYazi: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
+
+  // Kupon Alanı Stilleri
+  kuponAlani: { marginBottom: 15 },
+  kuponBaslik: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+  musteriKuponKart: { flexDirection: 'row', backgroundColor: '#FFF0E6', borderRadius: 8, borderWidth: 1, borderColor: '#FF9F00', borderStyle: 'dashed', marginRight: 12, width: 210, overflow: 'hidden' },
+  kuponSol: { backgroundColor: '#FF9F00', padding: 10, justifyContent: 'center', alignItems: 'center', width: '40%' },
+  kuponIndirim: { color: '#FFF', fontWeight: 'bold', fontSize: 15 },
+  kuponTipi: { color: '#FFF', fontSize: 9, marginTop: 2, textAlign: 'center' },
+  kuponSag: { padding: 10, justifyContent: 'center', alignItems: 'center', width: '60%' },
+  kuponKoduGoster: { fontSize: 15, fontWeight: 'bold', color: '#333', letterSpacing: 1 },
+  kuponAltLimit: { fontSize: 10, color: '#666', marginTop: 3 },
 
   degerlendirmeSatiri: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, paddingVertical: 5 },
   yildizGrup: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, marginRight: 10 },
@@ -242,8 +311,7 @@ const styles = StyleSheet.create({
   miktarText: { fontSize: 18, fontWeight: 'bold', marginHorizontal: 25 },
   buton: { backgroundColor: '#FFD700', padding: 20, borderRadius: 10, alignItems: 'center' },
   butonYazi: { fontWeight: 'bold', fontSize: 16 },
-  geriButon: { position: 'absolute', top: 50, left: 20, backgroundColor: 'rgba(255,255,255,0.8)', padding: 8, borderRadius: 20 },
-  kalpButon: { position: 'absolute', top: 50, right: 20, backgroundColor: 'rgba(255,255,255,0.8)', padding: 8, borderRadius: 20 },
+  kalpButon: { position: 'absolute', top: 10, right: 20, backgroundColor: 'rgba(255,255,255,0.8)', padding: 8, borderRadius: 20 },
   butonPasif: { backgroundColor: '#ccc', opacity: 0.5 },
 
   ayiriciCizgi: { height: 8, backgroundColor: '#F4F5F7' },

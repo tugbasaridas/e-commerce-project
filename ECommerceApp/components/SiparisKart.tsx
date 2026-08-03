@@ -86,12 +86,38 @@ export default function SiparisKart({ item, onGuncelle, onKargoTakip, isAdmin = 
       {!isAdmin && (
         <>
           <View style={styles.ayiriciCizgi} />
+          
+          {/* YENİ EKLENEN KISIM: Satıcı için kupon ve indirim gösterimi */}
+          {item.kullanilanKuponKodu && (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12, backgroundColor: '#E8F5E9', padding: 10, borderRadius: 8 }}>
+              <Text style={{fontSize: 12, color: '#28A745', fontWeight: '700'}}>
+                <Ionicons name="ticket" size={12} color="#28A745"/> {item.kullanilanKuponKodu} Kuponu Kullanıldı
+              </Text>
+              <Text style={{fontSize: 12, color: '#28A745', fontWeight: 'bold'}}>
+                - {item.kuponIndirimTutari?.toFixed(2)} TL
+              </Text>
+            </View>
+          )}
+
           <View style={styles.kartAlt}>
             <View style={{ flex: 1 }}>
               <Text style={styles.fiyatBaslik}>Müşterinin Ödediği (Brüt):</Text>
-              <Text style={styles.fiyatDegerBrut}>
-                {urunListesi.reduce((toplam: number, u: any) => toplam + (u.birimFiyat * u.adet), 0).toFixed(2)} TL
-              </Text>
+              
+              {item.kullanilanKuponKodu ? (
+                <View>
+                  <Text style={[styles.fiyatDegerBrut, { textDecorationLine: 'line-through', fontSize: 12, color: '#BFBFBF', marginTop: 2 }]}>
+                    {urunListesi.reduce((toplam: number, u: any) => toplam + (u.birimFiyat * u.adet), 0).toFixed(2)} TL
+                  </Text>
+                  <Text style={[styles.fiyatDegerBrut, { color: '#1C1C1E', fontSize: 15, marginTop: 0 }]}>
+                    {Math.max(0, urunListesi.reduce((toplam: number, u: any) => toplam + (u.birimFiyat * u.adet), 0) - (item.kuponIndirimTutari || 0)).toFixed(2)} TL
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.fiyatDegerBrut}>
+                  {urunListesi.reduce((toplam: number, u: any) => toplam + (u.birimFiyat * u.adet), 0).toFixed(2)} TL
+                </Text>
+              )}
+
             </View>
             <View style={{ alignItems: 'flex-end', flex: 1 }}>
               <Text style={styles.fiyatBaslik}>Sizin Kazancınız (Net):</Text>

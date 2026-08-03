@@ -1,7 +1,9 @@
+using ECommerceApi.DataAccess; // AppDbContext için gerekli
 using ECommerceApi.DTOs;
 using ECommerceApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
 namespace ECommerceApi.Controllers;
@@ -11,10 +13,16 @@ namespace ECommerceApi.Controllers;
 public class SaticiController : ControllerBase
 {
     private readonly ISaticiService _saticiService;
-    public SaticiController(ISaticiService saticiService) => _saticiService = saticiService;
+    private readonly AppDbContext _context; // YENİ: Context eklendi
+
+    public SaticiController(ISaticiService saticiService, AppDbContext context)
+    {
+        _saticiService = saticiService;
+        _context = context; // YENİ: Dependency injection ile bağlandı
+    }
 
     [HttpPost("basvuru")]
-    [AllowAnonymous] // Herkes satıcı başvurusu yapabilir
+    [AllowAnonymous] 
     public async Task<IActionResult> SaticiKayit([FromBody] MagazaBasvuruDto dto)
     {
         try
@@ -118,5 +126,28 @@ public class SaticiController : ControllerBase
         var sonuc = await _saticiService.SiparisDetayDurumGuncelleAsync(saticiId, detayId, dto);
         if (!sonuc.Basarili) return BadRequest(sonuc.Mesaj);
         return Ok(sonuc.Mesaj);
+    }
+
+    [HttpGet("yonetim/takipcilerim")]
+    [Authorize(Roles = "Satici")]
+    public async Task<IActionResult> TakipcilerimiGetir()
+    {
+        int userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        
+        var magaza = await _context.Magazalar.FirstOrDefaultAsync(m => m.KullaniciId == userId);
+        if (magaza == null) return BadRequest(new { mesaj = "Mağazanız bulunamadı." });
+
+        var takipciler = await _context.Takipciler
+            .Include(t => t.Kullanici)
+            .Where(t => t.MagazaId == magaza.Id)
+            .Select(t => new 
+            {
+                id = t.KullaniciId,
+                adSoyad = t.Kullanici != null ? (t.Kullanici.AdSoyad ?? "İsimsiz Kullanıcı") : "Bilinmeyen Kullanıcı",
+                email = t.Kullanici != null ? t.Kullanici.Email : ""
+            })
+            .ToListAsync();
+
+        return Ok(takipciler);
     }
 }

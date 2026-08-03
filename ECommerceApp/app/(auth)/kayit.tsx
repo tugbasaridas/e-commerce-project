@@ -64,7 +64,6 @@ export default function Kayit() {
     setBildirim(null); 
     
     try {
-      // BACKEND ile %100 uyumlu (KullaniciKayitDto beklediği formatta)
       await axios.post(`${API_CONFIG.BASE_URL}/kullanicilar/kayit`, {
         adSoyad: ad.trim(),
         email: email.trim().toLowerCase(),
@@ -127,7 +126,6 @@ export default function Kayit() {
           </View>
         )}
 
-        {/* SOL ÜST GERİ OK BUTONU */}
         <TouchableOpacity style={styles.geriButon} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={28} color="#1C1C1E" />
         </TouchableOpacity>
@@ -163,7 +161,7 @@ export default function Kayit() {
             <TextInput 
               style={{ flex: 1, fontSize: 15, color: '#1C1C1E', padding: 0 }} 
               placeholder="Şifreniz" 
-              secureTextEntry={!sifreGorunur} 
+              secureTextEntry={false} // SUNUM İÇİN GEÇİCİ OLARAK false YAPILDI (Normalde: !sifreGorunur)
               value={sifre}
               onChangeText={setSifre}
               placeholderTextColor="#A1A1A1"
@@ -181,7 +179,6 @@ export default function Kayit() {
             <Text style={styles.yonlendirme}>Zaten hesabınız var mı? <Text style={{ fontWeight: 'bold', color: 'orange' }}>Giriş Yap</Text></Text>
           </TouchableOpacity>
 
-          {/* YENİ EKLENEN: SATICI KAYIT YÖNLENDİRMESİ */}
           <TouchableOpacity onPress={() => router.push('/satici-kayit')} style={{ marginTop: 16 }}>
             <Text style={styles.yonlendirme}>Satış yapmak mı istiyorsunuz? <Text style={{ fontWeight: 'bold', color: 'orange' }}>Mağaza Açın</Text></Text>
           </TouchableOpacity>

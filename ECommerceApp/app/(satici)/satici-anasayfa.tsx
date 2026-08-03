@@ -23,7 +23,7 @@ export default function SaticiAnasayfa() {
   const [urunler, setUrunler] = useState<any[]>([]);
   const [siparisler, setSiparisler] = useState<any[]>([]);
   const [bekleyenSoruSayisi, setBekleyenSoruSayisi] = useState(0); 
-  const [bekleyenSiparisSayisi, setBekleyenSiparisSayisi] = useState(0); // YENİ: Bekleyen Sipariş Sayısı
+  const [bekleyenSiparisSayisi, setBekleyenSiparisSayisi] = useState(0); 
   const [loading, setLoading] = useState(true);
 
   useFocusEffect(
@@ -55,7 +55,7 @@ export default function SaticiAnasayfa() {
         setBekleyenSoruSayisi(bekleyenler.length);
       }
 
-      // YENİ: Sipariş Bildirim Sayısını Hesapla (Durumu "Hazırlanıyor" olanlar)
+      // Sipariş Bildirim Sayısını Hesapla (Durumu "Hazırlanıyor" olanlar)
       if (siparisResponse.data && Array.isArray(siparisResponse.data)) {
         let hazirlanacakSiparisAdedi = 0;
         siparisResponse.data.forEach((siparis: any) => {
@@ -176,7 +176,7 @@ export default function SaticiAnasayfa() {
                 <Text style={styles.islemKartYazi}>Stok Yönetimi</Text>
               </TouchableOpacity>
 
-              {/* YENİ: SİPARİŞLER KARTI (Bildirim Rozetli) */}
+              {/* SİPARİŞLER KARTI */}
               <TouchableOpacity 
                 style={styles.islemKart} 
                 activeOpacity={0.8}
@@ -189,7 +189,7 @@ export default function SaticiAnasayfa() {
                 <Text style={styles.islemKartYazi}>Siparişler</Text>
               </TouchableOpacity>
 
-              {/* MÜŞTERİ SORULARI (Bildirim Rozetli) */}
+              {/* MÜŞTERİ SORULARI */}
               <TouchableOpacity 
                 style={styles.islemKart} 
                 activeOpacity={0.8}
@@ -200,6 +200,18 @@ export default function SaticiAnasayfa() {
                   <BildirimRozeti sayi={bekleyenSoruSayisi} />
                 </View>
                 <Text style={styles.islemKartYazi}>Müşteri Soruları</Text>
+              </TouchableOpacity>
+
+              {/* YENİ EKLENEN KUPON YÖNETİMİ */}
+              <TouchableOpacity 
+                style={styles.islemKart} 
+                activeOpacity={0.8}
+                onPress={() => router.push('/(satici)/satici-kupon' as any)}
+              >
+                <View style={[styles.islemIkonKutu, { backgroundColor: '#FFF3E0' }]}>
+                  <Ionicons name="ticket" size={26} color="#FF9800" />
+                </View>
+                <Text style={styles.islemKartYazi}>Mağaza Kuponları</Text>
               </TouchableOpacity>
 
             </View>

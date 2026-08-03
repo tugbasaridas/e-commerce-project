@@ -34,37 +34,32 @@ export default function SaticiKayit() {
     if (tip !== 'basari') {
       setTimeout(() => {
         setBildirim(null);
-      }, 5000); // Hata okunabilsin diye 5 saniyeye çıkardık
+      }, 5000); 
     }
   };
 
   const basvuruIslemi = async () => {
-    // 1. Zorunlu alan kontrolü
     if (!adSoyad.trim() || !email.trim() || !sifre.trim() || !magazaAdi.trim()) {
       bildirimGoster("Lütfen zorunlu alanları doldurun.", 'uyari');
       return;
     }
 
-    // 2. Ad Soyad Uzunluk Kontrolü
     if (adSoyad.trim().length < 3) {
       bildirimGoster("Ad Soyad en az 3 karakterden oluşmalıdır.", 'hata');
       return;
     }
 
-    // 3. E-posta Format Kontrolü (Regex)
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       bildirimGoster("Lütfen geçerli bir e-posta adresi giriniz (Örn: ornek@gmail.com).", 'hata');
       return;
     }
 
-    // 4. Şifre Uzunluk Kontrolü
     if (sifre.length < 6) {
       bildirimGoster("Şifreniz en az 6 karakter uzunluğunda olmalıdır.", 'hata');
       return;
     }
 
-    // 5. Güçlü Şifre Kontrolü (Büyük harf ve Rakam)
     const gucluSifreRegex = /^(?=.*[A-Z])(?=.*\d).+$/;
     if (!gucluSifreRegex.test(sifre)) {
       bildirimGoster("Şifreniz en az bir büyük harf ve bir rakam içermelidir.", 'hata');
@@ -87,7 +82,6 @@ export default function SaticiKayit() {
       setLoading(false);
       bildirimGoster("Mağaza başvurunuz alındı! Yöneticilerimiz onayladıktan sonra giriş yapabilirsiniz.", 'basari');
       
-      // Başarılı olursa 3 saniye sonra Giriş ekranına yolla
       setTimeout(() => {
         router.replace('/giris');
       }, 3000);
@@ -95,19 +89,17 @@ export default function SaticiKayit() {
     } catch (error: any) {
       setLoading(false);
       
-      // 1. Arka plandaki gerçek hatayı Metro (Terminal) ekranına yazdırıyoruz
       console.log("🚨 KAYIT HATASI DETAYI:", error.response?.data || error.message);
       
       let hataMesaji = "Başvuru işlemi sırasında bir hata oluştu.";
       const veri = error.response?.data;
 
-      // 2. Hatayı ekranda (Kırmızı Banner) göstermek için ayıklıyoruz
       if (!error.response) {
         hataMesaji = "Sunucuya bağlanılamadı. Backend API çalışıyor mu?";
       } else if (veri) {
         if (veri.mesaj) hataMesaji = veri.mesaj;
         else if (veri.Mesaj) hataMesaji = veri.Mesaj;
-        else if (veri.errors) hataMesaji = "Girdiğiniz bilgiler formata uygun değil."; // Doğrulama hatası
+        else if (veri.errors) hataMesaji = "Girdiğiniz bilgiler formata uygun değil."; 
         else if (typeof veri === 'string') {
           if (veri.includes("zaten kullanımda") || veri.includes("already exists")) {
             hataMesaji = "Bu e-posta adresi zaten sistemde kayıtlı.";
@@ -192,7 +184,7 @@ export default function SaticiKayit() {
             <TextInput 
               style={{ flex: 1, fontSize: 15, color: '#1C1C1E', padding: 0 }} 
               placeholder="Şifreniz *" 
-              secureTextEntry={!sifreGorunur} 
+              secureTextEntry={false} // SUNUM İÇİN GEÇİCİ OLARAK false YAPILDI (Normalde: !sifreGorunur)
               value={sifre}
               onChangeText={setSifre}
               placeholderTextColor="#A1A1A1"

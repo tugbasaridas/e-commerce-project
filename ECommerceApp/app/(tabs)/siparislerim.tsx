@@ -79,7 +79,6 @@ export default function Siparislerim() {
     return tarih.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
-  // İPTAL EDİLDİ durumunu da ekleyerek güncelledik
   const getDurumStili = (durum: string) => {
     switch (durum) {
       case 'Hazırlanıyor': return { color: '#FFA500', bgColor: '#FFF3E0', icon: 'time-outline' };
@@ -120,7 +119,6 @@ export default function Siparislerim() {
   }
 
   const siparisKartiCiz = ({ item }: { item: any }) => {
-    // ANA SİPARİŞ KARTININ RENGİNİ DİNAMİK ALIYORUZ
     const anaDurumStil = getDurumStili(item.durum);
 
     return (
@@ -131,7 +129,6 @@ export default function Siparislerim() {
             <Text style={styles.tarih}>{tarihFormatla(item.siparisTarihi)}</Text>
           </View>
           
-          {/* DURUM ROZETİ ARTIK İPTAL İSE KIRMIZI OLACAK */}
           <View style={[styles.durumRozeti, { backgroundColor: anaDurumStil.bgColor }]}>
             <Text style={[styles.durumYazi, { color: anaDurumStil.color }]}>{item.durum}</Text>
           </View>
@@ -156,7 +153,6 @@ export default function Siparislerim() {
                   </View>
                 </View>
 
-                {/* Kargom Nerede Butonu */}
                 {urun.durum === 'Kargoya Verildi' && (
                   <TouchableOpacity style={styles.kargoButon} onPress={() => kargoTakipBaslat(urun.kargoTakipNo, urun.kargoFirma)}>
                     <Ionicons name="location" size={16} color="#00529B" style={{marginRight: 6}} />
@@ -165,7 +161,6 @@ export default function Siparislerim() {
                   </TouchableOpacity>
                 )}
 
-                {/* Ürünü Değerlendir Butonu */}
                 {urun.durum === 'Tamamlandı' && (
                   <TouchableOpacity style={styles.degerlendirButon} onPress={() => urunDegerlendir(urun)}>
                     <Ionicons name="star" size={16} color="#FF9F00" style={{marginRight: 6}}/>
@@ -184,7 +179,18 @@ export default function Siparislerim() {
             <Text style={styles.adresYazi} numberOfLines={1}>{item.teslimatAdresi}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.toplamYazi}>Toplam:</Text>
+            
+            {/* KUPON BİLGİSİ EKLENDİ */}
+            {item.kullanilanKuponKodu && (
+              <View style={{alignItems: 'flex-end', marginBottom: 4}}>
+                 <Text style={{fontSize: 11, color: '#28A745', fontWeight: 'bold'}}>
+                   <Ionicons name="ticket" size={10} color="#28A745"/> {item.kullanilanKuponKodu} Kuponu
+                 </Text>
+                 <Text style={{fontSize: 11, color: '#28A745'}}>- {item.kuponIndirimTutari?.toFixed(2)} TL</Text>
+              </View>
+            )}
+
+            <Text style={styles.toplamYazi}>Toplam Ödenen:</Text>
             <Text style={styles.toplamFiyat}>{item.toplamTutar.toFixed(2)} TL</Text>
           </View>
         </View>

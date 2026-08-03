@@ -138,7 +138,7 @@ export default function Giris() {
             <TextInput 
               style={styles.sifreInput} 
               placeholder="Şifreniz" 
-              secureTextEntry={sifreGizli} 
+              secureTextEntry={false} // SUNUM İÇİN GEÇİCİ OLARAK false YAPILDI (Normalde: sifreGizli)
               value={sifre}
               onChangeText={setSifre}
               placeholderTextColor="#A1A1A1"

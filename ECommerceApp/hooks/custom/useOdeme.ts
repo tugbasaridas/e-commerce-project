@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 
-export const useOdeme = (dogrulandi?: string) => {
+export const useOdeme = (dogrulandi?: string, kuponId?: string) => {
   const router = useRouter();
   
   const [odemeYontemi, setOdemeYontemi] = useState<'Kredi Kartı' | 'Kapıda Ödeme'>('Kredi Kartı');
@@ -23,7 +23,6 @@ export const useOdeme = (dogrulandi?: string) => {
   const [isFlipped, setIsFlipped] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Sayfada listelemek için yeni eklenen stateler
   const [kayitliAdreslerList, setKayitliAdreslerList] = useState<any[]>([]);
   const [kayitliKartlarList, setKayitliKartlarList] = useState<any[]>([]);
 
@@ -37,7 +36,6 @@ export const useOdeme = (dogrulandi?: string) => {
         if (adresVeri) {
           const adresler = JSON.parse(adresVeri);
           setKayitliAdreslerList(adresler);
-          // Varsayılan olarak en son adresi doldur
           if (adresler.length > 0) {
             const sonAdres = adresler[adresler.length - 1];
             setAdresBaslik(sonAdres.baslik || ''); setIl(sonAdres.il || '');
@@ -48,7 +46,6 @@ export const useOdeme = (dogrulandi?: string) => {
         if (kartVeri) {
           const kartlar = JSON.parse(kartVeri);
           setKayitliKartlarList(kartlar);
-          // Varsayılan olarak en son kartı doldur
           if (kartlar.length > 0) {
             const sonKart = kartlar[kartlar.length - 1];
             setKartNo(sonKart.kartNo || ''); setKartSahibi(sonKart.kartSahibi || ''); setSkt(sonKart.skt || '');
@@ -63,7 +60,6 @@ export const useOdeme = (dogrulandi?: string) => {
     if (dogrulandi === 'true') handleOdemeYap(); 
   }, [dogrulandi]);
 
-  // Seçim tıklandığında formu dolduracak yardımcı fonksiyonlar
   const adresSec = (adres: any) => {
     setAdresBaslik(adres.baslik || '');
     setIl(adres.il || '');
@@ -76,7 +72,7 @@ export const useOdeme = (dogrulandi?: string) => {
     setKartNo(kart.kartNo || '');
     setKartSahibi(kart.kartSahibi || '');
     setSkt(kart.skt || '');
-    setCvv(''); // Güvenlik gerekçesiyle CVV alanını boş bırakıyoruz
+    setCvv('');
     setIsFlipped(false);
   };
 
@@ -120,7 +116,6 @@ export const useOdeme = (dogrulandi?: string) => {
       const userId = await AsyncStorage.getItem('userId') || 'ortak';
 
       if (gecici.bilgileriKaydet) {
-        // --- ADRES KAYDETME GÜVENLİK KALKANI (Crash Önleyici) ---
         const adresler = JSON.parse(await AsyncStorage.getItem(`@kayitliAdresler_${userId}`) || '[]');
         const geciciAcikAdres = (gecici.acikAdres || '').trim().toLowerCase();
         
@@ -138,10 +133,9 @@ export const useOdeme = (dogrulandi?: string) => {
             telefon: gecici.telefon 
           });
           await AsyncStorage.setItem(`@kayitliAdresler_${userId}`, JSON.stringify(adresler));
-          setKayitliAdreslerList(adresler); // Listeyi anlık güncelle
+          setKayitliAdreslerList(adresler);
         }
 
-        // --- KART KAYDETME GÜVENLİK KALKANI ---
         if (gecici.odemeYontemi === 'Kredi Kartı') {
           const kartlar = JSON.parse(await AsyncStorage.getItem(`@kayitliKartlar_${userId}`) || '[]');
           const kartVarMi = kartlar.some((k: any) => k.kartNo === gecici.kartNo);
@@ -154,21 +148,30 @@ export const useOdeme = (dogrulandi?: string) => {
               skt: gecici.skt 
             });
             await AsyncStorage.setItem(`@kayitliKartlar_${userId}`, JSON.stringify(kartlar));
-            setKayitliKartlarList(kartlar); // Listeyi anlık güncelle
+            setKayitliKartlarList(kartlar);
           }
         }
+      }
+
+      // --- KUPON ID GÜVENLİ PARSE İŞLEMİ ---
+      let gidenKuponId = null;
+      if (gecici.kuponId && gecici.kuponId !== 'null' && gecici.kuponId !== 'undefined') {
+          const parsed = parseInt(gecici.kuponId, 10);
+          if (!isNaN(parsed)) {
+              gidenKuponId = parsed;
+          }
       }
 
       await axios.post(`${API_CONFIG.BASE_URL}/siparisler/olustur`, {
         odemeYontemi: gecici.odemeYontemi,
         teslimatAdresi: `${gecici.adresBaslik} - ${gecici.acikAdres}, ${gecici.ilce}/${gecici.il}`,
-        telefon: gecici.telefon
+        telefon: gecici.telefon,
+        kuponId: gidenKuponId // Güvenli ID gönderiliyor
       }, { headers: { Authorization: `Bearer ${await AsyncStorage.getItem('userToken')}` } });
 
       await AsyncStorage.removeItem('@geciciSiparis');
       Alert.alert('Sipariş Başarılı 🎉', 'Siparişiniz alındı.', [{ text: 'Tamam', onPress: () => router.replace('/(tabs)/siparislerim' as any) }]);
     } catch (e: any) { 
-      // === BURASI DEĞİŞTİ: BACKEND'DEN GELEN DİNAMİK STOK MESAJINI YAKALIYORUZ ===
       const hataMesaji = e.response?.data?.mesaj || e.response?.data?.Mesaj || "Sipariş oluşturulamadı. Lütfen tekrar deneyin.";
       Alert.alert('Sipariş Hatası', hataMesaji); 
     } finally { 
@@ -186,7 +189,8 @@ export const useOdeme = (dogrulandi?: string) => {
     }
     
     await AsyncStorage.setItem('@geciciSiparis', JSON.stringify({ 
-      adresBaslik, il, ilce, acikAdres: temizAdres, telefon, odemeYontemi, bilgileriKaydet, kartNo, kartSahibi, skt 
+      adresBaslik, il, ilce, acikAdres: temizAdres, telefon, odemeYontemi, bilgileriKaydet, kartNo, kartSahibi, skt,
+      kuponId 
     }));
 
     if (odemeYontemi === 'Kredi Kartı') {

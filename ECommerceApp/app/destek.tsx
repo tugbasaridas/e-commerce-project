@@ -71,24 +71,8 @@ export default function Destek() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      
-      {/* Üst Bar */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.geriButon} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.baslik}>Destek Merkezi</Text>
-        <View style={styles.headerSagBosluk}>
-          {/* Sadece geçmiş sekmesinde ve geçmiş talepler varsa arama ikonunu göster */}
-          {aktifSekme === 'gecmis' && gecmisTalepler.length > 0 && (
-            <TouchableOpacity onPress={toggleArama} style={styles.aramaIkonButon}>
-              <Ionicons name={aramaAktif ? "close" : "search"} size={22} color="#333" />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
 
-      {/* Sekmeler (Tabs) */}
+      {/* Sekmeler (Tabs) - Geri butonu ve başlık kaldırılarak en üste taşındı */}
       <View style={styles.sekmeAlani}>
         <TouchableOpacity 
           style={[styles.sekmeButon, aktifSekme === 'yeni' && styles.sekmeAktif]} 
@@ -96,12 +80,22 @@ export default function Destek() {
         >
           <Text style={[styles.sekmeYazi, aktifSekme === 'yeni' && styles.sekmeYaziAktif]}>Bize Yazın</Text>
         </TouchableOpacity>
+        
         <TouchableOpacity 
           style={[styles.sekmeButon, aktifSekme === 'gecmis' && styles.sekmeAktif]} 
           onPress={() => setAktifSekme('gecmis')}
         >
           <Text style={[styles.sekmeYazi, aktifSekme === 'gecmis' && styles.sekmeYaziAktif]}>Mesajlarım</Text>
         </TouchableOpacity>
+
+        {/* Arama Butonu: Başlık kaldırıldığı için sekmelerin sağına taşındı */}
+        {aktifSekme === 'gecmis' && gecmisTalepler.length > 0 && (
+          <View style={styles.sekmeSagArama}>
+            <TouchableOpacity onPress={toggleArama} style={styles.aramaIkonButon}>
+              <Ionicons name={aramaAktif ? "close" : "search"} size={20} color="#333" />
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* Arama Kutusu (Görünürlüğü state'e bağlı) */}
@@ -160,7 +154,7 @@ export default function Destek() {
             <ActivityIndicator size="large" color="#FFB800" style={{ marginTop: 50 }} />
           ) : (
             <FlatList 
-              data={filtrelenmisTalepler} // data artık filtrelenmiş veriyi alıyor
+              data={filtrelenmisTalepler} 
               keyExtractor={(item) => item.id.toString()}
               contentContainerStyle={{ paddingBottom: 30 }}
               showsVerticalScrollIndicator={false}
@@ -183,18 +177,17 @@ export default function Destek() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
-  geriButon: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
-  baslik: { fontSize: 20, fontWeight: 'bold', color: '#111' },
-  headerSagBosluk: { width: 40, alignItems: 'flex-end', justifyContent: 'center' },
-  aramaIkonButon: { padding: 6, backgroundColor: '#f0f0f0', borderRadius: 20 },
   
-  // Sekmeler
-  sekmeAlani: { flexDirection: 'row', backgroundColor: '#fff', paddingHorizontal: 20, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  sekmeButon: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 3, borderBottomColor: 'transparent' },
+  // Sekmeler (Üst kısımdaki boşluk ayarlandı)
+  sekmeAlani: { flexDirection: 'row', backgroundColor: '#fff', paddingHorizontal: 20, paddingTop: 15, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  sekmeButon: { flex: 1, paddingVertical: 10, alignItems: 'center', borderBottomWidth: 3, borderBottomColor: 'transparent' },
   sekmeAktif: { borderBottomColor: '#FFB800' },
   sekmeYazi: { fontSize: 15, fontWeight: '600', color: '#888' },
   sekmeYaziAktif: { color: '#FFB800', fontWeight: 'bold' },
+  
+  // Sekme Sağına Taşınan Arama Butonu Stilleri
+  sekmeSagArama: { justifyContent: 'center', alignItems: 'flex-end', marginLeft: 15, paddingBottom: 2 },
+  aramaIkonButon: { padding: 8, backgroundColor: '#f5f5f5', borderRadius: 20 },
 
   // Arama Çubuğu
   aramaKutusu: { flexDirection: 'row', backgroundColor: '#fff', padding: 12, marginHorizontal: 20, borderRadius: 12, marginTop: 15, borderWidth: 1, borderColor: '#FFB800' },

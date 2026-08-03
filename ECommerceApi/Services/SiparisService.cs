@@ -11,7 +11,6 @@ public class SiparisService : ISiparisService
     private readonly AppDbContext _db;
     private readonly ILogger<SiparisService> _logger;
 
-    // Sabit komisyon oranımızı %10 olarak belirliyoruz
     private const decimal PLATFORM_KOMISYON_ORANI = 0.10m; 
 
     public SiparisService(AppDbContext db, ILogger<SiparisService> logger)
@@ -34,7 +33,54 @@ public class SiparisService : ISiparisService
 
         try
         {
-            decimal toplamTutar = 0;
+            decimal araToplam = sepetUrunleri.Sum(s => (s.Urunler!.IndirimliFiyat ?? s.Urunler.Fiyat) * s.Miktar);
+            
+            decimal indirimTutari = 0;
+            int? gecerliKuponId = null;
+            bool adminKuponuMu = false; // YENİ: Kuponun kimin olduğunu anlamak için bayrak
+
+            if (dto.KuponId.HasValue)
+            {
+                var kupon = await _db.Kuponlar.FirstOrDefaultAsync(k => k.Id == dto.KuponId && k.AktifMi);
+                
+                if (kupon != null && (!kupon.BitisTarihi.HasValue || kupon.BitisTarihi.Value >= DateTime.UtcNow) && araToplam >= kupon.AltLimit)
+                {
+                    var cuzdanKaydi = await _db.KullaniciKuponlari
+                        .FirstOrDefaultAsync(kk => kk.KuponId == kupon.Id && kk.KullaniciId == userId);
+
+                    bool kullanmayaUygunMu = false;
+
+                    if (cuzdanKaydi != null && !cuzdanKaydi.KullanildiMi)
+                    {
+                        kullanmayaUygunMu = true;
+                        cuzdanKaydi.KullanildiMi = true; 
+                    }
+                    else if (cuzdanKaydi == null && kupon.HerkeseAcikMi)
+                    {
+                        kullanmayaUygunMu = true;
+                        _db.KullaniciKuponlari.Add(new KullaniciKupon { KullaniciId = userId, KuponId = kupon.Id, KullanildiMi = true });
+                    }
+
+                    if (kullanmayaUygunMu)
+                    {
+                        if (!string.IsNullOrEmpty(kupon.IndirimTipi) && kupon.IndirimTipi.Equals("Yuzde", StringComparison.OrdinalIgnoreCase))
+                        {
+                            indirimTutari = (araToplam * kupon.IndirimDegeri) / 100;
+                        }
+                        else 
+                        {
+                            indirimTutari = kupon.IndirimDegeri > araToplam ? araToplam : kupon.IndirimDegeri;
+                        }
+                        
+                        gecerliKuponId = kupon.Id;
+                        adminKuponuMu = kupon.MagazaId == null; // YENİ: Eğer MağazaId null ise bu bir Admin kuponudur!
+                    }
+                }
+            }
+
+            decimal genelIndirimOrani = araToplam > 0 ? (indirimTutari / araToplam) : 0;
+            
+            decimal odenecekSonTutar = 0; 
             var siparisDetaylari = new List<SiparisDetay>();
 
             foreach (var sepetItem in sepetUrunleri)
@@ -47,43 +93,63 @@ public class SiparisService : ISiparisService
                     throw new Exception($"'{urun.Ad}' için stok yetersiz! Stokta sadece {urun.Stok} adet kaldı.");
 
                 decimal gecerliFiyat = urun.IndirimliFiyat ?? urun.Fiyat;
-                decimal satirTutari = gecerliFiyat * sepetItem.Miktar;
+                decimal hamSatirTutari = gecerliFiyat * sepetItem.Miktar; 
                 
-                // TRENDYOL ALGORİTMASI: Komisyon ve Kazanç Hesaplama
-                decimal komisyonTutari = satirTutari * PLATFORM_KOMISYON_ORANI;
-                decimal saticiKazanci = satirTutari - komisyonTutari;
+                decimal indirilenTutar = hamSatirTutari * genelIndirimOrani;
+                decimal netSatirTutari = hamSatirTutari - indirilenTutar; 
 
-                toplamTutar += satirTutari;
-                
-                // Stok Düşme
+                decimal platformKomisyonu = 0;
+                decimal saticiKazanci = 0;
+
+                // ============================================================
+                // YENİ FİNANSAL ZEKA: KUPON KİMİNSE PARAYI O ÖDER
+                // ============================================================
+                if (adminKuponuMu)
+                {
+                    // ADMİN KUPONU: Satıcı indirimi hissetmez, TAM FİYAT üzerinden parasını alır!
+                    // İndirim, Admin'in cebinden (Platform Komisyonundan) düşülür.
+                    saticiKazanci = hamSatirTutari - (hamSatirTutari * PLATFORM_KOMISYON_ORANI);
+                    platformKomisyonu = (hamSatirTutari * PLATFORM_KOMISYON_ORANI) - indirilenTutar; 
+                }
+                else
+                {
+                    // SATICI KUPONU: Satıcı indirimli satış yapmış olur.
+                    platformKomisyonu = netSatirTutari * PLATFORM_KOMISYON_ORANI; 
+                    saticiKazanci = netSatirTutari - platformKomisyonu;           
+                }
+                // ============================================================
+
+                odenecekSonTutar += netSatirTutari; 
                 urun.Stok -= sepetItem.Miktar;
 
                 siparisDetaylari.Add(new SiparisDetay
                 {
                     UrunId = urun.Id,
                     Adet = sepetItem.Miktar,
-                    BirimFiyat = gecerliFiyat,
-                    PlatformKomisyonu = komisyonTutari, 
-                    SaticiKazanci = saticiKazanci,     
+                    BirimFiyat = gecerliFiyat,          
+                    PlatformKomisyonu = platformKomisyonu, 
+                    SaticiKazanci = saticiKazanci,      
                     Durum = "Hazırlanıyor"
                 });
             }
 
+            if (odenecekSonTutar < 0) odenecekSonTutar = 0;
+
             var yeniSiparis = new Siparis
             {
                 KullaniciId = userId,
-                ToplamTutar = toplamTutar,
-                Durum = "Hazırlanıyor",
+                ToplamTutar = odenecekSonTutar, 
+                Durum = "Ödeme Alındı",
                 SiparisTarihi = DateTime.UtcNow,
                 OdemeYontemi = dto.OdemeYontemi,
                 TeslimatAdresi = dto.TeslimatAdresi,
                 Telefon = dto.Telefon,
+                KuponId = gecerliKuponId,          
+                IndirimTutari = indirimTutari,     
                 Detaylar = siparisDetaylari
             };
 
             _db.Siparisler.Add(yeniSiparis);
-            
-            // Sipariş oluştuktan sonra müşterinin sepetini temizle
             _db.SepetUrunleri.RemoveRange(sepetUrunleri);
 
             await _db.SaveChangesAsync();
@@ -99,32 +165,35 @@ public class SiparisService : ISiparisService
         }
     }
 
-   public async Task<object> SiparisGecmisiniGetirAsync(int userId)
+    public async Task<object> SiparisGecmisiniGetirAsync(int userId)
     {
         return await _db.Siparisler
+            .Include(s => s.Kupon) 
             .Where(s => s.KullaniciId == userId)
             .OrderByDescending(s => s.SiparisTarihi)
             .Select(s => new
             {
-                s.Id,
-                s.SiparisTarihi,
-                s.ToplamTutar,
-                s.Durum,
-                s.OdemeYontemi,
-                s.TeslimatAdresi,
-                s.Telefon,
-                Urunler = s.Detaylar.Select(d => new
+                id = s.Id,
+                siparisTarihi = s.SiparisTarihi,
+                toplamTutar = s.ToplamTutar,
+                durum = s.Durum,
+                odemeYontemi = s.OdemeYontemi,
+                teslimatAdresi = s.TeslimatAdresi,
+                telefon = s.Telefon,
+                kullanilanKuponKodu = s.Kupon != null ? s.Kupon.Kodu : null,
+                kuponIndirimTutari = s.IndirimTutari ?? 0,
+                urunler = s.Detaylar.Select(d => new
                 {
-                    DetayId = d.Id,
-                    UrunId = d.UrunId,  
-                    Ad = d.Urunler != null ? d.Urunler.Ad : "Ürün Silinmiş",
-                    ResimUrl = d.Urunler != null ? d.Urunler.ResimUrl : "",
-                    Adet = d.Adet,
-                    SatinAlinanFiyat = d.BirimFiyat,
-                    Durum = d.Durum, 
-                    KargoFirma = d.KargoFirma, 
-                    KargoTakipNo = d.KargoTakipNo 
-                })
+                    detayId = d.Id,
+                    urunId = d.UrunId,  
+                    ad = d.Urunler != null ? d.Urunler.Ad : "Ürün Silinmiş",
+                    resimUrl = d.Urunler != null ? d.Urunler.ResimUrl : "",
+                    adet = d.Adet,
+                    satinAlinanFiyat = d.BirimFiyat,
+                    durum = d.Durum, 
+                    kargoFirma = d.KargoFirma, 
+                    kargoTakipNo = d.KargoTakipNo 
+                }).ToList()
             })
             .ToListAsync();
     }

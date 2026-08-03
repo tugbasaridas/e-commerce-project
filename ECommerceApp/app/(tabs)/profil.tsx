@@ -47,13 +47,21 @@ export default function Profil() {
     }, [])
   );
 
+  // ÇIKIŞ YAP FONKSİYONU
   const cikisYap = async () => {
-    await AsyncStorage.removeItem('userToken');
-    await AsyncStorage.removeItem('userRole');
-    setToken(null);
-    setRole(null);
-    setKullanici(null);
-    router.replace('/(tabs)' as any);
+    try {
+      await AsyncStorage.removeItem('userToken');
+      await AsyncStorage.removeItem('userRole');
+      await AsyncStorage.removeItem('userId');
+      
+      setToken(null);
+      setRole(null);
+      setKullanici(null);
+      
+      router.replace('/(tabs)' as any);
+    } catch (error) {
+      console.log("Çıkış işlemi sırasında hata:", error);
+    }
   };
 
   if (loading) {
@@ -96,6 +104,7 @@ export default function Profil() {
             {kullanici?.adSoyad ? kullanici.adSoyad.charAt(0).toUpperCase() : 'U'}
           </Text>
         </View>
+        
         <View style={styles.profilDetay}>
           <Text style={styles.kullaniciBaslik}>
             {kullanici ? kullanici.adSoyad : 'Yükleniyor...'}
@@ -113,6 +122,11 @@ export default function Profil() {
             </Text>
           </View>
         </View>
+
+        {/* ÇIKIŞ YAP BUTONU - PROFİL KARTININ İÇİNE SAĞ TARAFA TAŞINDI */}
+        <TouchableOpacity style={styles.kartIciCikisButon} onPress={cikisYap}>
+          <Ionicons name="log-out-outline" size={24} color="#FF4757" />
+        </TouchableOpacity>
       </View>
 
       {/* MENÜ ALANI */}
@@ -129,6 +143,17 @@ export default function Profil() {
           <Ionicons name="chevron-forward" size={20} color="#ccc" />
         </TouchableOpacity>
 
+        {/* KUPONLARIM EKLENDİ (HİÇBİR ŞEY SİLİNMEDEN) */}
+        <TouchableOpacity style={styles.menuButon} onPress={() => router.push('/(tabs)/kuponlarim' as any)}>
+          <View style={styles.menuSol}>
+            <View style={[styles.menuIkonKutu, {backgroundColor: '#FFF8E1'}]}>
+              <Ionicons name="ticket-outline" size={20} color="#F57C00" />
+            </View>
+            <Text style={styles.menuYazi}>Kuponlarım</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#ccc" />
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.menuButon} onPress={() => router.push('/favoriler' as any)}>
           <View style={styles.menuSol}>
             <View style={[styles.menuIkonKutu, {backgroundColor: '#E3F2FD'}]}>
@@ -139,7 +164,6 @@ export default function Profil() {
           <Ionicons name="chevron-forward" size={20} color="#ccc" />
         </TouchableOpacity>
 
-        {/* YENİ EKLENEN: KAYITLI BİLGİLERİM */}
         <TouchableOpacity style={styles.menuButon} onPress={() => router.push('/kayitliBilgilerim' as any)}>
           <View style={styles.menuSol}>
             <View style={[styles.menuIkonKutu, {backgroundColor: '#EFEBE9'}]}>
@@ -172,12 +196,6 @@ export default function Profil() {
           </TouchableOpacity>
         )}
       </View>
-
-      {/* ÇIKIŞ YAP BUTONU */}
-      <TouchableOpacity style={styles.cikisButon} onPress={cikisYap}>
-        <Ionicons name="log-out-outline" size={22} color="#FF4757" />
-        <Text style={styles.cikisButonYazi}>Oturumu Kapat</Text>
-      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -202,6 +220,7 @@ const styles = StyleSheet.create({
     padding: 20, 
     borderRadius: 16, 
     alignItems: 'center', 
+    justifyContent: 'space-between', // İçeriği sağa ve sola yaslamak için
     marginBottom: 25,
     borderWidth: 1,
     borderColor: '#EFEFEF',
@@ -224,6 +243,18 @@ const styles = StyleSheet.create({
   rolKullanici: { backgroundColor: '#FFF3E0' },
   rolRozetYazi: { fontSize: 11, fontWeight: 'bold', color: '#FFB800', marginLeft: 4 },
   
+  // Profil Kartının İçine Taşınan Yeni Çıkış Butonu Stili
+  kartIciCikisButon: {
+    backgroundColor: '#FFF0F0',
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFE0E0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10
+  },
+
   // Menü Alanı
   menuAlani: { flex: 1 },
   menuBaslik: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 15, paddingLeft: 5 },
@@ -240,19 +271,5 @@ const styles = StyleSheet.create({
   },
   menuSol: { flexDirection: 'row', alignItems: 'center' },
   menuIkonKutu: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-  menuYazi: { fontSize: 15, fontWeight: '500', color: '#333' },
-  
-  // Çıkış Butonu
-  cikisButon: { 
-    flexDirection: 'row', 
-    backgroundColor: '#FFF0F0', 
-    padding: 16, 
-    borderRadius: 12, 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#FFE0E0'
-  },
-  cikisButonYazi: { color: '#FF4757', fontSize: 16, fontWeight: 'bold', marginLeft: 8 }
+  menuYazi: { fontSize: 15, fontWeight: '500', color: '#333' }
 });
