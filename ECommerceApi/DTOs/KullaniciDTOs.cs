@@ -24,3 +24,25 @@ public record GirisDTO(
     [Required(ErrorMessage = "Şifre alanı zorunludur.")]
     string Sifre
 );
+
+
+
+// --- YENİ EKLENEN DTO'LAR ---
+public record SifremiUnuttumDto(
+    [Required(ErrorMessage = "E-posta adresi zorunludur.")]
+    [EmailAddress(ErrorMessage = "Geçerli bir e-posta adresi giriniz.")]
+    string Email
+);
+
+public record SifreSifirlaDto(
+    [Required(ErrorMessage = "E-posta adresi zorunludur.")]
+    string Email,
+    
+    [Required(ErrorMessage = "Sıfırlama kodu zorunludur.")]
+    string Kod,
+    
+    [Required(ErrorMessage = "Yeni şifre alanı zorunludur.")]
+    [MinLength(6, ErrorMessage = "Şifreniz en az 6 karakter uzunluğunda olmalıdır.")]
+    [RegularExpression(@"^(?=.*[A-Z])(?=.*\d).+$", ErrorMessage = "Şifreniz daha güvenli olması için en az bir büyük harf ve bir rakam içermelidir.")]
+    string YeniSifre
+);

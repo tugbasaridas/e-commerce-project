@@ -9,7 +9,6 @@ import { useOdeme } from '../hooks/custom/useOdeme';
 export default function OdemeEkrani() {
   const router = useRouter();
   
-  // 1. DEĞİŞİKLİK: kuponId'yi URL parametrelerinden yakalıyoruz
   const { tutar, dogrulandi, kuponId } = useLocalSearchParams<{ tutar: string, dogrulandi: string, kuponId?: string }>();
   
   const {
@@ -19,17 +18,15 @@ export default function OdemeEkrani() {
     bilgileriKaydet, setBilgileriKaydet,
     isFlipped, setIsFlipped, odemeyiBaslat,
     kayitliAdreslerList, kayitliKartlarList, adresSec, kartSec
-  } = useOdeme(dogrulandi, kuponId); // 2. DEĞİŞİKLİK: kuponId'yi hook'a gönderdik
+  } = useOdeme(dogrulandi, kuponId); 
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={24} /></TouchableOpacity>
-        <Text style={styles.headerBaslik}>Ödeme Bilgileri</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      <ScrollView contentContainerStyle={{ padding: 20 }}>
+    // ÜST BOŞLUĞU KALDIRMAK İÇİN edges EKLENDİ
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
+      
+      {/* paddingTop: 5 YAPILARAK ÜSTTEKİ FAZLA BOŞLUK ALINDI */}
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20, paddingTop: 10}}>
+        
         {/* Ödeme Yöntemi Tabları */}
         <View style={styles.tabContainer}>
           <TouchableOpacity style={[styles.tabButon, odemeYontemi === 'Kredi Kartı' && styles.aktifTab]} onPress={() => setOdemeYontemi('Kredi Kartı')}>
@@ -122,9 +119,7 @@ export default function OdemeEkrani() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FAFAFA' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 15, backgroundColor: '#fff' },
-  headerBaslik: { fontSize: 20, fontWeight: 'bold' },
-  tabContainer: { flexDirection: 'row', marginBottom: 20 },
+  tabContainer: { flexDirection: 'row', marginBottom: 10 },
   tabButon: { flex: 1, padding: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: '#eee', borderRadius: 10, marginHorizontal: 5 },
   aktifTab: { backgroundColor: '#FFB800', borderColor: '#FFB800' },
   tabYazi: { fontWeight: '600', color: '#666' },

@@ -45,40 +45,64 @@ public class KullanicilarController : ControllerBase
     [HttpPost("kayit")]
     public async Task<IActionResult> KayitOl([FromBody] KayitDTO dto)
     {
-        var (basarili, mesaj) = await _kullaniciService.KayitOlAsync(dto);
+        var sonuc = await _kullaniciService.KayitOlAsync(dto);
         
-        if (!basarili) return BadRequest(new { Mesaj = mesaj });
+        if (!sonuc.Basarili) return BadRequest(new { Mesaj = sonuc.Mesaj });
 
-        return Ok(new { Mesaj = mesaj });
+        return Ok(new { Mesaj = sonuc.Mesaj });
     }
 
-   [HttpPost("giris")]
-public async Task<IActionResult> GirisYap([FromBody] GirisDTO dto)
-{
-    var (basarili, mesaj, token, refreshToken, rol, kullaniciId) = await _kullaniciService.GirisYapAsync(dto);
-    
-    if (!basarili) return Unauthorized(new { Mesaj = mesaj });
+    [HttpPost("giris")]
+    public async Task<IActionResult> GirisYap([FromBody] GirisDTO dto)
+    {
+        var sonuc = await _kullaniciService.GirisYapAsync(dto);
+        
+        if (!sonuc.Basarili) return Unauthorized(new { Mesaj = sonuc.Mesaj });
 
-    return Ok(new { 
-        Token = token, 
-        RefreshToken = refreshToken, // Artık frontend'e gönderiyoruz
-        Rol = rol, 
-        Mesaj = mesaj,
-        KullaniciId = kullaniciId
-    });
-}
+        return Ok(new { 
+            Token = sonuc.Token, 
+            RefreshToken = sonuc.RefreshToken,
+            Rol = sonuc.Rol, 
+            Mesaj = sonuc.Mesaj,
+            KullaniciId = sonuc.KullaniciId
+        });
+    }
 
-// YENİ ENDPOINT: Frontend'in 15 dakikada bir çağıracağı yer
-[HttpPost("refresh-token")]
-public async Task<IActionResult> RefreshToken([FromBody] TokenRequestDTO dto)
-{
-    var (basarili, mesaj, yeniToken, yeniRefreshToken) = await _kullaniciService.YeniTokenUretAsync(dto.RefreshToken);
+    [HttpPost("refresh-token")]
+    public async Task<IActionResult> RefreshToken([FromBody] TokenRequestDTO dto)
+    {
+        var sonuc = await _kullaniciService.YeniTokenUretAsync(dto.RefreshToken);
 
-    if (!basarili) return Unauthorized(new { Mesaj = mesaj });
+        if (!sonuc.Basarili) return Unauthorized(new { Mesaj = sonuc.Mesaj });
 
-    return Ok(new {
-        Token = yeniToken,
-        RefreshToken = yeniRefreshToken
-    });
-}
+        return Ok(new {
+            Token = sonuc.Token,
+            RefreshToken = sonuc.RefreshToken
+        });
+    }
+
+    // =========================================================================
+    // YENİ EKLENEN KISIM: ŞİFRE SIFIRLAMA ENDPOINTLERİ
+    // =========================================================================
+
+    [HttpPost("sifremi-unuttum")]
+    public async Task<IActionResult> SifremiUnuttum([FromBody] SifremiUnuttumDto dto)
+    {
+        var sonuc = await _kullaniciService.SifremiUnuttumAsync(dto.Email);
+        
+        // YENİ: Başarısızsa (Kullanıcı yoksa) hata (400) fırlat
+        if (!sonuc.Basarili) return BadRequest(new { Mesaj = sonuc.Mesaj });
+
+        return Ok(new { Mesaj = sonuc.Mesaj });
+    }
+
+    [HttpPost("sifre-sifirla")]
+    public async Task<IActionResult> SifreSifirla([FromBody] SifreSifirlaDto dto)
+    {
+        var sonuc = await _kullaniciService.SifreSifirlaAsync(dto.Email, dto.Kod, dto.YeniSifre);
+        
+        if (!sonuc.Basarili) return BadRequest(new { Mesaj = sonuc.Mesaj });
+
+        return Ok(new { Mesaj = sonuc.Mesaj });
+    }
 }

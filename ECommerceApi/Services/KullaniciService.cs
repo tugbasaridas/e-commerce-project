@@ -15,9 +15,8 @@ public class KullaniciService : IKullaniciService
 {
     private readonly AppDbContext _db;
     private readonly IConfiguration _config;
-    private readonly IKuponService _kuponService; // 1. KUPON SERVİSİNİ TANIMLADIK
+    private readonly IKuponService _kuponService;
 
-    // 2. CONSTRUCTOR (YAPICI METOT) İÇİNE ENJEKTE ETTİK
     public KullaniciService(AppDbContext db, IConfiguration config, IKuponService kuponService)
     {
         _db = db;
@@ -58,9 +57,7 @@ public class KullaniciService : IKullaniciService
     {
         var emailRegex = new Regex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$");
         if (!emailRegex.IsMatch(dto.Email))
-        {
             return (false, "Geçersiz e-posta formatı. Lütfen kontrol ediniz.");
-        }
 
         var mevcut = await _db.Kullanicilar.FirstOrDefaultAsync(u => u.Email == dto.Email);
         if (mevcut != null) return (false, "Bu e-posta zaten kayıtlı.");
@@ -74,12 +71,9 @@ public class KullaniciService : IKullaniciService
         };
 
         _db.Kullanicilar.Add(yeniKullanici);
-        await _db.SaveChangesAsync(); // Kullanıcı veritabanına eklendi ve bir ID aldı!
+        await _db.SaveChangesAsync(); 
         
-        // --- 3. YENİ EKLENEN KISIM: HOŞ GELDİN KUPONU TANIMLAMA ---
-        // Kullanıcı başarıyla kaydedilir kaydedilmez otomatik kuponunu veriyoruz
         await _kuponService.YeniKullaniciyaHosgeldinKuponuVerAsync(yeniKullanici.Id);
-        // -----------------------------------------------------------
 
         return (true, "Kayıt başarılı.");
     }
@@ -91,9 +85,7 @@ public class KullaniciService : IKullaniciService
         if (kullanici == null) return (false, "Kullanıcı bulunamadı veya şifre hatalı.", null, null, null, null);
 
         if (kullanici.IsDeleted) 
-        {
             return (false, "Hesabınız yönetici tarafından silinmiş veya askıya alınmıştır.", null, null, null, null);
-        }
 
         bool sifreDogruMu = BCrypt.Net.BCrypt.Verify(dto.Sifre, kullanici.SifreHash);
         
@@ -128,8 +120,8 @@ public class KullaniciService : IKullaniciService
         );
 
         var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
-
         var refreshToken = RastgeleTokenOlustur();
+        
         kullanici.RefreshToken = refreshToken;
         kullanici.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7); 
         
@@ -173,6 +165,58 @@ public class KullaniciService : IKullaniciService
 
         return (true, "Başarılı", new JwtSecurityTokenHandler().WriteToken(yeniAccessToken), yeniRefreshToken);
     }
+
+    // =========================================================================================
+    // YENİ EKLENEN KISIM: ŞİFRE SIFIRLAMA İŞLEMLERİ (SİMÜLE EDİLMİŞ)
+    // =========================================================================================
+    
+   public async Task<(bool Basarili, string Mesaj)> SifremiUnuttumAsync(string email)
+    {
+        var kullanici = await _db.Kullanicilar.FirstOrDefaultAsync(k => k.Email == email);
+        
+        // YENİ: Kullanıcı yoksa artık doğrudan hata mesajı dönüyoruz
+        if (kullanici == null) 
+            return (false, "Sistemde bu e-posta adresiyle kayıtlı bir kullanıcı bulunamadı.");
+
+        // 6 haneli kod üret
+        var random = new Random();
+        var kod = random.Next(100000, 999999).ToString();
+
+        kullanici.PasswordResetToken = kod;
+        kullanici.PasswordResetTokenExpires = DateTime.UtcNow.AddMinutes(15);
+        await _db.SaveChangesAsync();
+
+        Console.WriteLine("\n\n==================================================");
+        Console.WriteLine($"[ŞİFRE SIFIRLAMA] E-Posta: {email}");
+        Console.WriteLine($"[ŞİFRE SIFIRLAMA] Doğrulama Kodunuz: {kod}");
+        Console.WriteLine($"[ŞİFRE SIFIRLAMA] Geçerlilik Süresi: 15 Dakika");
+        Console.WriteLine("==================================================\n\n");
+
+        return (true, "Şifre sıfırlama kodu oluşturuldu. Lütfen konsolu kontrol ediniz.");
+    }
+
+    public async Task<(bool Basarili, string Mesaj)> SifreSifirlaAsync(string email, string kod, string yeniSifre)
+    {
+        var kullanici = await _db.Kullanicilar.FirstOrDefaultAsync(k => k.Email == email);
+
+        if (kullanici == null || kullanici.PasswordResetToken != kod)
+            return (false, "Hatalı e-posta adresi veya geçersiz doğrulama kodu.");
+
+        if (kullanici.PasswordResetTokenExpires < DateTime.UtcNow)
+            return (false, "Sıfırlama kodunun süresi dolmuş. Lütfen yeni bir kod isteyin.");
+
+        // Şifreyi yeni değerle güncelle ve Hash'le
+        kullanici.SifreHash = BCrypt.Net.BCrypt.HashPassword(yeniSifre);
+
+        // Kullanılan token'ı temizle
+        kullanici.PasswordResetToken = null;
+        kullanici.PasswordResetTokenExpires = null;
+
+        await _db.SaveChangesAsync();
+
+        return (true, "Şifreniz başarıyla güncellendi. Yeni şifrenizle giriş yapabilirsiniz.");
+    }
+    // =========================================================================================
 
     private string RastgeleTokenOlustur()
     {

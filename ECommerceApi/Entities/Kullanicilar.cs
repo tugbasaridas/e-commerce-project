@@ -15,6 +15,11 @@ public class Kullanicilar
     public string? RefreshToken { get; set; }
     public DateTime? RefreshTokenExpiryTime { get; set; }
 
+    // --- YENİ: ŞİFRE SIFIRLAMA ALANLARI ---
+    public string? PasswordResetToken { get; set; }
+    public DateTime? PasswordResetTokenExpires { get; set; }
+    // --------------------------------------
+
     // SADECE MAĞAZA BAĞLANTISI (Satıcı olmayanlarda null kalacak)
     public Magaza? Magaza { get; set; }
     public ICollection<Siparis> Siparisler { get; set; } = new List<Siparis>();

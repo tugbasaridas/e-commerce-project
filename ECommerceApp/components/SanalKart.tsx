@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
   kartWrapper: { width: 330, height: 200 },
   sanalKart: { width: 330, height: 200, borderRadius: 16, padding: 20, justifyContent: 'space-between', position: 'absolute', top: 0, left: 0, backfaceVisibility: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 15, elevation: 10 },
   kartOnYuz: { backgroundColor: '#FF7597' },
-  kartArkaYuz: { backgroundColor: '#FF7597' },
+  kartArkaYuz: { backgroundColor: '#FF7597', overflow: 'hidden' },
   kartUstBolum: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   bankaIsmi: { color: '#FFF', fontSize: 18, fontStyle: 'italic', fontWeight: 'bold' },
   kartNoYazi: { color: '#FFF', fontSize: 22, letterSpacing: 2, textAlign: 'center', marginVertical: 15, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },

@@ -17,7 +17,7 @@ export default function Giris() {
   const [email, setEmail] = useState('');
   const [sifre, setSifre] = useState('');
   const [loading, setLoading] = useState(false);
-  const [sifreGizli, setSifreGizli] = useState(true);
+  const [sifreGizli, setSifreGizli] = useState(true); // Göz simgesinin ikon değişimi için duruyor
   
   const [bildirim, setBildirim] = useState<BildirimTipi | null>(null);
 
@@ -66,7 +66,6 @@ export default function Giris() {
       setLoading(false);
       bildirimGoster("Giriş işlemi başarılı! Yönlendiriliyorsunuz...", 'basari');
       
-      // YENİ BACKEND DÜZENİ: Artık 3 farklı rolümüz var (Admin, Satici, Kullanici)
       setTimeout(() => {
         if (rol === 'Admin') {
           router.replace('/admin' as any);
@@ -89,7 +88,6 @@ export default function Giris() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        {/* ESTETİK TOAST BİLDİRİM BANNERI */}
         {bildirim && (
           <View style={[styles.bildirimKutusu, styles[bildirim.tip]]}>
             <Ionicons 
@@ -133,12 +131,12 @@ export default function Giris() {
             placeholderTextColor="#A1A1A1"
           />
           
-          {/* ŞİFRE KUTUSU (Göz İkonlu) */}
+          {/* ŞİFRE KUTUSU (Göz simgesi var ama secureTextEntry false olduğu için şifre ekranda görünür) */}
           <View style={styles.sifreAlani}>
             <TextInput 
               style={styles.sifreInput} 
               placeholder="Şifreniz" 
-              secureTextEntry={false} // SUNUM İÇİN GEÇİCİ OLARAK false YAPILDI (Normalde: sifreGizli)
+              secureTextEntry={false} 
               value={sifre}
               onChangeText={setSifre}
               placeholderTextColor="#A1A1A1"
@@ -154,6 +152,13 @@ export default function Giris() {
               />
             </TouchableOpacity>
           </View>
+
+          <TouchableOpacity 
+            style={styles.sifremiUnuttumKutusu}
+            onPress={() => router.push('/sifremi-unuttum' as any)}
+          >
+            <Text style={styles.sifremiUnuttumYazi}>Şifremi Unuttum?</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity style={styles.buton} onPress={girisIslemi} disabled={loading}>
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.butonYazi}>Giriş Yap</Text>}
@@ -172,9 +177,7 @@ const styles = StyleSheet.create({
   scrollContainer: { flexGrow: 1, padding: 24, justifyContent: 'center' },
   baslik: { fontSize: 28, fontWeight: 'bold', marginBottom: 10, color: '#1C1C1E' },
   altMetin: { fontSize: 16, color: '#666', marginBottom: 30 },
-  
   input: { borderWidth: 1, borderColor: '#E5E5EA', padding: 15, borderRadius: 12, marginBottom: 16, backgroundColor: '#F9F9F9', fontSize: 15, color: '#1C1C1E' },
-  
   sifreAlani: { 
     flexDirection: 'row', 
     alignItems: 'center', 
@@ -182,44 +185,24 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5EA', 
     borderRadius: 12, 
     backgroundColor: '#F9F9F9', 
-    marginBottom: 16,
+    marginBottom: 8, 
     paddingRight: 10 
   },
   sifreInput: { flex: 1, padding: 15, fontSize: 15, color: '#1C1C1E' },
   gozIkonu: { padding: 5 },
-
+  sifremiUnuttumKutusu: { alignSelf: 'flex-end', marginBottom: 20, paddingVertical: 4 },
+  sifremiUnuttumYazi: { color: '#666', fontSize: 14, fontWeight: '600' },
   buton: { backgroundColor: 'orange', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 8, shadowColor: 'orange', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 3 },
   butonYazi: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   yonlendirme: { textAlign: 'center', color: '#666', fontSize: 15 },
   geriButon: { position: 'absolute', top: 20, left: 20, zIndex: 10, padding: 8, backgroundColor: '#F2F2F7', borderRadius: 20 },
-
-  // ESTETİK BİLDİRİM KUTUSU STİLLERİ
-  bildirimKutusu: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    right: 20,
-    zIndex: 999,
-    flexDirection: 'row',
-    alignItems: 'center', 
-    padding: 16,
-    borderRadius: 14,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 5,
-  },
+  bildirimKutusu: { position: 'absolute', top: 20, left: 20, right: 20, zIndex: 999, flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 14, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 5 },
   bildirimIcerik: { flex: 1, marginLeft: 10, marginRight: 6 },
   bildirimMetni: { fontSize: 14, fontWeight: '600', lineHeight: 20 },
-  
   hata: { backgroundColor: '#FFF5F5', borderColor: '#FEB2B2' },
   hataMetin: { color: '#C53030' },
-  
   uyari: { backgroundColor: '#FFFAF0', borderColor: '#FEEBC8' },
   uyariMetin: { color: '#DD6B20' },
-  
   basari: { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' },
   basariMetin: { color: '#166534' }
 });
