@@ -139,7 +139,7 @@ public class SiparisService : ISiparisService
             {
                 KullaniciId = userId,
                 ToplamTutar = odenecekSonTutar, 
-                Durum = "Ödeme Alındı",
+                Durum = "Hazırlanıyor",
                 SiparisTarihi = DateTime.UtcNow,
                 OdemeYontemi = dto.OdemeYontemi,
                 TeslimatAdresi = dto.TeslimatAdresi,

@@ -133,7 +133,7 @@ export default function AdminIslemler() {
             </View>
             <BildirimRozeti sayi={stats?.bekleyenDestek || (stats as any)?.BekleyenDestek || 0} />
           </View>
-          <Text style={styles.cardTitle}>Müşteri Destek</Text>
+          <Text style={styles.cardTitle}>Destek Talepleri</Text>
           <Text style={styles.cardDesc}>Gelen soruları ve talepleri anında yanıtla</Text>
         </TouchableOpacity>
 

@@ -25,7 +25,6 @@ public class DestekController : ControllerBase
         return int.Parse(userIdClaim!);
     }
 
-    // YENİ: Hem Müşteri Hem Satıcı destek talebi açabilir
     [Authorize(Roles = "Kullanici,Satici,Satıcı")] 
     [HttpPost]
     public async Task<IActionResult> YeniMesajGonder([FromBody] DestekTalebiDTO dto)
@@ -42,11 +41,31 @@ public class DestekController : ControllerBase
         return Ok(talepler);
     }
 
+    // ==========================================
+    // ADMIN ENDPOINT'LERİ (Filtreli Yapı)
+    // ==========================================
+
     [Authorize(Roles = "Admin")]
-    [HttpGet("admin")]
+    [HttpGet("admin/tum")]
     public async Task<IActionResult> TumTalepleriGetirAdmin()
     {
         var talepler = await _destekService.TumTalepleriGetirAdminAsync();
+        return Ok(talepler);
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpGet("admin/musteri")]
+    public async Task<IActionResult> MusteriTalepleriniGetirAdmin()
+    {
+        var talepler = await _destekService.MusteriTalepleriniGetirAdminAsync();
+        return Ok(talepler);
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpGet("admin/satici")]
+    public async Task<IActionResult> SaticiTalepleriniGetirAdmin()
+    {
+        var talepler = await _destekService.SaticiTalepleriniGetirAdminAsync();
         return Ok(talepler);
     }
 

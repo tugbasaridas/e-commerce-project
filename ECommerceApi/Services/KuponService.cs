@@ -2,13 +2,23 @@ using ECommerceApi.DataAccess;
 using ECommerceApi.DTOs;
 using ECommerceApi.Entities;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace ECommerceApi.Services;
 
 public class KuponService : IKuponService
 {
     private readonly AppDbContext _db;
-    public KuponService(AppDbContext db) => _db = db;
+    private readonly IBildirimService _bildirimService; // YENİ: Bildirim servisi eklendi
+
+    public KuponService(AppDbContext db, IBildirimService bildirimService)
+    {
+        _db = db;
+        _bildirimService = bildirimService;
+    }
 
     // 1. ADMİN VE SATICILARIN MANUEL KUPON OLUŞTURMASI VE OTOMATİK DAĞITIM
     public async Task<(bool Basarili, string Mesaj)> KuponOlusturAsync(KuponOlusturDto dto, string olusturanRol, int? magazaId, List<int>? secilenUrunIds = null)
@@ -44,6 +54,7 @@ public class KuponService : IKuponService
             await _db.SaveChangesAsync();
         }
 
+        // MAĞAZANIN TAKİPÇİLERİNE KUPON DAĞITIMI VE BİLDİRİM GÖNDERİMİ
         if (magazaId.HasValue && !dto.HerkeseAcikMi)
         {
             var takipciIdleri = await _db.Takipciler
@@ -63,6 +74,23 @@ public class KuponService : IKuponService
                 await _db.KullaniciKuponlari.AddRangeAsync(cuzdanKayitlari);
                 await _db.SaveChangesAsync();
 
+                // YENİ: Takipçilere Kupon Bildirimi Fırlat
+                string indirimMetni = dto.IndirimTipi == "Yuzde" ? $"%{dto.IndirimDegeri}" : $"{dto.IndirimDegeri} ₺";
+                foreach (var tId in takipciIdleri)
+                {
+                    try
+                    {
+                        await _bildirimService.BildirimGonderAsync(
+                            tId,
+                            "🎟️ Sana Özel Yeni Kupon Geldi!",
+                            $"Takip ettiğin mağaza sana {indirimMetni} indirim sağlayan '{yeniKupon.Kodu}' kodlu VIP kupon tanımladı! Hemen kullan.",
+                            "Kupon",
+                            "/hesabim/kuponlarim" // veya mobildeki kupon ekranı rotan neyse
+                        );
+                    }
+                    catch { /* Hata olursa diğerlerine göndermeye devam et */ }
+                }
+
                 return (true, $"Kupon başarıyla oluşturuldu ve {takipciIdleri.Count} takipçinize otomatik olarak dağıtıldı! 🎉");
             }
         }
@@ -70,7 +98,7 @@ public class KuponService : IKuponService
         return (true, "Kupon başarıyla oluşturuldu.");
     }
 
-    // 2. MAĞAZA TAKİP ETME (Otomatik VIP kuponları kazanma sistemi)
+    // 2. MAĞAZA TAKİP ETME (Otomatik VIP kuponları kazanma sistemi) VE BİLDİRİM
     public async Task<(bool Basarili, string Mesaj, string KuponKodu)> MagazaTakipEtVeKuponKazanAsync(int kullaniciId, int magazaId)
     {
         var kullanici = await _db.Kullanicilar.FindAsync(kullaniciId);
@@ -105,13 +133,27 @@ public class KuponService : IKuponService
         if (kazanilanKuponSayisi > 0)
         {
             await _db.SaveChangesAsync();
+
+            // YENİ: Takip Ettiği İçin Kazandığı Kuponun Bildirimi
+            try
+            {
+                await _bildirimService.BildirimGonderAsync(
+                    kullaniciId,
+                    "🎉 Mağazayı Takip Ettin, Kuponları Kaptın!",
+                    $"Mağazayı takip ettiğin için cüzdanına tam {kazanilanKuponSayisi} adet VIP kupon eklendi. Göz atmayı unutma!",
+                    "Kupon",
+                    "/hesabim/kuponlarim"
+                );
+            }
+            catch { /* Hata olursa patlama */ }
+
             return (true, $"Mağazayı takip ettiniz ve mağazanın {kazanilanKuponSayisi} adet VIP kuponu cüzdanınıza otomatik eklendi! 🎉", ilkKuponKodu);
         }
 
         return (true, "Mağazayı başarıyla takip ettiniz.", "");
     }
 
-    // 3. YENİ KAYIT HOŞ GELDİN KUPONU 
+    // 3. YENİ KAYIT HOŞ GELDİN KUPONU VE BİLDİRİM
     public async Task<(bool Basarili, string Mesaj)> YeniKullaniciyaHosgeldinKuponuVerAsync(int kullaniciId)
     {
         var kullanici = await _db.Kullanicilar.FindAsync(kullaniciId);
@@ -131,10 +173,23 @@ public class KuponService : IKuponService
         await _db.KullaniciKuponlari.AddAsync(new KullaniciKupon { KullaniciId = kullaniciId, KuponId = hosgeldinKuponu.Id });
         await _db.SaveChangesAsync();
 
+        // YENİ: Hoş Geldin Kuponu Bildirimi
+        try
+        {
+            await _bildirimService.BildirimGonderAsync(
+                kullaniciId,
+                "👋 Aramıza Hoş Geldin!",
+                "Sana özel tanımladığımız 'HOSGELDIN20' kupon kodunu ilk alışverişinde kullanarak indirim kazanabilirsin.",
+                "Kupon",
+                "/hesabim/kuponlarim"
+            );
+        }
+        catch { /* Hata olursa patlama */ }
+
         return (true, "HOSGELDIN20 kuponu başarıyla tanımlandı.");
     }
 
-    // 4. MÜŞTERİNİN KENDİ KUPONLARINI VE TÜM AÇIK FIRSATLARI LİSTELEMESİ
+    // 4. MÜŞTERİNİN KENDİ KUPONLARINI LİSTELEMESİ (Aynı kaldı)
     public async Task<object> KullaniciKuponlariniGetirAsync(int kullaniciId)
     {
         var cuzdanKuponlari = await _db.KullaniciKuponlari
@@ -182,7 +237,7 @@ public class KuponService : IKuponService
         return tumKuponlar;
     }
 
-    // 5. KUPONUN GEÇERLİLİĞİNİ KONTROL ET VE İNDİRİM HESAPLA
+    // 5. KUPONUN GEÇERLİLİĞİNİ KONTROL ET VE İNDİRİM HESAPLA (Aynı kaldı)
     public async Task<(bool Basarili, string Mesaj, decimal IndirimTutari, int? KuponId)> KuponUygulaDetayliAsync(int kullaniciId, string kuponKodu, decimal sepetToplami, List<SepetUrunDto> sepetUrunleri)
     {
         var kupon = await _db.Kuponlar
@@ -245,6 +300,7 @@ public class KuponService : IKuponService
         return (true, "Kupon başarıyla uygulandı!", indirimTutari, kupon.Id);
     }
 
+    // 6. YÖNETİCİ KUPONLARINI GETİR (Aynı kaldı)
     public async Task<object> YoneticiKuponlariniGetirAsync(int userId, string rol)
     {
         var query = _db.Kuponlar
@@ -280,6 +336,7 @@ public class KuponService : IKuponService
         }).ToListAsync();
     }
 
+    // 7. KUPON SİL (Aynı kaldı)
     public async Task<(bool Basarili, string Mesaj)> KuponSilAsync(int kuponId, int userId, string rol)
     {
         var kupon = await _db.Kuponlar.FindAsync(kuponId);
@@ -297,25 +354,23 @@ public class KuponService : IKuponService
         return (true, "Kupon başarıyla silindi.");
     }
 
+    // 8. ADMİNİN MANUEL KULLANICILARA KUPON ATAMASI VE BİLDİRİM
     public async Task<(bool Basarili, string Mesaj)> KullanicilaraKuponTanimlaAsync(int kuponId, List<int> kullaniciIdleri)
     {
         var kupon = await _db.Kuponlar.FindAsync(kuponId);
         if (kupon == null) return (false, "Tanımlanmak istenen kupon bulunamadı.");
 
-        // 1. Sadece "Kullanıcı" rolündeki ve SİLİNMEMİŞ (!IsDeleted) olan kişileri DB'den filtrele
         var gecerliKullaniciIdleri = await _db.Kullanicilar
             .Where(u => kullaniciIdleri.Contains(u.Id) && u.Rol == "Kullanici" && !u.IsDeleted)
             .Select(u => u.Id)
             .ToListAsync();
 
-        // 2. Kuponun şu anki sahiplerini bul
         var mevcutSahipler = await _db.KullaniciKuponlari
             .Where(kk => kk.KuponId == kuponId)
             .ToListAsync();
 
         var mevcutKullaniciIdleri = mevcutSahipler.Select(kk => kk.KullaniciId).ToList();
 
-        // 3. SİLİNECEKLER (Admin'in tikini kaldırdıkları veya pasif hale gelmiş olanlar)
         var silinecekKuponlar = mevcutSahipler
             .Where(kk => !gecerliKullaniciIdleri.Contains(kk.KullaniciId))
             .ToList();
@@ -325,7 +380,6 @@ public class KuponService : IKuponService
             _db.KullaniciKuponlari.RemoveRange(silinecekKuponlar);
         }
 
-        // 4. EKLENECEKLER (Admin'in yeni tik attığı geçerli kullanıcılar)
         var eklenecekKullaniciIdleri = gecerliKullaniciIdleri
             .Where(id => !mevcutKullaniciIdleri.Contains(id))
             .ToList();
@@ -337,13 +391,35 @@ public class KuponService : IKuponService
                 .ToList();
 
             await _db.KullaniciKuponlari.AddRangeAsync(eklenecekKuponlar);
-        }
+            await _db.SaveChangesAsync(); // Kaydedip bildirim yolluyoruz
 
-        await _db.SaveChangesAsync();
+            // YENİ: Admin veya Satıcı Spesifik Kişilere Kupon Atadığında Bildirim
+            string indirimMetni = kupon.IndirimTipi == "Yuzde" ? $"%{kupon.IndirimDegeri}" : $"{kupon.IndirimDegeri} ₺";
+            foreach (var id in eklenecekKullaniciIdleri)
+            {
+                try
+                {
+                    await _bildirimService.BildirimGonderAsync(
+                        id,
+                        "🎁 Sana Özel Sürpriz Bir Kupon Tanımlandı!",
+                        $"Cüzdanına {indirimMetni} indirim sağlayan '{kupon.Kodu}' kodlu hediye kupon tanımladık. İyi alışverişler dileriz!",
+                        "Kupon",
+                        "/hesabim/kuponlarim"
+                    );
+                }
+                catch { /* Hata engelleme */ }
+            }
+        }
+        else
+        {
+            // Sadece silme olduysa kaydet
+             await _db.SaveChangesAsync();
+        }
 
         return (true, "Kupon atamaları başarıyla güncellendi.");
     }
 
+    // 9. ÜRÜNÜN KUPONLARINI GETİR (Aynı kaldı)
     public async Task<object> UrununKuponlariniGetirAsync(int urunId)
     {
         var urun = await _db.Urunler.FindAsync(urunId);

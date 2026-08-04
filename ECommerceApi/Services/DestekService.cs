@@ -44,7 +44,8 @@ public class DestekService : IDestekService
                 d.AdminCevabi, 
                 d.Durum, 
                 d.OlusturulmaTarihi, 
-                d.CevaplanmaTarihi 
+                d.CevaplanmaTarihi ,
+                CevaplandiMi = d.Durum == "Cevaplandı" || !string.IsNullOrEmpty(d.AdminCevabi)
             })
             .ToListAsync();
     }
@@ -60,6 +61,51 @@ public class DestekService : IDestekService
                 d.Id, 
                 KullaniciAdi = d.Kullanici.AdSoyad, 
                 KullaniciEmail = d.Kullanici.Email,
+                GonderenRol = d.Kullanici.Rol,
+                d.Konu, 
+                d.Mesaj, 
+                d.AdminCevabi, 
+                d.Durum, 
+                d.OlusturulmaTarihi 
+            })
+            .ToListAsync();
+    }
+
+    public async Task<object> MusteriTalepleriniGetirAdminAsync()
+    {
+        return await _db.DestekTalepleri
+            .Include(d => d.Kullanici)
+            .Where(d => d.Kullanici.Rol == "Kullanici")
+            .OrderBy(d => d.Durum == "Bekliyor" ? 0 : 1)
+            .ThenByDescending(d => d.OlusturulmaTarihi)
+            .Select(d => new 
+            { 
+                d.Id, 
+                KullaniciAdi = d.Kullanici.AdSoyad, 
+                KullaniciEmail = d.Kullanici.Email,
+                GonderenRol = d.Kullanici.Rol,
+                d.Konu, 
+                d.Mesaj, 
+                d.AdminCevabi, 
+                d.Durum, 
+                d.OlusturulmaTarihi 
+            })
+            .ToListAsync();
+    }
+
+    public async Task<object> SaticiTalepleriniGetirAdminAsync()
+    {
+        return await _db.DestekTalepleri
+            .Include(d => d.Kullanici)
+            .Where(d => d.Kullanici.Rol == "Satici" || d.Kullanici.Rol == "Satıcı")
+            .OrderBy(d => d.Durum == "Bekliyor" ? 0 : 1)
+            .ThenByDescending(d => d.OlusturulmaTarihi)
+            .Select(d => new 
+            { 
+                d.Id, 
+                KullaniciAdi = d.Kullanici.AdSoyad, 
+                KullaniciEmail = d.Kullanici.Email,
+                GonderenRol = d.Kullanici.Rol,
                 d.Konu, 
                 d.Mesaj, 
                 d.AdminCevabi, 

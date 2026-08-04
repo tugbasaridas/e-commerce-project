@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { Dimensions, Image, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Dimensions, Image, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BarChart } from 'react-native-chart-kit';
 import { useAdminDashboard } from '../../hooks/custom/useAdminDashboard';
 
 const { width } = Dimensions.get('window');
@@ -10,7 +11,8 @@ export default function AdminDashboard() {
   const router = useRouter();
   const { stats, loading, oturumuKapat, yenile, adminAdi } = useAdminDashboard();
 
-  // KESİN ÇÖZÜM: Backend'den (C#) veriler büyük veya küçük harfle dönse de güvenle yakalıyoruz
+  const [grafikGoster, setGrafikGoster] = useState(false);
+
   const ciro = stats?.toplamCiro ?? (stats as any)?.ToplamCiro ?? 0;
   const netKazanc = stats?.platformKazanci ?? (stats as any)?.PlatformKazanci ?? 0;
   const musteriSayisi = stats?.toplamMusteri ?? (stats as any)?.ToplamMusteri ?? 0;
@@ -32,18 +34,91 @@ export default function AdminDashboard() {
           <Text style={styles.headerTitle}>Raporlar & Analiz</Text>
         </View>
         <View style={styles.headerRight}>
-          <View style={styles.adminBadge}>
-            <Ionicons name="analytics" size={16} color="#FF9F00" />
-            <Text style={styles.adminBadgeText}>İstatistikler</Text>
-          </View>
+          <TouchableOpacity 
+            activeOpacity={0.7}
+            onPress={() => setGrafikGoster(!grafikGoster)} 
+            style={styles.adminBadge}
+          >
+            <Ionicons name={grafikGoster ? "chevron-up" : "stats-chart"} size={16} color="#FF9F00" />
+            <Text style={styles.adminBadgeText}>
+              {grafikGoster ? "Grafiği Gizle" : "Görsel Grafik"}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* FİNANSAL DURUM - YENİLENEN İKİLİ KART YAPISI */}
+      {/* REACT NATIVE CHART KIT İLE GERÇEK GRAFİK ALANI */}
+      {grafikGoster && (
+        <View style={styles.grafikKutusu}>
+          <View style={styles.grafikBaslikSatiri}>
+            <Ionicons name="bar-chart" size={20} color="#FF9F00" />
+            <Text style={styles.grafikBaslikYazi}>Finansal Performans Grafiği</Text>
+          </View>
+          
+          <Text style={styles.grafikAciklama}>
+            Toplam işlem hacmi ile komisyon kazancımızın kıyaslaması:
+          </Text>
+
+          <View style={{ alignItems: 'center', marginVertical: 5 }}>
+            <BarChart
+              data={{
+                labels: ["Toplam Hacim", "Net Kazanç"],
+                datasets: [
+                  {
+                    data: [
+                      Number(ciro) > 0 ? Number(ciro) : 1, 
+                      Number(netKazanc) > 0 ? Number(netKazanc) : 1
+                    ]
+                  }
+                ]
+              }}
+              width={width - 70}
+              height={220}
+              yAxisLabel="₺"
+              yAxisSuffix=""
+              chartConfig={{
+                backgroundColor: '#ffffff',
+                backgroundGradientFrom: '#ffffff',
+                backgroundGradientTo: '#ffffff',
+                decimalPlaces: 0,
+                color: (opacity = 1) => `rgba(255, 159, 0, ${opacity})`,
+                labelColor: (opacity = 1) => `rgba(44, 52, 54, ${opacity})`,
+                style: {
+                  borderRadius: 16
+                },
+                propsForDots: {
+                  r: "6",
+                  strokeWidth: "2",
+                  stroke: "#ffa726"
+                }
+              }}
+              style={{
+                marginVertical: 8,
+                borderRadius: 16
+              }}
+              fromZero={true}
+            />
+          </View>
+
+          <View style={styles.miniIstatistikSatiri}>
+            <View style={styles.miniIstatistikItem}>
+              <Text style={styles.miniItemBaslik}>Toplam Kullanıcı</Text>
+              <Text style={styles.miniItemSayi}>{musteriSayisi + saticiSayisi}</Text>
+            </View>
+            <View style={styles.miniIstatistikItem}>
+              <Text style={styles.miniItemBaslik}>Aktiflik Oranı</Text>
+              <Text style={styles.miniItemSayi}>
+                {aktifUrunSayisi + pasifUrunSayisi > 0 ? `%${((aktifUrunSayisi / (aktifUrunSayisi + pasifUrunSayisi)) * 100).toFixed(0)}` : '%0'}
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* FİNANSAL DURUM - İKİLİ KART YAPISI */}
       <Text style={styles.sectionTitle}>Finansal Durum</Text>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
         
-        {/* TOPLAM İŞLEM HACMİ (Müşterinin Ödediği) */}
         <View style={[styles.ciroCard, { flex: 1, marginRight: 10, marginBottom: 0, flexDirection: 'column', alignItems: 'flex-start', padding: 16, borderLeftColor: '#1E90FF' }]}>
           <View style={[styles.ciroIconContainer, { backgroundColor: '#E6F2FF', marginBottom: 12, marginRight: 0 }]}>
             <Ionicons name="swap-horizontal" size={24} color="#1E90FF" />
@@ -56,7 +131,6 @@ export default function AdminDashboard() {
           </View>
         </View>
 
-        {/* ADMİN NET KAZANCI (%10 Komisyon) */}
         <View style={[styles.ciroCard, { flex: 1, marginBottom: 0, flexDirection: 'column', alignItems: 'flex-start', padding: 16, borderLeftColor: '#28A745' }]}>
           <View style={[styles.ciroIconContainer, { backgroundColor: '#E8F5E9', marginBottom: 12, marginRight: 0 }]}>
             <Ionicons name="wallet" size={24} color="#28A745" />
@@ -75,7 +149,6 @@ export default function AdminDashboard() {
       <Text style={styles.sectionTitle}>Genel Bakış</Text>
       <View style={styles.statsGrid}>
         
-        {/* MÜŞTERİ KARTI */}
         <View style={[styles.card, { borderLeftColor: '#4EA8DE' }]}>
           <View style={styles.cardHeader}>
             <View style={[styles.iconContainer, { backgroundColor: '#E1F5FE' }]}>
@@ -86,7 +159,6 @@ export default function AdminDashboard() {
           <Text style={styles.cardLabel}>Toplam Müşteri</Text>
         </View>
 
-        {/* SATICI KARTI */}
         <View style={[styles.card, { borderLeftColor: '#9D4EDD' }]}>
           <View style={styles.cardHeader}>
             <View style={[styles.iconContainer, { backgroundColor: '#F3E8FF' }]}>
@@ -97,7 +169,6 @@ export default function AdminDashboard() {
           <Text style={styles.cardLabel}>Toplam Satıcı</Text>
         </View>
 
-        {/* AKTİF ÜRÜN KARTI */}
         <View style={[styles.card, { borderLeftColor: '#70E000' }]}>
           <View style={styles.cardHeader}>
             <View style={[styles.iconContainer, { backgroundColor: '#F0FDF4' }]}>
@@ -108,7 +179,6 @@ export default function AdminDashboard() {
           <Text style={styles.cardLabel}>Aktif Ürün</Text>
         </View>
 
-        {/* PASİF ÜRÜN KARTI */}
         <View style={[styles.card, { borderLeftColor: '#EF233C' }]}>
           <View style={styles.cardHeader}>
             <View style={[styles.iconContainer, { backgroundColor: '#FFF0F0' }]}>
@@ -127,13 +197,10 @@ export default function AdminDashboard() {
           <Text style={[styles.sectionTitle, { marginTop: 15 }]}>En Çok Satanlar (Top 5)</Text>
           <View style={styles.topSellerContainer}>
             {topSatanlar.map((urun: any, index: number) => {
-              
-              // Backend JSON dönüşü (Büyük/Küçük harf duyarlılığı kontrolü)
               const urunId = urun?.urunId ?? urun?.UrunId;
               const urunAdi = urun?.urunAdi ?? urun?.UrunAdi ?? "Bilinmeyen Ürün";
               const magazaAdi = urun?.magazaAdi ?? urun?.MagazaAdi ?? "Bilinmiyor";
               
-              // RESİM İÇİN KESİN GÜVENLİK KONTROLÜ
               let resimLink = 'https://via.placeholder.com/150';
               if (urun?.resimUrl && typeof urun.resimUrl === 'string' && urun.resimUrl.length > 5) {
                 resimLink = urun.resimUrl;
@@ -146,20 +213,14 @@ export default function AdminDashboard() {
 
               return (
                 <View key={urunId} style={[styles.topSellerRow, index !== topSatanlar.length - 1 && styles.rowDivider]}>
-                  
                   <View style={styles.rankBadge}>
                     <Text style={styles.rankText}>#{index + 1}</Text>
                   </View>
 
-                  <Image 
-                    source={{ uri: resimLink }} 
-                    style={styles.productImage} 
-                  />
+                  <Image source={{ uri: resimLink }} style={styles.productImage} />
 
                   <View style={styles.productInfoContainer}>
-                    <Text style={styles.productName} numberOfLines={2}>
-                      {urunAdi}
-                    </Text>
+                    <Text style={styles.productName} numberOfLines={2}>{urunAdi}</Text>
                     <View style={styles.storeContainer}>
                       <Ionicons name="storefront-outline" size={12} color="#8E8E93" />
                       <Text style={styles.storeName} numberOfLines={1}>{magazaAdi}</Text>
@@ -173,7 +234,6 @@ export default function AdminDashboard() {
                       <Text style={styles.productSales}>{satisAdedi} Satış</Text>
                     </View>
                   </View>
-                  
                 </View>
               );
             })}
@@ -191,13 +251,66 @@ const styles = StyleSheet.create({
   welcomeText: { fontSize: 14, color: '#8E8E93' },
   headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#1C1C1E', marginTop: 2 },
   headerRight: { flexDirection: 'row', alignItems: 'center' },
-  adminBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF4E5', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
+  adminBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF4E5', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   adminBadgeText: { color: '#FF9F00', fontWeight: '600', fontSize: 12, marginLeft: 4 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1C1C1E', marginBottom: 12, marginTop: 10 },
   
+  grafikKutusu: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#FFF4E5'
+  },
+  grafikBaslikSatiri: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8
+  },
+  grafikBaslikYazi: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1C1C1E',
+    marginLeft: 8
+  },
+  grafikAciklama: {
+    fontSize: 13,
+    color: '#8E8E93',
+    marginBottom: 10,
+    lineHeight: 18
+  },
+  miniIstatistikSatiri: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 15,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E5E5EA'
+  },
+  miniIstatistikItem: {
+    flex: 1,
+    alignItems: 'center'
+  },
+  miniItemBaslik: {
+    fontSize: 11,
+    color: '#8E8E93',
+    fontWeight: '500',
+    marginBottom: 2
+  },
+  miniItemSayi: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1C1C1E'
+  },
+
   ciroCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, flexDirection: 'row', alignItems: 'center', marginBottom: 20, borderLeftWidth: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2 },
   ciroIconContainer: { padding: 14, borderRadius: 12, marginRight: 16 },
-  ciroTextContainer: { flex: 1, justifyContent: 'center' },
   ciroLabel: { fontSize: 13, color: '#8E8E93', fontWeight: '500', marginBottom: 4 },
   ciroValue: { fontSize: 26, fontWeight: '800' },
   

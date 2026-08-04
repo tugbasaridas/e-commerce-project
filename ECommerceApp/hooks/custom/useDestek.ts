@@ -12,6 +12,7 @@ export interface DestekTalebi {
   adminCevabi: string | null;
   durum: string;
   olusturulmaTarihi: string;
+  gonderenRol?: string; // Admin tarafıyla tam uyumlu olması için eklendi
 }
 
 export const useDestek = () => {
@@ -36,7 +37,7 @@ export const useDestek = () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
       if (!token) {
-        Alert.alert('Uyarı', 'Mesajlarınızı görmek için giriş yapmalısınız.');
+        Alert.alert('Uyarı 🔒', 'Mesajlarınızı görmek için giriş yapmalısınız.');
         router.push('/(auth)/giris' as any);
         return;
       }
@@ -66,7 +67,7 @@ export const useDestek = () => {
 
   const destekTalebiGonder = async () => {
     if (!konu.trim() || !mesaj.trim()) {
-      Alert.alert('Uyarı', 'Lütfen konu ve mesaj alanlarını doldurun.');
+      Alert.alert('Eksik Bilgi 🌸', 'Lütfen konu ve mesaj alanlarını doldurun.');
       return;
     }
 
@@ -74,7 +75,7 @@ export const useDestek = () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
       if (!token) {
-        Alert.alert('Uyarı', 'Mesaj göndermek için giriş yapmalısınız.');
+        Alert.alert('Uyarı 🔒', 'Mesaj göndermek için giriş yapmalısınız.');
         router.push('/(auth)/giris' as any);
         return;
       }
@@ -83,13 +84,13 @@ export const useDestek = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      Alert.alert('Başarılı', 'Mesajınız bize ulaştı. En kısa sürede yanıtlayacağız.');
+      Alert.alert('Harika! 🚀', 'Mesajınız bize ulaştı. En kısa sürede yanıtlayacağız.');
       setKonu('');
       setMesaj('');
       setAktifSekme('gecmis'); // Gönderdikten sonra geçmiş mesajlara at
 
     } catch (error) {
-      Alert.alert('Hata', 'Mesajınız gönderilirken bir sorun oluştu.');
+      Alert.alert('Hata 😔', 'Mesajınız gönderilirken bir sorun oluştu.');
     } finally {
       setGonderiliyor(false);
     }
