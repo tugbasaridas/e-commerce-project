@@ -13,11 +13,9 @@ export default function SaticiSorulari() {
   const [sorular, setSorular] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🌟 YENİ: Arama ve Filtreleme State'leri
   const [aramaMetni, setAramaMetni] = useState('');
   const [seciliFiltre, setSeciliFiltre] = useState<FiltreTipi>('Tümü');
 
-  // Cevaplama Modalı State'leri
   const [modalGorunur, setModalGorunur] = useState(false);
   const [seciliSoru, setSeciliSoru] = useState<any>(null);
   const [cevapMetni, setCevapMetni] = useState('');
@@ -52,7 +50,7 @@ export default function SaticiSorulari() {
   };
 
   const cevapGonder = async () => {
-    if (cevapMetni.trim().length < 5) {
+    if (cevapMetni.trim().length < 3) {
       Alert.alert("Uyarı", "Lütfen geçerli ve açıklayıcı bir cevap yazın.");
       return;
     }
@@ -69,7 +67,7 @@ export default function SaticiSorulari() {
 
       Alert.alert("Başarılı", "Cevabınız müşteriye iletildi ve yayına alındı.");
       setModalGorunur(false);
-      sorulariGetir(); // Listeyi yenile ki soru "Cevaplandı" olarak yeşile dönsün
+      sorulariGetir(); 
 
     } catch (error: any) {
       Alert.alert("Hata", error.response?.data?.mesaj || "Cevap gönderilemedi.");
@@ -82,19 +80,17 @@ export default function SaticiSorulari() {
     return new Date(tarihString).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
-  // 🌟 YENİ: Arama ve Sekmelere Göre Soruları Filtreleyen Zeka
   const filtrelenmisSorular = useMemo(() => {
     return sorular.filter(soru => {
-      // 1. Durum (Sekme) Filtresi
       if (seciliFiltre === 'Bekliyor' && soru.cevaplandiMi) return false;
       if (seciliFiltre === 'Cevaplandı' && !soru.cevaplandiMi) return false;
 
-      // 2. Metin Arama Filtresi (Ürün Adı veya Sorunun kendi içinde)
       const arananKucuk = aramaMetni.toLowerCase();
       const urunAdUyar = (soru.urunAdi || '').toLowerCase().includes(arananKucuk);
       const soruMetniUyar = (soru.soruMetni || '').toLowerCase().includes(arananKucuk);
+      const musteriAdUyar = (soru.musteriAdi || '').toLowerCase().includes(arananKucuk);
 
-      if (aramaMetni.trim() !== '' && !urunAdUyar && !soruMetniUyar) return false;
+      if (aramaMetni.trim() !== '' && !urunAdUyar && !soruMetniUyar && !musteriAdUyar) return false;
 
       return true;
     });
@@ -102,12 +98,23 @@ export default function SaticiSorulari() {
 
   const soruKartiCiz = ({ item }: { item: any }) => (
     <View style={styles.kart}>
-      {/* Üst Kısım: Ürün Bilgisi */}
+      {/* Üst Kısım: Müşteri Adı ve Tarih */}
+      <View style={styles.musteriBilgiSatiri}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={styles.musteriAvatar}>
+            <Ionicons name="person" size={14} color="#FF9F00" />
+          </View>
+          <Text style={styles.musteriAdi}>{item.musteriAdi || "Müşteri"}</Text>
+        </View>
+        <Text style={styles.tarihYazi}>{tarihFormatla(item.soruTarihi)}</Text>
+      </View>
+
+      {/* Ürün Bilgisi Satırı */}
       <View style={styles.urunBilgiSatiri}>
         <Image source={{ uri: item.urunResmi || 'https://via.placeholder.com/50' }} style={styles.urunResim} />
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, marginRight: 10 }}>
+          <Text style={styles.urunEtiket}>İlgili Ürün:</Text>
           <Text style={styles.urunAdi} numberOfLines={2}>{item.urunAdi}</Text>
-          <Text style={styles.tarihYazi}>{tarihFormatla(item.soruTarihi)}</Text>
         </View>
         <View style={[styles.durumRozet, { backgroundColor: item.cevaplandiMi ? '#E8F5E9' : '#FFF3E0' }]}>
           <Ionicons name={item.cevaplandiMi ? "checkmark-circle" : "time"} size={14} color={item.cevaplandiMi ? "#28A745" : "#FF9F00"} style={{ marginRight: 4 }} />
@@ -149,13 +156,13 @@ export default function SaticiSorulari() {
         <View style={{ width: 26 }} />
       </View>
 
-      {/* 🌟 YENİ: ARAMA ÇUBUĞU */}
+      {/* ARAMA ÇUBUĞU */}
       <View style={styles.aramaKutusuContainer}>
         <View style={styles.aramaKutusu}>
           <Ionicons name="search-outline" size={20} color="#8E8E93" />
           <TextInput
             style={styles.aramaInput}
-            placeholder="Ürün adı veya soru içeriğinde ara..."
+            placeholder="Ürün adı, müşteri veya soru içeriğinde ara..."
             placeholderTextColor="#8E8E93"
             value={aramaMetni}
             onChangeText={setAramaMetni}
@@ -169,7 +176,7 @@ export default function SaticiSorulari() {
         </View>
       </View>
 
-      {/* 🌟 YENİ: FİLTRELEME SEKMELERİ */}
+      {/* FİLTRELEME SEKMELERİ */}
       <View style={styles.filtreKapsayici}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtreScroll}>
           {['Tümü', 'Bekliyor', 'Cevaplandı'].map((durum, index) => (
@@ -186,7 +193,7 @@ export default function SaticiSorulari() {
 
       {/* SORULAR LİSTESİ */}
       {loading ? (
-        <View style={styles.merkez}><ActivityIndicator size="large" color="#4EA8DE" /></View>
+        <View style={styles.merkez}><ActivityIndicator size="large" color="#FF9F00" /></View>
       ) : (
         <FlatList
           data={filtrelenmisSorular}
@@ -220,6 +227,7 @@ export default function SaticiSorulari() {
 
             {seciliSoru && (
               <View style={styles.modalSoruOzet}>
+                <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#FF9F00', marginBottom: 2 }}>{seciliSoru.musteriAdi} sordu:</Text>
                 <Text style={styles.modalSoruMetni} numberOfLines={3}>"{seciliSoru.soruMetni}"</Text>
               </View>
             )}
@@ -227,6 +235,7 @@ export default function SaticiSorulari() {
             <TextInput
               style={styles.inputArea}
               placeholder="Müşteriye nazik ve açıklayıcı bir yanıt yazın..."
+              placeholderTextColor="#8E8E93"
               multiline
               numberOfLines={5}
               value={cevapMetni}
@@ -253,14 +262,13 @@ const styles = StyleSheet.create({
   geriButon: { padding: 4, marginLeft: -4 },
   headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#1C1C1E' },
   
-  // ARAMA VE FİLTRE STİLLERİ
   aramaKutusuContainer: { backgroundColor: '#FFFFFF', paddingHorizontal: 20, paddingBottom: 10 },
-  aramaKutusu: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F2F2F7', borderRadius: 10, paddingHorizontal: 12, height: 44, borderWidth: 1, borderColor: '#E5E5EA' },
+  aramaKutusu: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F2F2F7', borderRadius: 10, paddingHorizontal: 12, height: 48, borderWidth: 1, borderColor: '#E5E5EA' },
   aramaInput: { flex: 1, marginLeft: 8, fontSize: 15, color: '#1C1C1E' },
   filtreKapsayici: { backgroundColor: '#FFFFFF', paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   filtreScroll: { paddingHorizontal: 15 },
   filtreChip: { backgroundColor: '#F2F2F7', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginHorizontal: 5, borderWidth: 1, borderColor: '#E5E5EA' },
-  aktifFiltreChip: { backgroundColor: '#FF9F00', borderColor: '#FF9F00' }, // Satıcıya özel turuncu tema
+  aktifFiltreChip: { backgroundColor: '#FF9F00', borderColor: '#FF9F00' },
   filtreChipYazi: { fontSize: 13, color: '#48484A', fontWeight: '600' },
   aktifFiltreChipYazi: { color: '#FFFFFF' },
 
@@ -270,18 +278,27 @@ const styles = StyleSheet.create({
   bosDurumYazi: { fontSize: 15, color: '#8E8E93', marginTop: 15, textAlign: 'center' },
   
   kart: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 15, marginBottom: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2, borderWidth: 1, borderColor: '#eee' },
-  urunBilgiSatiri: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F2F2F7', paddingBottom: 12, marginBottom: 12 },
-  urunResim: { width: 44, height: 44, borderRadius: 8, backgroundColor: '#F2F2F7', marginRight: 10 },
-  urunAdi: { fontSize: 14, fontWeight: '600', color: '#1C1C1E', marginBottom: 4 },
+  
+  // Müşteri Bilgi Satırı
+  musteriBilgiSatiri: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  musteriAvatar: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFF3E0', justifyContent: 'center', alignItems: 'center', marginRight: 6 },
+  musteriAdi: { fontSize: 13, fontWeight: 'bold', color: '#1C1C1E' },
+  
+  // Ürün Bilgi Satırı
+  urunBilgiSatiri: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', padding: 8, borderRadius: 10, marginBottom: 12, borderWidth: 1, borderColor: '#F0F0F0' },
+  urunResim: { width: 40, height: 40, borderRadius: 6, backgroundColor: '#E5E5EA', marginRight: 10 },
+  urunEtiket: { fontSize: 10, color: '#8E8E93', textTransform: 'uppercase', fontWeight: '600' },
+  urunAdi: { fontSize: 13, fontWeight: '600', color: '#1C1C1E' },
+  
   tarihYazi: { fontSize: 11, color: '#8E8E93' },
-  durumRozet: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, alignSelf: 'flex-start' },
+  durumRozet: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, alignSelf: 'center' },
   durumYazi: { fontSize: 11, fontWeight: 'bold' },
   
-  soruKutusu: { backgroundColor: '#F8F9FA', padding: 12, borderRadius: 10, marginBottom: 10, borderWidth: 1, borderColor: '#F0F0F0' },
-  soruBaslik: { fontSize: 12, fontWeight: 'bold', color: '#8E8E93', marginBottom: 4 },
+  soruKutusu: { paddingHorizontal: 4, marginBottom: 10 },
+  soruBaslik: { fontSize: 12, fontWeight: 'bold', color: '#8E8E93', marginBottom: 2 },
   soruMetni: { fontSize: 14, color: '#1C1C1E', lineHeight: 20 },
   
-  cevapKutusu: { backgroundColor: '#F0FDF4', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E8F5E9' },
+  cevapKutusu: { backgroundColor: '#F0FDF4', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E8F5E9', marginTop: 5 },
   cevapBaslik: { fontSize: 12, fontWeight: 'bold', color: '#28A745', marginBottom: 4 },
   cevapMetni: { fontSize: 14, color: '#1C1C1E', lineHeight: 20 },
   

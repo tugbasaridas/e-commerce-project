@@ -86,6 +86,7 @@ public class UrunSoruService : IUrunSoruService
         // Sadece kendi mağazasının ürünlerine gelen soruları getiriyor
         return await _db.UrunSorulari
             .Include(s => s.Urun)
+            .Include(s => s.Kullanici)
             .Where(s => s.Urun!.MagazaId == magaza.Id)
             .OrderBy(s => s.CevaplandiMi) // Önce cevaplanmamışlar (bekleyenler) gelsin
             .ThenByDescending(s => s.SoruTarihi)
@@ -98,7 +99,8 @@ public class UrunSoruService : IUrunSoruService
                 SoruMetni = s.SoruMetni,
                 SoruTarihi = s.SoruTarihi,
                 CevaplandiMi = s.CevaplandiMi,
-                CevapMetni = s.CevapMetni
+                CevapMetni = s.CevapMetni,
+                MusteriAdi = s.Kullanici != null ? s.Kullanici.AdSoyad : "Misafir Kullanıcı"
             })
             .ToListAsync();
     }
@@ -119,6 +121,19 @@ public class UrunSoruService : IUrunSoruService
         soru.CevapMetni = dto.CevapMetni;
         soru.CevapTarihi = DateTime.UtcNow;
         soru.CevaplandiMi = true;
+
+   
+        var yeniBildirim = new Bildirim
+        {
+            KullaniciId = soru.KullaniciId, // Soruyu soran müşterinin ID'si
+            Baslik = "Ürün Sorunuza Cevap Verildi!",
+            Icerik = $"{soru.Urun.Ad} ürününüz için sorduğunuz soru satıcı tarafından yanıtlandı.",
+            Tarih = DateTime.UtcNow,
+            OkunduMu = false // Bu sayede zil kırmızı yanacak!
+        };
+
+        _db.Bildirimler.Add(yeniBildirim);
+    
 
         await _db.SaveChangesAsync();
         return (true, "Cevabınız başarıyla yayınlandı.");

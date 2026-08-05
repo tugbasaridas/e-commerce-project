@@ -1,9 +1,11 @@
+import { useTheme } from '@/context/ThemeContext'; // 🌟 TEMA HOOK'U EKLENDİ
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Tabs, usePathname } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 
 export default function TabLayout() {
+  const { colors } = useTheme(); // 🌟 TEMA DEĞİŞKENLERİ ÇAĞRILDI
   const [girisYapildiMi, setGirisYapildiMi] = useState(false);
   const pathname = usePathname();
 
@@ -20,7 +22,17 @@ export default function TabLayout() {
   }, [pathname]);
 
   return (
-    <Tabs screenOptions={{ tabBarActiveTintColor: '#FFD700', headerShown: false }}>
+    <Tabs 
+      screenOptions={{ 
+        tabBarActiveTintColor: colors.primary, // 🌟 Aktif ikon rengi temadan gelir
+        tabBarInactiveTintColor: colors.textMuted, // 🌟 Pasif ikon rengi
+        headerShown: false,
+        tabBarStyle: {
+          backgroundColor: colors.card, // 🌟 Alt menü arkaplanı temaya göre değişir
+          borderTopColor: colors.border, // 🌟 Üst çizgi rengi
+        }
+      }}
+    >
       
       {/* 1. ANASAYFA (Her zaman görünür) */}
       <Tabs.Screen 

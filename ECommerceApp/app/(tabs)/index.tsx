@@ -1,9 +1,11 @@
 import BildirimZili from '@/components/BildirimZili';
+import { useTheme } from '@/context/ThemeContext'; // 🌟 1. TEMA HOOK'U EKLENDİ
 import { kategorileriGetir } from '@/services/KategoriService';
 import { urunleriGetir } from '@/services/UrunService';
 import { Kategori, Urun } from '@/types/Urun';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar'; // 🌟 Durum çubuğu için eklendi
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,6 +14,7 @@ type SiralamaTipi = 'fiyatArtan' | 'fiyatAzalan' | 'puanYuksek' | null;
 
 export default function Anasayfa() {
   const router = useRouter();
+  const { theme, colors, setTheme } = useTheme(); // 🌟 2. TEMA DEĞİŞKENLERİ
   
   const [tumUrunler, setTumUrunler] = useState<Urun[]>([]);
   const [gorunenUrunler, setGorunenUrunler] = useState<Urun[]>([]);
@@ -122,27 +125,50 @@ export default function Anasayfa() {
 
   if (loading && tumUrunler.length === 0) {
     return (
-      <View style={styles.merkez}>
+      <View style={[styles.merkez, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color="orange" />
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
+      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
       
       <View style={styles.ustAlan}>
-        {/* YENİ: Başlık ve Bildirim Zili yan yana eklendi */}
+        {/* 🌟 BAŞLIK, TEMA BUTONU VE BİLDİRİM ZİLİ YAN YANA */}
         <View style={styles.baslikSatiri}>
-            <Text style={styles.hosgeldinYazi}>Keşfet</Text>
-            <BildirimZili />
+            <Text style={[styles.hosgeldinYazi, { color: colors.text }]}>Keşfet</Text>
+            
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {/* Tek Tuşla Tema Değiştirici */}
+              <TouchableOpacity 
+                onPress={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                style={[styles.tekliTemaButon, { backgroundColor: theme === 'dark' ? '#2C2C2E' : '#FFF3E0', borderColor: colors.border }]}
+                activeOpacity={0.7}
+              >
+                <Ionicons 
+                  name={theme === 'dark' ? 'moon' : 'sunny'} 
+                  size={16} 
+                  color={theme === 'dark' ? '#0A84FF' : '#FFB800'} 
+                />
+                <Text style={[styles.tekliTemaYazi, { color: theme === 'dark' ? '#0A84FF' : '#FFB800' }]}>
+                  {theme === 'dark' ? 'Gece' : 'Gündüz'}
+                </Text>
+              </TouchableOpacity>
+
+              <View style={{ marginLeft: 10 }}>
+                <BildirimZili />
+              </View>
+            </View>
         </View>
         
-        <View style={styles.aramaKutusu}>
-          <Ionicons name="search" size={20} color="#888" style={{ marginRight: 10 }} />
+        <View style={[styles.aramaKutusu, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Ionicons name="search" size={20} color={colors.textMuted} style={{ marginRight: 10 }} />
           <TextInput 
             placeholder="Ürün ara..." 
-            style={styles.aramaInput}
+            placeholderTextColor={colors.textMuted}
+            style={[styles.aramaInput, { color: colors.text }]}
             value={aramaMetni}
             onChangeText={aramaYap} 
           />
@@ -190,19 +216,19 @@ export default function Anasayfa() {
       <View style={styles.kategoriAlani}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 15 }}>
           <TouchableOpacity 
-            style={[styles.kategoriHap, seciliAnaKategori === null && styles.kategoriHapAktif]} 
+            style={[styles.kategoriHap, { backgroundColor: colors.card, borderColor: colors.border }, seciliAnaKategori === null && styles.kategoriHapAktif]} 
             onPress={() => anaKategoriSec(null)}
           >
-            <Text style={[styles.kategoriYazi, seciliAnaKategori === null && styles.kategoriYaziAktif]}>Tümü</Text>
+            <Text style={[styles.kategoriYazi, { color: colors.text }, seciliAnaKategori === null && styles.kategoriYaziAktif]}>Tümü</Text>
           </TouchableOpacity>
 
           {kategoriler.map((kat) => (
             <TouchableOpacity 
               key={kat.id} 
-              style={[styles.kategoriHap, seciliAnaKategori?.id === kat.id && styles.kategoriHapAktif]} 
+              style={[styles.kategoriHap, { backgroundColor: colors.card, borderColor: colors.border }, seciliAnaKategori?.id === kat.id && styles.kategoriHapAktif]} 
               onPress={() => anaKategoriSec(kat)}
             >
-              <Text style={[styles.kategoriYazi, seciliAnaKategori?.id === kat.id && styles.kategoriYaziAktif]}>
+              <Text style={[styles.kategoriYazi, { color: colors.text }, seciliAnaKategori?.id === kat.id && styles.kategoriYaziAktif]}>
                 {kat.ad}
               </Text>
             </TouchableOpacity>
@@ -237,13 +263,13 @@ export default function Anasayfa() {
         contentContainerStyle={{ paddingHorizontal: 15, paddingBottom: 20 }}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
-          <Text style={styles.bosListeMetni}>
+          <Text style={[styles.bosListeMetni, { color: colors.textMuted }]}>
             {sadeceIndirimli ? "Şu an kampanyada ürün bulunmuyor." : "Ürün bulunamadı."}
           </Text>
         }
         renderItem={({ item }) => (
           <TouchableOpacity 
-            style={styles.kart} 
+            style={[styles.kart, { backgroundColor: colors.card, borderColor: colors.border }]} 
             activeOpacity={0.9}
             onPress={() => router.push(`/detay?id=${item.id}` as any)}
           >
@@ -251,8 +277,8 @@ export default function Anasayfa() {
               {item.resimUrl ? (
                 <Image source={{ uri: item.resimUrl }} style={styles.resim} />
               ) : (
-                <View style={[styles.resim, { backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }]}>
-                  <Ionicons name="image-outline" size={30} color="#ccc" />
+                <View style={[styles.resim, { backgroundColor: theme === 'dark' ? '#2C2C2E' : '#f0f0f0', justifyContent: 'center', alignItems: 'center' }]}>
+                  <Ionicons name="image-outline" size={30} color={colors.textMuted} />
                 </View>
               )}
               
@@ -266,12 +292,12 @@ export default function Anasayfa() {
             </View>
             
             <View style={styles.bilgi}>
-                <Text style={styles.kategori}>{item.kategori?.ad || "Genel"}</Text>
-                <Text style={styles.baslik} numberOfLines={2}>{item.ad}</Text>
+                <Text style={[styles.kategori, { color: colors.textMuted }]}>{item.kategori?.ad || "Genel"}</Text>
+                <Text style={[styles.baslik, { color: colors.text }]} numberOfLines={2}>{item.ad}</Text>
                 
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
                   <Ionicons name="star" size={12} color="#FFD700" />
-                  <Text style={{ fontSize: 11, color: '#666', marginLeft: 3 }}>
+                  <Text style={{ fontSize: 11, color: colors.textMuted, marginLeft: 3 }}>
                     {item.ortalamaPuan ? item.ortalamaPuan.toFixed(1) : "0.0"}
                   </Text>
                 </View>
@@ -282,7 +308,7 @@ export default function Anasayfa() {
                     <Text style={styles.kartYeniFiyat}>{item.indirimliFiyat.toFixed(2)} TL</Text>
                   </View>
                 ) : (
-                  <Text style={styles.fiyat}>{item.fiyat ? item.fiyat.toFixed(2) : '0.00'} TL</Text>
+                  <Text style={[styles.fiyat, { color: colors.primary }]}>{item.fiyat ? item.fiyat.toFixed(2) : '0.00'} TL</Text>
                 )}
             </View>
           </TouchableOpacity>
@@ -293,7 +319,7 @@ export default function Anasayfa() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFA' },
+  container: { flex: 1 },
   merkez: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   
   ustAlan: { paddingHorizontal: 15, paddingTop: 10, paddingBottom: 15 },
@@ -304,20 +330,33 @@ const styles = StyleSheet.create({
     alignItems: 'center', 
     marginBottom: 15 
   },
-  hosgeldinYazi: { fontSize: 26, fontWeight: 'bold', color: '#111' },
+  hosgeldinYazi: { fontSize: 26, fontWeight: 'bold' },
   
+  // TEKLİ TEMA BUTONU STİLİ
+  tekliTemaButon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  tekliTemaYazi: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+
   aramaKutusu: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    backgroundColor: '#fff', 
     paddingHorizontal: 15, 
     height: 45, 
     borderRadius: 12, 
-    borderWidth: 1, 
-    borderColor: '#eee',
+    borderWidth: 1,
     elevation: 2
   },
-  aramaInput: { flex: 1, fontSize: 15, color: '#333' },
+  aramaInput: { flex: 1, fontSize: 15 },
 
   siralamaAlani: { marginBottom: 15 },
   
@@ -355,14 +394,12 @@ const styles = StyleSheet.create({
   kategoriHap: { 
     paddingHorizontal: 18, 
     paddingVertical: 8, 
-    backgroundColor: '#fff', 
     borderRadius: 20, 
     marginRight: 10,
     borderWidth: 1,
-    borderColor: '#ddd'
   },
   kategoriHapAktif: { backgroundColor: 'orange', borderColor: 'orange' },
-  kategoriYazi: { fontSize: 13, fontWeight: '600', color: '#555' },
+  kategoriYazi: { fontSize: 13, fontWeight: '600' },
   kategoriYaziAktif: { color: '#fff' },
 
   altKategoriAlani: { marginBottom: 15, paddingLeft: 5 },
@@ -382,12 +419,10 @@ const styles = StyleSheet.create({
   listeSutunYapisi: { justifyContent: 'space-between' },
   kart: { 
     width: '48%', 
-    backgroundColor: '#fff', 
     marginBottom: 15, 
     borderRadius: 12, 
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#eee',
     elevation: 1
   },
   resim: { width: '100%', height: 150, resizeMode: 'cover' },
@@ -408,8 +443,8 @@ const styles = StyleSheet.create({
   kartYeniFiyat: { fontSize: 15, fontWeight: 'bold', color: '#FF4757' },
 
   bilgi: { padding: 10 },
-  kategori: { fontSize: 10, color: '#888', textTransform: 'uppercase', marginBottom: 4 },
-  baslik: { fontSize: 14, fontWeight: 'bold', color: '#333', marginBottom: 6, height: 38 },
-  fiyat: { color: 'orange', fontWeight: 'bold', fontSize: 15 },
-  bosListeMetni: { textAlign: 'center', marginTop: 30, color: '#888', fontSize: 15 }
+  kategori: { fontSize: 10, textTransform: 'uppercase', marginBottom: 4 },
+  baslik: { fontSize: 14, fontWeight: 'bold', marginBottom: 6, height: 38 },
+  fiyat: { fontWeight: 'bold', fontSize: 15 },
+  bosListeMetni: { textAlign: 'center', marginTop: 30, fontSize: 15 }
 });
