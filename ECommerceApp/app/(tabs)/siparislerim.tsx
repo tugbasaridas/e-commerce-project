@@ -7,6 +7,9 @@ import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, LayoutAnimation, Linking, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+// YENİ EKLENEN İMPORT: Sipariş Durum Çubuğu Bileşeni
+import SiparisDurumCubugu from '@/components/SiparisDurumCubugu';
+
 export default function Siparislerim() {
   const router = useRouter();
   const [siparisler, setSiparisler] = useState<any[]>([]);
@@ -134,6 +137,9 @@ export default function Siparislerim() {
           </View>
         </View>
 
+        {/* YENİ EKLENEN: SİPARİŞ DURUM ÇUBUĞU (TIMELINE) BURADA ÇAĞRILIYOR */}
+        <SiparisDurumCubugu durum={item.durum} />
+
         <View style={styles.urunlerAlani}>
           {item.urunler.map((urun: any, index: number) => {
             const dStil = getDurumStili(urun.durum);
@@ -180,7 +186,7 @@ export default function Siparislerim() {
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             
-            {/* KUPON BİLGİSİ EKLENDİ */}
+            {/* KUPON BİLGİSİ */}
             {item.kullanilanKuponKodu && (
               <View style={{alignItems: 'flex-end', marginBottom: 4}}>
                  <Text style={{fontSize: 11, color: '#28A745', fontWeight: 'bold'}}>

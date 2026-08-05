@@ -3,9 +3,10 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import SaticiGrafikler from '../../components/SaticiGrafikler';
 
 const BildirimRozeti = ({ sayi }: { sayi: number }) => {
   if (!sayi || sayi <= 0) return null;
@@ -25,6 +26,9 @@ export default function SaticiAnasayfa() {
   const [bekleyenSiparisSayisi, setBekleyenSiparisSayisi] = useState(0); 
   const [bekleyenDestekSayisi, setBekleyenDestekSayisi] = useState(0); 
   const [loading, setLoading] = useState(true);
+
+  // 🌟 YENİ: Grafik gizle/göster state'i
+  const [grafikGoster, setGrafikGoster] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -54,7 +58,6 @@ export default function SaticiAnasayfa() {
         setBekleyenSoruSayisi(bekleyenler.length);
       }
 
-      // DESTEK BİLDİRİM HESAPLAMA (Okundu ID mantığıyla)
       if (destekResponse.data && Array.isArray(destekResponse.data)) {
         const cevaplananlar = destekResponse.data.filter((d: any) => 
           d.cevaplandiMi === true || d.CevaplandiMi === true || d.durum === 'Cevaplandı' || (d.adminCevabi && d.adminCevabi.length > 0)
@@ -136,6 +139,38 @@ export default function SaticiAnasayfa() {
     });
   });
 
+  // 🌟 YENİ: Son 6 Ayın Cirosunu Dinamik Hesaplayan Algoritma
+  const grafikVerisi = useMemo(() => {
+    const aylar = [];
+    const cirolar = [0, 0, 0, 0, 0, 0];
+    const ayIsimleri = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
+    const bugun = new Date();
+
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(bugun.getFullYear(), bugun.getMonth() - i, 1);
+      aylar.push(ayIsimleri[d.getMonth()]);
+    }
+
+    siparisler.forEach(siparis => {
+      const sipTarihStr = siparis.siparisTarihi || siparis.SiparisTarihi;
+      if (!sipTarihStr) return;
+      const sipTarih = new Date(sipTarihStr);
+      const ayFarki = (bugun.getFullYear() - sipTarih.getFullYear()) * 12 + (bugun.getMonth() - sipTarih.getMonth());
+
+      if (ayFarki >= 0 && ayFarki < 6) {
+        let sipKazanc = 0;
+        const urunler = siparis.satilanUrunler || siparis.urunler || [];
+        urunler.forEach((u: any) => {
+          if (u.durum === 'Tamamlandı' || u.Durum === 'Tamamlandı') {
+            sipKazanc += u.saticiKazanci || (u.birimFiyat * u.adet * 0.9);
+          }
+        });
+        cirolar[5 - ayFarki] += sipKazanc;
+      }
+    });
+    return { aylar, cirolar };
+  }, [siparisler]);
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F8F9FA' }}>
       <View style={styles.header}>
@@ -169,7 +204,28 @@ export default function SaticiAnasayfa() {
       {loading ? (
         <ActivityIndicator size="large" color="#FF7A00" style={{ marginTop: 40 }} />
       ) : (
-        <>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+          
+          {/* 🌟 YENİ: GRAFİK AÇMA/KAPAMA BUTONU VE BAŞLIK */}
+          <View style={styles.grafikToggleSatiri}>
+            <Text style={styles.bolumBaslik}>Genel Bakış</Text>
+            <TouchableOpacity 
+              activeOpacity={0.7} 
+              onPress={() => setGrafikGoster(!grafikGoster)} 
+              style={styles.grafikBadge}
+            >
+              <Ionicons name={grafikGoster ? "chevron-up" : "stats-chart"} size={16} color="#FF9F00" />
+              <Text style={styles.grafikBadgeYazi}>{grafikGoster ? "Grafiği Gizle" : "Ciro Grafiği"}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* 🌟 YENİ: GRAFİK BİLEŞENİ (Sadece butona basılınca görünür) */}
+          {grafikGoster && (
+            <View style={{ paddingHorizontal: 15 }}>
+              <SaticiGrafikler aylar={grafikVerisi.aylar} cirolar={grafikVerisi.cirolar} />
+            </View>
+          )}
+
           <View style={styles.istatistikKutusu}>
             <View style={styles.istatistikKart}>
               <Ionicons name="cube" size={26} color="#FF9F00" />
@@ -191,7 +247,7 @@ export default function SaticiAnasayfa() {
           </View>
 
           <View style={styles.yonetimAraclariKutusu}>
-            <Text style={styles.bolumBaslik}>Yönetim Araçları</Text>
+            <Text style={[styles.bolumBaslik, { marginTop: 10 }]}>Yönetim Araçları</Text>
             <View style={styles.islemGrid}>
               
               <TouchableOpacity style={styles.islemKart} activeOpacity={0.8} onPress={() => router.push('/(satici)/satici-urunler' as any)}>
@@ -240,7 +296,7 @@ export default function SaticiAnasayfa() {
 
             </View>
           </View>
-        </>
+        </ScrollView>
       )}
     </SafeAreaView>
   );
@@ -253,93 +309,30 @@ const styles = StyleSheet.create({
   
   headerAksiyonGrup: { flexDirection: 'row', alignItems: 'center' },
   
-  zarfButon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#E3F2FD',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-    shadowColor: '#1565C0', 
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-    position: 'relative',
-  },
+  zarfButon: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#E3F2FD', justifyContent: 'center', alignItems: 'center', marginRight: 12, shadowColor: '#1565C0', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4, position: 'relative' },
+  destekBadgeContainer: { position: 'absolute', top: -4, right: -4, backgroundColor: '#FF3B30', minWidth: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4, borderWidth: 2, borderColor: '#FFFFFF', elevation: 4 },
+  destekBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' },
   
-  destekBadgeContainer: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: '#FF3B30',
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    elevation: 4,
-  },
-  destekBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
+  cikisButon: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFF0F0', justifyContent: 'center', alignItems: 'center', shadowColor: '#FF3B30', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4 },
   
-  cikisButon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFF0F0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#FF3B30',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  
+  // 🌟 YENİ GRAFİK ALANI STİLLERİ
+  grafikToggleSatiri: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginTop: 10, marginBottom: 15 },
+  grafikBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF4E5', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  grafikBadgeYazi: { color: '#FF9F00', fontWeight: '600', fontSize: 12, marginLeft: 4 },
+
+  bolumBaslik: { fontSize: 16, fontWeight: '800', color: '#1C1C1E', marginLeft: 5 },
+
   istatistikKutusu: { flexDirection: 'row', paddingHorizontal: 15, marginBottom: 20, justifyContent: 'space-between' },
   istatistikKart: { flex: 1, backgroundColor: '#fff', paddingVertical: 16, paddingHorizontal: 5, borderRadius: 16, alignItems: 'center', marginHorizontal: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 2 },
   istatistikSayi: { fontSize: 18, fontWeight: 'bold', color: '#1C1C1E', marginTop: 8 },
   istatistikBaslik: { fontSize: 12, color: '#8E8E93', marginTop: 4, fontWeight: '500', textAlign: 'center' },
 
-  yonetimAraclariKutusu: { paddingHorizontal: 20, marginTop: 10 },
-  bolumBaslik: { fontSize: 16, fontWeight: '800', color: '#1C1C1E', marginBottom: 15, marginLeft: 5 },
-  
-  islemGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  yonetimAraclariKutusu: { paddingHorizontal: 20 },
+  islemGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 15 },
   islemKart: { width: '48%', backgroundColor: '#fff', paddingVertical: 22, borderRadius: 16, alignItems: 'center', marginBottom: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 },
   islemIkonKutu: { padding: 16, borderRadius: 14, marginBottom: 12 },
   islemKartYazi: { fontSize: 14, fontWeight: '700', color: '#333', textAlign: 'center' },
 
-  badgeContainer: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    backgroundColor: '#FF3B30',
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 5,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    shadowColor: '#FF3B30',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
-    elevation: 4,
-    zIndex: 10
-  },
-  badgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: 'bold',
-  }
+  badgeContainer: { position: 'absolute', top: -6, right: -6, backgroundColor: '#FF3B30', minWidth: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 5, borderWidth: 2, borderColor: '#FFFFFF', shadowColor: '#FF3B30', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 4, zIndex: 10 },
+  badgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: 'bold' }
 });

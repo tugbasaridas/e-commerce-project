@@ -1,17 +1,20 @@
 using ECommerceApi.DataAccess;
 using ECommerceApi.DTOs;
 using ECommerceApi.Entities;
-using ECommerceApi.Services; // YENİ: IBildirimService için eklendi
+using ECommerceApi.Services; 
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace ECommerceApi.Services;
 
 public class SaticiService : ISaticiService
 {
     private readonly AppDbContext _context;
-    private readonly IBildirimService _bildirimService; // YENİ: Bildirim Servisi eklendi
+    private readonly IBildirimService _bildirimService; 
 
-    // Constructor güncellendi
     public SaticiService(AppDbContext context, IBildirimService bildirimService)
     {
         _context = context;
@@ -91,6 +94,7 @@ public class SaticiService : ISaticiService
             .ToListAsync();
     }
 
+    // 🌟 GÜNCELLENDİ: FİYAT DÜŞÜŞÜNDE BİLDİRİM ATAN METOT
     public async Task<bool> UrunGuncelleAsync(int kullaniciId, int urunId, SaticiUrunGuncelleDto dto)
     {
         var magaza = await _context.Magazalar.FirstOrDefaultAsync(m => m.KullaniciId == kullaniciId);
@@ -102,6 +106,9 @@ public class SaticiService : ISaticiService
         if (urun == null)
             throw new Exception("Ürün bulunamadı veya bu ürün sizin mağazanıza ait değil.");
 
+        // Fiyatı güncellemeden önce eski fiyatı kenara not alıyoruz
+        decimal eskiFiyat = urun.Fiyat;
+
         urun.Ad = dto.Ad;
         urun.Aciklama = dto.Aciklama;
         urun.Fiyat = dto.Fiyat;
@@ -110,6 +117,34 @@ public class SaticiService : ISaticiService
         urun.ResimUrl = dto.ResimUrl;
 
         await _context.SaveChangesAsync();
+
+        // 🌟 FİYAT DÜŞÜŞ KONTROLÜ VE FAVORİ BİLDİRİMİ
+        if (dto.Fiyat < eskiFiyat)
+        {
+            try
+            {
+                var favorileyenler = await _context.Favoriler
+                    .Where(f => f.UrunId == urun.Id)
+                    .Select(f => f.KullaniciId)
+                    .ToListAsync();
+
+                foreach (var musteriId in favorileyenler)
+                {
+                    await _bildirimService.BildirimGonderAsync(
+                        musteriId,
+                        "🔥 Favori Ürününün Fiyatı Düştü!",
+                        $"Takip ettiğin '{urun.Ad}' ürününün fiyatı {eskiFiyat} ₺'den {dto.Fiyat} ₺'ye indi. Tükenmeden incele!",
+                        "Indirim",
+                        $"/detay?id={urun.Id}" 
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Fiyat düşüş bildirimi gönderilemedi: " + ex.Message);
+            }
+        }
+
         return true;
     }
 
@@ -128,6 +163,7 @@ public class SaticiService : ISaticiService
 
     // --- İNDİRİM METOTLARI ---
     
+    // 🌟 GÜNCELLENDİ: AKILLI İNDİRİM BİLDİRİM SİSTEMİ
     public async Task<(bool Basarili, string Mesaj)> IndirimYapAsync(int kullaniciId, int urunId, decimal yeniFiyat, int saat)
     {
         var magaza = await _context.Magazalar.FirstOrDefaultAsync(m => m.KullaniciId == kullaniciId);
@@ -145,31 +181,35 @@ public class SaticiService : ISaticiService
         await _context.SaveChangesAsync();
 
         // =========================================================================
-        // YENİ EKLENDİ: Ürün indirime girdiğinde bu mağazayı takip eden herkese bildirim at!
+        // 🌟 BİLDİRİM SİSTEMİ (Takipçiler + Favorileyenler Aynı Kişiye Çift Gitmez)
         // =========================================================================
         try
         {
-            // 1. Bu mağazayı takip eden kullanıcıların ID'lerini bul
             var takipciIdleri = await _context.Takipciler
                 .Where(t => t.MagazaId == magaza.Id)
                 .Select(t => t.KullaniciId)
                 .ToListAsync();
 
-            // 2. Takip eden herkese bildirim fırlat
-            foreach (var tId in takipciIdleri)
+            var favorileyenIdleri = await _context.Favoriler
+                .Where(f => f.UrunId == urun.Id)
+                .Select(f => f.KullaniciId)
+                .ToListAsync();
+
+            var bildirilecekMusteriler = takipciIdleri.Union(favorileyenIdleri).Distinct().ToList();
+
+            foreach (var musteriId in bildirilecekMusteriler)
             {
                 await _bildirimService.BildirimGonderAsync(
-                    tId,
-                    "🔥 Takip Ettiğin Mağazada İndirim!",
-                    $"{magaza.MagazaAdi} mağazası '{urun.Ad}' ürününde indirime gitti. Fırsatı kaçırma!",
+                    musteriId,
+                    "🔥 İndirim Alarmı!",
+                    $"{magaza.MagazaAdi} mağazası '{urun.Ad}' ürününde {yeniFiyat} ₺'ye düşen bir indirim yaptı. Fırsatı kaçırma!",
                     "Indirim",
-                    $"/detay?id={urun.Id}" // Tıklayınca direkt ilgili ürüne gitsin
+                    $"/detay?id={urun.Id}"
                 );
             }
         }
         catch (Exception ex)
         {
-            // Bildirim hatası indirim yapılmasını engellemesin diye loglayıp geçiyoruz
             Console.WriteLine("İndirim bildirimi gönderilemedi: " + ex.Message);
         }
         // =========================================================================
@@ -214,7 +254,40 @@ public class SaticiService : ISaticiService
                   k => k.Id,
                   (s, k) => new { Siparis = s, Kullanici = k })
             .OrderByDescending(x => x.Siparis.SiparisTarihi)
-            .Select(x => new
+            .ToListAsync();
+
+        var sonuc = hamSiparisler.Select(x => 
+        {
+            decimal iptalOlanKendiTutari = x.Siparis.Detaylar!
+                .Where(d => d.Urunler != null && d.Urunler.MagazaId == magaza.Id && (d.Durum == "İptal" || d.Durum == "İptal Edildi"))
+                .Sum(d => d.Adet * d.BirimFiyat);
+                
+            decimal hamKendiToplami = x.Siparis.Detaylar!
+                .Where(d => d.Urunler != null && d.Urunler.MagazaId == magaza.Id)
+                .Sum(d => d.Adet * d.BirimFiyat);
+
+            decimal gecerliOran = hamKendiToplami > 0 ? (hamKendiToplami - iptalOlanKendiTutari) / hamKendiToplami : 0;
+            decimal netMusteriOdemesi = hamKendiToplami * gecerliOran;
+
+            var satilanKendiUrunleri = x.Siparis.Detaylar!
+                .Where(d => d.Urunler != null && d.Urunler.MagazaId == magaza.Id)
+                .Select(d => new
+                {
+                    DetayId = d.Id, 
+                    UrunId = d.UrunId,
+                    Ad = d.Urunler != null ? d.Urunler.Ad : "Silinmiş Ürün",
+                    Adet = d.Adet,
+                    BirimFiyat = d.BirimFiyat,
+                    SaticiKazanci = (d.Durum == "İptal" || d.Durum == "İptal Edildi") ? 0 : d.SaticiKazanci,
+                    ResimUrl = d.Urunler != null ? d.Urunler.ResimUrl : "",
+                    Durum = d.Durum, 
+                    KargoFirma = d.KargoFirma, 
+                    KargoTakipNo = d.KargoTakipNo 
+                }).ToList();
+
+            decimal netSaticiKazanci = satilanKendiUrunleri.Sum(u => u.SaticiKazanci);
+
+            return new
             {
                 SiparisId = x.Siparis.Id,
                 SiparisTarihi = x.Siparis.SiparisTarihi,
@@ -224,44 +297,14 @@ public class SaticiService : ISaticiService
                 IletisimTelfonu = x.Siparis.Telefon,
                 OdemeYontemi = x.Siparis.OdemeYontemi,
                 
-                ToplamTutar = x.Siparis.ToplamTutar,
+                ToplamTutar = Math.Round(netMusteriOdemesi, 2),
+                
                 KullanilanKuponKodu = x.Siparis.Kupon != null ? x.Siparis.Kupon.Kodu : null,
                 KuponIndirimTutari = x.Siparis.IndirimTutari ?? 0,
                 
-                SatilanUrunler = x.Siparis.Detaylar!
-                    .Where(d => d.Urunler != null && d.Urunler!.MagazaId == magaza.Id)
-                    .Select(d => new
-                    {
-                        DetayId = d.Id, 
-                        UrunId = d.UrunId,
-                        Ad = d.Urunler != null ? d.Urunler!.Ad : "Silinmiş Ürün",
-                        Adet = d.Adet,
-                        BirimFiyat = d.BirimFiyat,
-                        SaticiKazanci = d.SaticiKazanci,
-                        ResimUrl = d.Urunler != null ? d.Urunler!.ResimUrl : "",
-                        Durum = d.Durum, 
-                        KargoFirma = d.KargoFirma, 
-                        KargoTakipNo = d.KargoTakipNo 
-                    }).ToList()
-            })
-            .ToListAsync();
-
-        var sonuc = hamSiparisler.Select(s => new
-        {
-            s.SiparisId,
-            s.SiparisTarihi,
-            s.Durum,
-            s.MusteriAd,
-            s.TeslimatAdresi,
-            s.IletisimTelfonu,
-            s.OdemeYontemi,
-            
-            s.ToplamTutar,
-            s.KullanilanKuponKodu,
-            s.KuponIndirimTutari,
-            
-            SaticiKazanci = s.SatilanUrunler.Sum(u => u.SaticiKazanci), 
-            s.SatilanUrunler
+                SaticiKazanci = Math.Round(netSaticiKazanci, 2), 
+                SatilanUrunler = satilanKendiUrunleri
+            };
         }).ToList();
 
         return sonuc;
@@ -317,9 +360,6 @@ public class SaticiService : ISaticiService
 
         await _context.SaveChangesAsync();
 
-        // =========================================================================
-        // Kargoya Verildi veya Tamamlandı olduğunda müşteriye bildirim at!
-        // =========================================================================
         if (siparis != null)
         {
             if (dto.YeniDurum == "Kargoya Verildi")
@@ -343,7 +383,6 @@ public class SaticiService : ISaticiService
                 );
             }
         }
-        // =========================================================================
 
         return (true, "Sipariş kalemi başarıyla güncellendi.");
     }
