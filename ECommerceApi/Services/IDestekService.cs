@@ -1,0 +1,16 @@
+using ECommerceApi.DTOs;
+
+namespace ECommerceApi.Services;
+
+public interface IDestekService
+{
+    Task<(bool Basarili, string Mesaj)> YeniTalepOlusturAsync(int userId, DestekTalebiDTO dto);
+    Task<object> KullaniciTalepleriniGetirAsync(int userId);
+    
+    // Admin için ayrıştırılmış metotlar
+    Task<object> TumTalepleriGetirAdminAsync();
+    Task<object> MusteriTalepleriniGetirAdminAsync();
+    Task<object> SaticiTalepleriniGetirAdminAsync();
+    
+    Task<(bool Basarili, string Mesaj)> TalebiCevaplaAsync(int id, DestekCevapDTO dto);
+}

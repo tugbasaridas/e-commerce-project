@@ -4,110 +4,205 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+interface BildirimTipi {
+  mesaj: string;
+  tip: 'hata' | 'uyari' | 'basari';
+}
 
 export default function Giris() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [sifre, setSifre] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sifreGizli, setSifreGizli] = useState(true); // Göz simgesinin ikon değişimi için duruyor
+  
+  const [bildirim, setBildirim] = useState<BildirimTipi | null>(null);
+
+  const bildirimGoster = (mesaj: string, tip: 'hata' | 'uyari' | 'basari') => {
+    setBildirim({ mesaj, tip });
+    
+    if (tip !== 'basari') {
+      setTimeout(() => {
+        setBildirim(null);
+      }, 4000);
+    }
+  };
 
   const girisIslemi = async () => {
-    if (!email || !sifre) {
-      Alert.alert("Uyarı", "Lütfen tüm alanları doldurun.");
+    if (!email.trim() || !sifre.trim()) {
+      bildirimGoster("Lütfen e-posta ve şifrenizi girin.", 'uyari');
       return;
     }
 
     setLoading(true);
+    setBildirim(null); 
+
     try {
-      // Backend'deki giriş endpoint'ine istek atıyoruz
       const response = await axios.post(`${API_CONFIG.BASE_URL}/kullanicilar/giris`, {
-        email: email,
+        email: email.trim().toLowerCase(), 
         sifre: sifre
       });
 
-      // 1. BACKEND'DEN GELEN VERİLERİ YAKALA
       const token = response.data.token;
+      const refreshToken = response.data.refreshToken; 
       const rol = response.data.rol;
+      const gelenId = response.data.kullaniciId || response.data.userId || response.data.id;
 
-      // 2. TELEFONUN HAFIZASINA KAYDET (En kritik nokta)
       await AsyncStorage.setItem('userToken', token);
+      
+      if (refreshToken) {
+        await AsyncStorage.setItem('refreshToken', refreshToken); 
+      }
+      
       await AsyncStorage.setItem('userRole', rol);
+      
+      if (gelenId) {
+        await AsyncStorage.setItem('userId', gelenId.toString());
+      }
 
       setLoading(false);
+      bildirimGoster("Giriş işlemi başarılı! Yönlendiriliyorsunuz...", 'basari');
       
-      // 3. ROLE GÖRE İLGİLİ SAYFAYA YÖNLENDİR
-      Alert.alert("Başarılı", "Giriş işlemi başarılı!", [
-        { 
-          text: "Tamam", 
-          onPress: () => {
-            if (rol === 'Admin') {
-              router.replace('/admin' as any);
-            } else {
-              router.replace('/(tabs)' as any);
-            }
-          } 
+      setTimeout(() => {
+        if (rol === 'Admin') {
+          router.replace('/admin' as any);
+        } else if (rol === 'Satici') {
+          router.replace('/(satici)/satici-anasayfa' as any); 
+        } else {
+          router.replace('/(tabs)' as any);
         }
-      ]);
+      }, 800);
       
-    } catch (error) {
+    } catch (error: any) {
       setLoading(false);
-      Alert.alert("Hata", "E-posta veya şifre hatalı.");
-      
+      bildirimGoster(error.response?.data?.mesaj || error.response?.data?.Mesaj || "E-posta veya şifre hatalı.", 'hata');
     }
   };
 
   return (
-    <View style={styles.container}>
-        {/* SOL ÜST GERİ OK BUTONU */}
-     <TouchableOpacity style={styles.geriButon} onPress={() => router.back()}>
-        <Ionicons name="arrow-back" size={28} color="#333" />
-      </TouchableOpacity>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        {bildirim && (
+          <View style={[styles.bildirimKutusu, styles[bildirim.tip]]}>
+            <Ionicons 
+              name={bildirim.tip === 'basari' ? 'checkmark-circle' : bildirim.tip === 'uyari' ? 'warning' : 'close-circle'} 
+              size={22} 
+              color={styles[`${bildirim.tip}Metin`].color} 
+            />
+            <View style={styles.bildirimIcerik}>
+              <Text style={[styles.bildirimMetni, styles[`${bildirim.tip}Metin`]]}>
+                {bildirim.mesaj}
+              </Text>
+            </View>
+            
+            {bildirim.tip !== 'basari' && (
+              <TouchableOpacity onPress={() => setBildirim(null)}>
+                <Ionicons name="close" size={18} color="#8E8E93" />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
-      <Text style={styles.baslik}>Hoş Geldiniz</Text>
-      <Text style={styles.altMetin}>Alışverişe devam etmek için giriş yapın.</Text>
+        <TouchableOpacity style={styles.geriButon} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={28} color="#1C1C1E" />
+        </TouchableOpacity>
 
-      <TextInput 
-        style={styles.input} 
-        placeholder="E-posta Adresiniz" 
-        keyboardType="email-address"
-        autoCapitalize="none"
-        value={email}
-        onChangeText={setEmail}
-      />
-      
-      <TextInput 
-        style={styles.input} 
-        placeholder="Şifreniz" 
-        secureTextEntry
-        value={sifre}
-        onChangeText={setSifre}
-      />
+        <ScrollView 
+          contentContainerStyle={styles.scrollContainer} 
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.baslik}>Hoş Geldiniz</Text>
+          <Text style={styles.altMetin}>Alışverişe devam etmek için giriş yapın.</Text>
 
-      <TouchableOpacity style={styles.buton} onPress={girisIslemi} disabled={loading}>
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.butonYazi}>Giriş Yap</Text>}
-      </TouchableOpacity>
+          <TextInput 
+            style={styles.input} 
+            placeholder="E-posta Adresiniz" 
+            keyboardType="email-address"
+            autoCapitalize="none"
+            value={email}
+            onChangeText={setEmail}
+            placeholderTextColor="#A1A1A1"
+          />
+          
+          {/* ŞİFRE KUTUSU (Göz simgesi var ama secureTextEntry false olduğu için şifre ekranda görünür) */}
+          <View style={styles.sifreAlani}>
+            <TextInput 
+              style={styles.sifreInput} 
+              placeholder="Şifreniz" 
+              secureTextEntry={false} 
+              value={sifre}
+              onChangeText={setSifre}
+              placeholderTextColor="#A1A1A1"
+            />
+            <TouchableOpacity 
+              style={styles.gozIkonu} 
+              onPress={() => setSifreGizli(!sifreGizli)}
+            >
+              <Ionicons 
+                name={sifreGizli ? "eye-off" : "eye"} 
+                size={22} 
+                color="#8E8E93" 
+              />
+            </TouchableOpacity>
+          </View>
 
-      <TouchableOpacity onPress={() => router.push('/kayit')} style={{ marginTop: 20 }}>
-        <Text style={styles.yonlendirme}>Hesabınız yok mu? <Text style={{ fontWeight: 'bold', color: 'orange' }}>Kayıt Ol</Text></Text>
-      </TouchableOpacity>
-    </View>
+          <TouchableOpacity 
+            style={styles.sifremiUnuttumKutusu}
+            onPress={() => router.push('/sifremi-unuttum' as any)}
+          >
+            <Text style={styles.sifremiUnuttumYazi}>Şifremi Unuttum?</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.buton} onPress={girisIslemi} disabled={loading}>
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.butonYazi}>Giriş Yap</Text>}
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => router.replace('/kayit')} style={{ marginTop: 24 }}>
+            <Text style={styles.yonlendirme}>Hesabınız yok mu? <Text style={{ fontWeight: 'bold', color: 'orange' }}>Kayıt Ol</Text></Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', padding: 20, justifyContent: 'center' },
-  baslik: { fontSize: 28, fontWeight: 'bold', marginBottom: 10, color: '#333' },
+  scrollContainer: { flexGrow: 1, padding: 24, justifyContent: 'center' },
+  baslik: { fontSize: 28, fontWeight: 'bold', marginBottom: 10, color: '#1C1C1E' },
   altMetin: { fontSize: 16, color: '#666', marginBottom: 30 },
-  input: { borderWidth: 1, borderColor: '#ddd', padding: 15, borderRadius: 10, marginBottom: 15, backgroundColor: '#f9f9f9' },
-  buton: { backgroundColor: 'orange', padding: 15, borderRadius: 10, alignItems: 'center', marginTop: 10 },
-  butonYazi: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  yonlendirme: { textAlign: 'center', color: '#666', fontSize: 16 },
- geriButon: {
-  position: 'absolute',
-  top: 50, 
-  left: 20,
-  zIndex: 10,
-  padding: 10, 
-},
+  input: { borderWidth: 1, borderColor: '#E5E5EA', padding: 15, borderRadius: 12, marginBottom: 16, backgroundColor: '#F9F9F9', fontSize: 15, color: '#1C1C1E' },
+  sifreAlani: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    borderWidth: 1, 
+    borderColor: '#E5E5EA', 
+    borderRadius: 12, 
+    backgroundColor: '#F9F9F9', 
+    marginBottom: 8, 
+    paddingRight: 10 
+  },
+  sifreInput: { flex: 1, padding: 15, fontSize: 15, color: '#1C1C1E' },
+  gozIkonu: { padding: 5 },
+  sifremiUnuttumKutusu: { alignSelf: 'flex-end', marginBottom: 20, paddingVertical: 4 },
+  sifremiUnuttumYazi: { color: '#666', fontSize: 14, fontWeight: '600' },
+  buton: { backgroundColor: 'orange', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 8, shadowColor: 'orange', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 3 },
+  butonYazi: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  yonlendirme: { textAlign: 'center', color: '#666', fontSize: 15 },
+  geriButon: { position: 'absolute', top: 20, left: 20, zIndex: 10, padding: 8, backgroundColor: '#F2F2F7', borderRadius: 20 },
+  bildirimKutusu: { position: 'absolute', top: 20, left: 20, right: 20, zIndex: 999, flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 14, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 5 },
+  bildirimIcerik: { flex: 1, marginLeft: 10, marginRight: 6 },
+  bildirimMetni: { fontSize: 14, fontWeight: '600', lineHeight: 20 },
+  hata: { backgroundColor: '#FFF5F5', borderColor: '#FEB2B2' },
+  hataMetin: { color: '#C53030' },
+  uyari: { backgroundColor: '#FFFAF0', borderColor: '#FEEBC8' },
+  uyariMetin: { color: '#DD6B20' },
+  basari: { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' },
+  basariMetin: { color: '#166534' }
 });

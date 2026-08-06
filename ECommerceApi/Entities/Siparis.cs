@@ -2,17 +2,37 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 
 namespace ECommerceApi.Entities;
+
 public class Siparis
 {
     public int Id { get; set; }
     public int KullaniciId { get; set; }
+
+    [ForeignKey(nameof(KullaniciId))]
+    [JsonIgnore]
+    public Kullanicilar? Kullanici { get; set; }
+    
     public DateTime SiparisTarihi { get; set; } = DateTime.UtcNow;
-    public decimal ToplamTutar { get; set; }
+    
+    // İndirim uygulandıktan sonraki son ödenen net tutar
+    public decimal ToplamTutar { get; set; } 
+    
+    // --- YENİ EKLENEN KUPON ALANLARI ---
+    public int? KuponId { get; set; } // Hangi kupon kullanıldı?
+    public decimal? IndirimTutari { get; set; } // Bu siparişte kupondan dolayı kaç TL indirim yapıldı?
+    
+    [ForeignKey(nameof(KuponId))]
+    [JsonIgnore] // JSON döngüsüne girmemesi için
+    public Kupon? Kupon { get; set; }
+    // -----------------------------------
+    
+    // Ana sipariş durumu artık sepetin genel durumunu ifade eder
     public string Durum { get; set; } = "Hazırlanıyor"; 
+    
     public string OdemeYontemi { get; set; } = "Kredi Kartı";
     public string TeslimatAdresi { get; set; } = string.Empty;
+    public string Telefon { get; set; } = string.Empty;
     public List<SiparisDetay> Detaylar { get; set; } = new();
-
 }
 
 public class SiparisDetay
@@ -20,15 +40,22 @@ public class SiparisDetay
     public int Id { get; set; }
     public int SiparisId { get; set; }
     
-   
     [ForeignKey(nameof(SiparisId))]
     [JsonIgnore]
     public Siparis? Siparis { get; set; } 
 
+    public int UrunId { get; set; }
     [ForeignKey(nameof(UrunId))]
     public Urunler? Urunler { get; set; }
     
-    public int UrunId { get; set; }
     public int Adet { get; set; }
     public decimal BirimFiyat { get; set; }
+
+    // TRENDYOL DETAYI: Sistem %10 komisyon keser, kalanı satıcının kazancıdır
+    public decimal PlatformKomisyonu { get; set; } // Örn: 10 TL
+    public decimal SaticiKazanci { get; set; } // Örn: 90 TL
+
+    public string Durum { get; set; } = "Hazırlanıyor";
+    public string? KargoFirma { get; set; }
+    public string? KargoTakipNo { get; set; }
 }
