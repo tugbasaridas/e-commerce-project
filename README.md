@@ -41,12 +41,19 @@ npx expo start
 ```
 
 ## Özellikler
-- Ürün listeleme ve detay görüntüleme
-- Sepet yönetimi
-- Favori ürünler
-- Sipariş oluşturma
-- Admin ürün yönetimi
-- Destek talepleri
+-Gelişmiş Rol Yönetimi: Admin, Satıcı ve Kullanıcı modülleri ile yetki bazlı erişim.
+
+-Kupon ve İndirim Sistemi: Satın alma süreçlerinde kampanya ve kupon kodu entegrasyonu.
+
+-Bildirim Sistemi: Kullanıcı eylemleri ve sistem süreçleri için anlık bilgilendirmeler.
+
+-Kargo Takip Sistemi: Siparişlerin anlık sevkiyat ve kargo durumlarının izlenmesi.
+
+-Güvenlik ve Kullanıcı Kontrolü: Kart doğrulama işlemleri ve kullanıcı aktiflik/pasiflik durumu yönetimi.
+
+-Temel E-Ticaret Akışı: Ürün listeleme, detay görüntüleme, favori ürünler, sepet yönetimi ve sipariş oluşturma.Yorum ve puanlama sistemi.
+
+-Satıcı & Admin Paneli: Ürün yönetimi, stok takibi ve müşteri destek talepleri kontrolü.
 
 ## Notlar
 - Backend için veritabanı bağlantısı appsettings.json dosyasından ayarlanır.
