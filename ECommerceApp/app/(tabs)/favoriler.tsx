@@ -30,9 +30,58 @@ export default function Favoriler() {
   const [secilenPuan, setSecilenPuan] = useState<number>(0);
   const [oyGonderiliyor, setOyGonderiliyor] = useState(false);
 
+  // --- SON GEZİLENLER STATE ---
+  const [sonGezilenler, setSonGezilenler] = useState<any[]>([]);
+
   useFocusEffect(
-    useCallback(() => { favorileriGetir(); }, [])
+    useCallback(() => { 
+      favorileriGetir(); 
+      sonGezilenleriGetir(); 
+    }, [])
   );
+
+  // --- Kişiye özel geçmişi çeker ---
+  const sonGezilenleriGetir = async () => {
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      const storageKey = userId ? `sonGezilenler_${userId}` : 'sonGezilenler_misafir';
+
+      const mevcut = await AsyncStorage.getItem(storageKey);
+      if (mevcut) {
+        setSonGezilenler(JSON.parse(mevcut));
+      } else {
+        setSonGezilenler([]); 
+      }
+    } catch (error) {
+      console.log("Geçmiş çekilemedi:", error);
+    }
+  };
+
+  // --- Geçmişi tamamen silme fonksiyonu ---
+  const gecmisiTemizle = async () => {
+    Alert.alert(
+      "Geçmişi Temizle",
+      "Son baktığınız ürünlerin geçmişi silinsin mi?",
+      [
+        { text: "Vazgeç", style: "cancel" },
+        { 
+          text: "Evet, Temizle", 
+          style: "destructive", 
+          onPress: async () => {
+            try {
+              const userId = await AsyncStorage.getItem('userId');
+              const storageKey = userId ? `sonGezilenler_${userId}` : 'sonGezilenler_misafir';
+              
+              await AsyncStorage.removeItem(storageKey);
+              setSonGezilenler([]);
+            } catch (error) {
+              console.log("Geçmiş silinemedi:", error);
+            }
+          } 
+        }
+      ]
+    );
+  };
 
   const favorileriGetir = async () => {
     try {
@@ -73,6 +122,44 @@ export default function Favoriler() {
     finally { setOyGonderiliyor(false); }
   };
 
+  // --- Son Gezilenler Kart Tasarımı ---
+  const gecmisKartiCiz = ({ item }: { item: any }) => {
+    const indirimVarmi = item.orijinalFiyat && item.orijinalFiyat > item.fiyat;
+    const indirimOrani = indirimVarmi ? Math.round(((item.orijinalFiyat - item.fiyat) / item.orijinalFiyat) * 100) : 0;
+
+    return (
+      <TouchableOpacity 
+        style={styles.gecmisKart} 
+        onPress={() => router.push(`/detay?id=${item.id}` as any)}
+        activeOpacity={0.8}
+      >
+        {indirimVarmi && (
+          <View style={styles.gecmisIndirimRozeti}>
+            <Text style={styles.gecmisIndirimYazi}>%{indirimOrani}</Text>
+          </View>
+        )}
+
+        <Image source={{ uri: item.resimUrl || 'https://via.placeholder.com/80' }} style={styles.gecmisResim} />
+        
+        <View style={styles.gecmisBilgi}>
+          <Text style={styles.gecmisUrunAdi} numberOfLines={1}>{item.ad}</Text>
+          
+          <View style={styles.gecmisFiyatSatiri}>
+            {indirimVarmi ? (
+              <>
+                <Text style={styles.gecmisEskiFiyat}>{item.orijinalFiyat.toFixed(0)} TL</Text>
+                <Text style={styles.gecmisFiyat}>{item.fiyat.toFixed(0)} TL</Text>
+              </>
+            ) : (
+              <Text style={styles.gecmisNormalFiyat}>{item.fiyat.toFixed(0)} TL</Text>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // --- Orijinal Favori Ürün Kart Tasarımı (Bozulmayan Kısım) ---
   const urunKartiCiz = ({ item }: { item: any }) => {
     const indirimVarmi = item.fiyat < item.orijinalFiyat;
     const indirimOrani = indirimVarmi ? Math.round(((item.orijinalFiyat - item.fiyat) / item.orijinalFiyat) * 100) : 0;
@@ -111,7 +198,6 @@ export default function Favoriler() {
   };
 
   return (
-    /* YENİ EKLENDİ: edges={['top', 'left', 'right']} kodu ile alttaki beyaz boşluk iptal edildi */
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.headerSatiri}>
         <Text style={styles.sayfaBaslik}>Favoriler</Text>
@@ -128,15 +214,41 @@ export default function Favoriler() {
       )}
 
       <FlatList
-        data={favoriler.filter(i => i.ad.toLowerCase().includes(aramaMetni.toLowerCase()))}
+        data={favoriler.filter(i => i.ad?.toLowerCase().includes(aramaMetni.toLowerCase()))}
         renderItem={urunKartiCiz}
         keyExtractor={(item) => item.favoriId.toString()}
         numColumns={2}
         columnWrapperStyle={styles.listeSutunYapisi}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={<View style={styles.bosDurum}><Ionicons name="heart-dislike-outline" size={80} color="#ccc" /><Text style={styles.bosMetin}>Ürün bulunamadı.</Text></View>}
-        /* Alt kısımdaki ürünlerin çok yapışmaması için listeye minik bir iç boşluk ekledik */
         contentContainerStyle={{ paddingBottom: 20 }}
+        
+        ListHeaderComponent={
+          sonGezilenler.length > 0 ? (
+            <View style={styles.gecmisKapsayici}>
+              <View style={styles.gecmisBaslikSatiri}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name="time-outline" size={18} color="#8E8E93" />
+                  <Text style={styles.gecmisBaslik}>Son Baktıklarınız</Text>
+                </View>
+                
+                <TouchableOpacity onPress={gecmiTemizleVeyaSifirla => gecmisiTemizle()} style={styles.temizleButon}>
+                  <Ionicons name="trash-outline" size={14} color="#ff4757" />
+                  <Text style={styles.temizleYazi}>Temizle</Text>
+                </TouchableOpacity>
+              </View>
+
+              <FlatList
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                data={sonGezilenler}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={gecmisKartiCiz}
+              />
+              <View style={styles.ayiriciCizgi} />
+            </View>
+          ) : null
+        }
       />
 
       <Modal visible={oylamaModalGorunur} transparent={true} animationType="fade">
@@ -188,4 +300,27 @@ const styles = StyleSheet.create({
   modalGonderButon: { backgroundColor: '#FFD700', width: '100%', paddingVertical: 15, borderRadius: 12, alignItems: 'center' },
   modalGonderButonYazi: { color: '#000', fontSize: 16, fontWeight: 'bold' },
   normalFiyat: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+
+  // --- SON GEZİLENLER VE STİLLERİ ---
+  gecmisKapsayici: { marginBottom: 20, marginTop: 5 },
+  gecmisBaslikSatiri: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  gecmisBaslik: { fontSize: 16, fontWeight: 'bold', color: '#333', marginLeft: 6 },
+  
+  temizleButon: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF5F5', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  temizleYazi: { fontSize: 12, fontWeight: '600', color: '#ff4757', marginLeft: 4 },
+
+  gecmisKart: { width: 110, marginRight: 12, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E5E5EA', overflow: 'hidden' },
+  gecmisResim: { width: '100%', height: 90, resizeMode: 'cover', backgroundColor: '#F8F9FA' },
+  gecmisBilgi: { padding: 8 },
+  gecmisUrunAdi: { fontSize: 11, color: '#48484A', marginBottom: 4 },
+  
+  gecmisFiyatSatiri: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  gecmisFiyat: { fontSize: 12, fontWeight: 'bold', color: '#ff4757' },
+  gecmisEskiFiyat: { fontSize: 10, color: '#999', textDecorationLine: 'line-through' },
+  gecmisNormalFiyat: { fontSize: 12, fontWeight: 'bold', color: '#333' },
+
+  gecmisIndirimRozeti: { position: 'absolute', top: 6, left: 6, backgroundColor: '#ff4757', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4, zIndex: 1 },
+  gecmisIndirimYazi: { color: '#fff', fontSize: 9, fontWeight: 'bold' },
+
+  ayiriciCizgi: { height: 1, backgroundColor: '#E5E5EA', marginTop: 20, marginBottom: 5 }
 });
