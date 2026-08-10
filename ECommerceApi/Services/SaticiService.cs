@@ -79,7 +79,7 @@ public class SaticiService : ISaticiService
         return true;
     }
 
-    public async Task<List<Urunler>> KendiUrunlerimiGetirAsync(int kullaniciId)
+   public async Task<List<Urunler>> KendiUrunlerimiGetirAsync(int kullaniciId)
     {
         var magaza = await _context.Magazalar
             .FirstOrDefaultAsync(m => m.KullaniciId == kullaniciId);
@@ -87,11 +87,37 @@ public class SaticiService : ISaticiService
         if (magaza == null)
             throw new Exception("Mağaza bulunamadı.");
 
-        return await _context.Urunler
+        var urunler = await _context.Urunler
             .Where(u => u.MagazaId == magaza.Id)
             .Include(u => u.Kategori) 
             .OrderByDescending(u => u.OlusturulmaTarihi)
             .ToListAsync();
+
+        // ========================================================================
+        // 🌟 AKILLI İNDİRİM KONTROLÜ (LAZY EXPIRATION)
+        // Süresi dolan indirimleri tespit edip anında sistemden siliyoruz
+        // ========================================================================
+        bool degisiklikYapildi = false;
+        var suAn = DateTime.UtcNow;
+
+        foreach (var urun in urunler)
+        {
+            if (urun.IndirimliFiyat.HasValue && urun.IndirimBitisTarihi.HasValue && urun.IndirimBitisTarihi.Value <= suAn)
+            {
+                urun.IndirimliFiyat = null; // Fiyatı aslına döndür
+                urun.IndirimBitisTarihi = null; // Sayacı sıfırla
+                degisiklikYapildi = true;
+            }
+        }
+
+        // Eğer süresi dolan ürünler bulup düzelttiysek, veritabanına kaydet
+        if (degisiklikYapildi)
+        {
+            await _context.SaveChangesAsync();
+        }
+        // ========================================================================
+
+        return urunler;
     }
 
     // 🌟 GÜNCELLENDİ: FİYAT DÜŞÜŞÜNDE BİLDİRİM ATAN METOT
@@ -239,7 +265,7 @@ public class SaticiService : ISaticiService
 
     // --- SİPARİŞ METOTLARI ---
 
-    public async Task<object> KendiMagazamdakiSiparisleriGetirAsync(int kullaniciId)
+  public async Task<object> KendiMagazamdakiSiparisleriGetirAsync(int kullaniciId)
     {
         var magaza = await _context.Magazalar.FirstOrDefaultAsync(m => m.KullaniciId == kullaniciId);
         if (magaza == null) throw new Exception("Mağaza bulunamadı.");
@@ -258,15 +284,16 @@ public class SaticiService : ISaticiService
 
         var sonuc = hamSiparisler.Select(x => 
         {
-            decimal iptalOlanKendiTutari = x.Siparis.Detaylar!
-                .Where(d => d.Urunler != null && d.Urunler.MagazaId == magaza.Id && (d.Durum == "İptal" || d.Durum == "İptal Edildi"))
+            // 🌟 ÇÖZÜM 1: "İade Edildi" durumunu satıcının brüt cirosundan düşüyoruz
+            decimal iptalVeIadeOlanKendiTutari = x.Siparis.Detaylar!
+                .Where(d => d.Urunler != null && d.Urunler.MagazaId == magaza.Id && (d.Durum == "İptal" || d.Durum == "İptal Edildi" || d.Durum == "İade Edildi"))
                 .Sum(d => d.Adet * d.BirimFiyat);
                 
             decimal hamKendiToplami = x.Siparis.Detaylar!
                 .Where(d => d.Urunler != null && d.Urunler.MagazaId == magaza.Id)
                 .Sum(d => d.Adet * d.BirimFiyat);
 
-            decimal gecerliOran = hamKendiToplami > 0 ? (hamKendiToplami - iptalOlanKendiTutari) / hamKendiToplami : 0;
+            decimal gecerliOran = hamKendiToplami > 0 ? (hamKendiToplami - iptalVeIadeOlanKendiTutari) / hamKendiToplami : 0;
             decimal netMusteriOdemesi = hamKendiToplami * gecerliOran;
 
             var satilanKendiUrunleri = x.Siparis.Detaylar!
@@ -278,7 +305,10 @@ public class SaticiService : ISaticiService
                     Ad = d.Urunler != null ? d.Urunler.Ad : "Silinmiş Ürün",
                     Adet = d.Adet,
                     BirimFiyat = d.BirimFiyat,
-                    SaticiKazanci = (d.Durum == "İptal" || d.Durum == "İptal Edildi") ? 0 : d.SaticiKazanci,
+                    
+                    // 🌟 ÇÖZÜM 2: Satıcının detaylı listesinde de iade edilen ürünün net kazancını "0" gösteriyoruz
+                    SaticiKazanci = (d.Durum == "İptal" || d.Durum == "İptal Edildi" || d.Durum == "İade Edildi") ? 0 : d.SaticiKazanci,
+                    
                     ResimUrl = d.Urunler != null ? d.Urunler.ResimUrl : "",
                     Durum = d.Durum, 
                     KargoFirma = d.KargoFirma, 
@@ -310,7 +340,7 @@ public class SaticiService : ISaticiService
         return sonuc;
     }
     
-    public async Task<(bool Basarili, string Mesaj)> SiparisDetayDurumGuncelleAsync(int kullaniciId, int detayId, SiparisDetayGuncelleDTO dto)
+   public async Task<(bool Basarili, string Mesaj)> SiparisDetayDurumGuncelleAsync(int kullaniciId, int detayId, SiparisDetayGuncelleDTO dto)
     {
         var magaza = await _context.Magazalar.FirstOrDefaultAsync(m => m.KullaniciId == kullaniciId);
         if (magaza == null) return (false, "Mağaza bulunamadı.");
@@ -326,6 +356,27 @@ public class SaticiService : ISaticiService
         if (detay.Urunler == null || detay.Urunler!.MagazaId != magaza!.Id)
             return (false, "Bu sipariş kalemi sizin mağazanıza ait değil!");
 
+        // 🌟 1. KORUMA: Kilitli statülerde değişiklik yapılamaz! (İade/İptal ezilmesini engeller)
+        if (detay.Durum == "İptal" || detay.Durum == "İptal Edildi" || detay.Durum == "İade Edildi" || detay.Durum == "İade Bekliyor" || detay.Durum == "Tamamlandı" || detay.Durum == "Teslim Edildi")
+        {
+            return (false, $"Bu ürün '{detay.Durum}' statüsünde olduğu için manuel olarak geri alınamaz veya değiştirilemez.");
+        }
+
+        // 🌟 2. KORUMA: Müşteri iade/iptal talebi açtıysa satıcı siparişi kurcalayamaz!
+        bool iadeTalebiVarMi = await _context.Set<IadeTalebi>().AnyAsync(i => i.SiparisDetayId == detayId);
+        if (iadeTalebiVarMi)
+        {
+            return (false, "Bu ürün için aktif bir iade talebi bulunuyor. Sipariş durumuna müdahale edemezsiniz.");
+        }
+
+        // 🌟 3. KORUMA: Durum Makinesi - Adım atlama yasak!
+        if (detay.Durum == "Hazırlanıyor")
+        {
+            if (dto.YeniDurum != "Kargoya Verildi" && dto.YeniDurum != "İptal" && dto.YeniDurum != "İptal Edildi")
+                return (false, "Hazırlanıyor aşamasındaki bir sipariş doğrudan Tamamlandı yapılamaz! Önce 'Kargoya Verildi' olarak işaretlemelisiniz.");
+        }
+
+        // Tüm güvenlik testlerinden geçildiyse durumu güncelle
         detay.Durum = dto.YeniDurum;
         
         if (dto.YeniDurum == "Kargoya Verildi")
@@ -334,56 +385,194 @@ public class SaticiService : ISaticiService
             detay.KargoTakipNo = dto.KargoTakipNo;
         }
 
+        // 🌟 4. KORUMA: Akıllı Ana Sipariş (Parent Order) Dış Kutu Durumu
         var siparis = detay.Siparis; 
-        
         if (siparis != null && siparis.Detaylar != null)
         {
-            var tumDurumlar = siparis.Detaylar.Where(x => x != null).Select(d => d!.Durum ?? "").ToList();
+            var tumDurumlar = siparis.Detaylar.Select(d => d.Durum ?? "").ToList();
+            
+            // Aktif olan, yoldaki ürünlere odaklanıyoruz
+            var gecerliDurumlar = tumDurumlar.Where(d => d != "İptal" && d != "İptal Edildi" && d != "İade Edildi" && d != "İade Bekliyor").ToList();
 
-            if (tumDurumlar.All(d => d == "İptal Edildi" || d == "İptal"))
+            if (gecerliDurumlar.Count == 0)
             {
-                siparis.Durum = "İptal Edildi";
+                // İçeride geçerli ürün kalmadıysa, duruma göre dış kutuyu adlandır
+                siparis.Durum = tumDurumlar.Any(d => d == "İade Edildi" || d == "İade Bekliyor") ? "İade Edildi" : "İptal Edildi";
             }
-            else if (tumDurumlar.All(d => d == "Tamamlandı" || d == "İptal Edildi" || d == "İptal"))
+            else if (gecerliDurumlar.Any(d => d == "Hazırlanıyor"))
             {
-                siparis.Durum = "Tamamlandı";
+                // Bir tane bile hazırlanan varsa dış paket hazırlanıyordur
+                siparis.Durum = "Hazırlanıyor";
             }
-            else if (tumDurumlar.All(d => d == "Kargoya Verildi" || d == "Tamamlandı" || d == "İptal Edildi" || d == "İptal"))
+            else if (gecerliDurumlar.Any(d => d == "Kargoya Verildi"))
             {
+                // Hazırlanan yok, kargoya verilen varsa paket kargodadır
                 siparis.Durum = "Kargoya Verildi";
             }
-            else
+            else if (gecerliDurumlar.All(d => d == "Tamamlandı" || d == "Teslim Edildi"))
             {
-                siparis.Durum = "Hazırlanıyor";
+                // Kalan tüm ürünler ulaştıysa sipariş bitmiştir
+                siparis.Durum = "Tamamlandı";
             }
         }
 
         await _context.SaveChangesAsync();
 
+        // Bildirim Gönderimleri
         if (siparis != null)
         {
-            if (dto.YeniDurum == "Kargoya Verildi")
+            try 
             {
-                await _bildirimService.BildirimGonderAsync(
-                    siparis.KullaniciId,
-                    "🚚 Siparişiniz Kargoya Verildi",
-                    $"#{siparis.Id} numaralı siparişiniz kargo firmasına teslim edilmiştir.",
-                    "Siparis",
-                    "/siparislerim"
-                );
-            }
-            else if (dto.YeniDurum == "Tamamlandı")
-            {
-                await _bildirimService.BildirimGonderAsync(
-                    siparis.KullaniciId,
-                    "✅ Siparişiniz Teslim Edildi",
-                    $"#{siparis.Id} numaralı siparişiniz başarıyla tamamlandı. Bizi tercih ettiğiniz için teşekkür ederiz!",
-                    "Siparis",
-                    "/siparislerim"
-                );
-            }
+                if (dto.YeniDurum == "Kargoya Verildi")
+                {
+                    await _bildirimService.BildirimGonderAsync(
+                        siparis.KullaniciId, "🚚 Siparişiniz Kargoya Verildi", $"#{siparis.Id} numaralı siparişiniz kargoya verilmiştir.", "Siparis", "/siparislerim");
+                }
+                else if (dto.YeniDurum == "Tamamlandı" || dto.YeniDurum == "Teslim Edildi")
+                {
+                    await _bildirimService.BildirimGonderAsync(
+                        siparis.KullaniciId, "✅ Siparişiniz Teslim Edildi", $"#{siparis.Id} numaralı siparişinizdeki bir ürün teslim edilmiştir.", "Siparis", "/siparislerim");
+                }
+                else if (dto.YeniDurum == "İptal Edildi" || dto.YeniDurum == "İptal")
+                {
+                    await _bildirimService.BildirimGonderAsync(
+                        siparis.KullaniciId, "❌ Sipariş İptali", $"#{siparis.Id} numaralı siparişinizdeki ürün iptal edilmiştir.", "Siparis", "/siparislerim");
+                }
+            } 
+            catch { /* Bildirim hatası yoksayılır */ }
         }
 
-        return (true, "Sipariş kalemi başarıyla güncellendi.");
+        return (true, "Sipariş durumu kurallara uygun şekilde başarıyla güncellendi.");
+    }
+    public async Task<object> SaticiProfilBilgisiGetirAsync(int kullaniciId)
+    {
+        var kullanici = await _context.Kullanicilar.FindAsync(kullaniciId);
+        var magaza = await _context.Magazalar.FirstOrDefaultAsync(m => m.KullaniciId == kullaniciId);
+
+        return new {
+            saticiAdSoyad = kullanici?.AdSoyad ?? "Satıcı",
+            magazaAdi = magaza?.MagazaAdi ?? "Mağazam"
+        };
+    }
+    public async Task<object> SaticiIadeTalepleriniGetirAsync(int kullaniciId)
+    {
+        var magaza = await _context.Magazalar.FirstOrDefaultAsync(m => m.KullaniciId == kullaniciId);
+        if (magaza == null) throw new Exception("Mağaza bulunamadı.");
+
+        return await _context.Set<IadeTalebi>()
+            .Include(i => i.SiparisDetay)
+                .ThenInclude(sd => sd!.Urunler)
+            .Include(i => i.Kullanici)
+            .Where(i => i.MagazaId == magaza.Id)
+            .OrderByDescending(i => i.OlusturulmaTarihi)
+            .Select(i => new {
+                iadeId = i.Id,
+                siparisId = i.SiparisDetay!.SiparisId,
+                urunAdi = i.SiparisDetay.Urunler != null ? i.SiparisDetay.Urunler.Ad : "Ürün Silinmiş",
+                resimUrl = i.SiparisDetay.Urunler != null ? i.SiparisDetay.Urunler.ResimUrl : "",
+                musteriAdi = i.Kullanici != null ? i.Kullanici.AdSoyad : "Bilinmiyor",
+                iadeSebebi = i.IadeSebebi,
+                durum = i.Durum,
+                redSebebi = i.RedSebebi,
+                tarih = i.OlusturulmaTarihi,
+                kargoFirma = i.IadeKargoFirma,
+                kargoKodu = i.IadeKargoKodu,
+                iadeTutari = (i.SiparisDetay.BirimFiyat * i.SiparisDetay.Adet)
+            })
+            .ToListAsync();
+    }
+
+
+    public async Task<(bool Basarili, string Mesaj)> SaticiIadeDurumGuncelleAsync(int kullaniciId, IadeDurumGuncelleDto dto)
+    {
+        // 1. Önce giriş yapan kullanıcının mağazasını buluyoruz
+        var magaza = await _context.Magazalar.FirstOrDefaultAsync(m => m.KullaniciId == kullaniciId);
+        if (magaza == null)
+            return (false, "Mağaza bulunamadı.");
+
+        // 🌟 2. KRİTİK DÜZELTME: İadeyi çekerken sadece ürünü değil, ana Siparişi ve diğer kardeş ürünleri de Include ediyoruz!
+        var iade = await _context.Set<IadeTalebi>()
+            .Include(i => i.SiparisDetay)
+                .ThenInclude(sd => sd!.Siparis)       // Ana sipariş dış kutusunu getir
+                    .ThenInclude(s => s!.Detaylar)    // O kutunun içindeki diğer tüm ürünleri getir
+            .FirstOrDefaultAsync(i => i.Id == dto.IadeId && i.MagazaId == magaza.Id);
+
+        if (iade == null)
+            return (false, "İade talebi bulunamadı veya bu işlem için yetkiniz yok.");
+
+        // State Machine (Durum Makinesi) Kuralları
+        if (dto.Islem == "TeslimAl")
+        {
+            if (iade.Durum != "İade Kodu Oluşturuldu")
+                return (false, "Bu ürün henüz yola çıkmamış veya zaten teslim alınmış.");
+            
+            iade.Durum = "İncelemede";
+        }
+        else if (dto.Islem == "Onayla")
+        {
+            if (iade.Durum != "İncelemede")
+                return (false, "İadeyi onaylamak için önce ürünü 'Teslim Al'manız ve incelemeniz gerekmektedir.");
+            
+            iade.Durum = "Onaylandı";
+            
+            if (iade.SiparisDetay != null) 
+            {
+                // Ürün iade edildiği için kazançları sıfırlıyoruz (Cirodan düşmesi için)
+                iade.SiparisDetay.Durum = "İade Edildi";
+                iade.SiparisDetay.SaticiKazanci = 0;
+                iade.SiparisDetay.PlatformKomisyonu = 0;
+
+                // 🌟 AKILLI ANA SİPARİŞ KONTROLÜ: Eğer sepetteki geçerli olan her şey iade edildiyse, ana siparişi de İade Edildi yap
+                var siparis = iade.SiparisDetay.Siparis;
+                if (siparis != null && siparis.Detaylar != null)
+                {
+                    // İptal ve İade edilenler dışındaki aktif ürünlere bakıyoruz
+                    var gecerliDurumlar = siparis.Detaylar.Where(d => d.Durum != "İptal" && d.Durum != "İptal Edildi" && d.Durum != "İade Edildi").ToList();
+                    
+                    // Geçerli (sağlam) ürün kalmadıysa, demek ki hepsi iptal veya iade olmuş
+                    if (gecerliDurumlar.Count == 0) 
+                    {
+                        siparis.Durum = "İade Edildi";
+                    }
+                }
+            }
+
+            // Müşteriye bilgi veriyoruz
+            try 
+            {
+                await _bildirimService.BildirimGonderAsync(
+                    iade.KullaniciId, 
+                    "✅ İadeniz Onaylandı", 
+                    "İade ettiğiniz ürün satıcı tarafından onaylandı ve ilgili tutarın iade süreci başlatıldı.", 
+                    "Iade", 
+                    "/iade-taleplerim"
+                );
+            }
+            catch { /* Hata fırlatmasını engelliyoruz */ }
+        }
+        else if (dto.Islem == "Reddet")
+        {
+            if (iade.Durum != "İncelemede")
+                return (false, "İadeyi reddetmek için önce ürünü 'Teslim Al'manız ve incelemeniz gerekmektedir.");
+            
+            if (string.IsNullOrWhiteSpace(dto.RedSebebi))
+                return (false, "Reddetme işlemi için mutlaka bir sebep girmelisiniz.");
+
+            iade.Durum = "Reddedildi";
+            iade.RedSebebi = dto.RedSebebi;
+            
+            if (iade.SiparisDetay != null) 
+            {
+                // Reddedilince eski haline (Tamamlandı) geri döner
+                iade.SiparisDetay.Durum = "Tamamlandı"; 
+            }
+        }
+        else
+        {
+            return (false, "Geçersiz bir işlem türü gönderildi.");
+        }
+
+        await _context.SaveChangesAsync();
+        return (true, $"İade işlemi başarıyla gerçekleştirildi. Yeni durum: {iade.Durum}");
     }
 }

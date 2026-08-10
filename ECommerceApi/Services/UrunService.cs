@@ -2,6 +2,10 @@ using ECommerceApi.DataAccess;
 using ECommerceApi.Entities;
 using ECommerceApi.DTOs;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace ECommerceApi.Services;
 
@@ -10,8 +14,35 @@ public class UrunService : IUrunService
     private readonly AppDbContext _db;
     public UrunService(AppDbContext db) => _db = db;
 
+    // ========================================================================
+    // 🌟 AKILLI İNDİRİM KONTROLÜ (LAZY EXPIRATION)
+    // Listeleme işlemlerinden hemen önce çağrılır ve süresi dolanları temizler
+    // ========================================================================
+    private async Task SuresiDolanIndirimleriTemizleAsync()
+    {
+        var suAn = DateTime.UtcNow;
+        
+        var suresiDolanlar = await _db.Urunler
+            .Where(u => u.IndirimliFiyat != null && u.IndirimBitisTarihi != null && u.IndirimBitisTarihi <= suAn)
+            .ToListAsync();
+
+        if (suresiDolanlar.Any())
+        {
+            foreach (var urun in suresiDolanlar)
+            {
+                urun.IndirimliFiyat = null;
+                urun.IndirimBitisTarihi = null;
+            }
+            
+            await _db.SaveChangesAsync();
+        }
+    }
+    // ========================================================================
+
     public async Task<List<UrunListelemeDTO>> TumUrunleriGetirAsync()
     {
+        await SuresiDolanIndirimleriTemizleAsync(); // 🌟 Verileri çekmeden önce temizliği yap
+
         return await _db.Urunler
             .Include(u => u.Kategori)
             .Include(u => u.Magaza).ThenInclude(m => m.Kullanici)
@@ -37,6 +68,8 @@ public class UrunService : IUrunService
 
     public async Task<object?> UrunGetirByIdAsync(int id)
     {
+        await SuresiDolanIndirimleriTemizleAsync(); // 🌟 Ürün detayına girerken temizliği yap
+
         return await _db.Urunler
             .Include(u => u.Kategori)
             .Include(u => u.Magaza).ThenInclude(m => m.Kullanici)
@@ -55,6 +88,8 @@ public class UrunService : IUrunService
 
     public async Task<List<UrunListelemeDTO>> IndirimliUrunleriGetirAsync()
     {
+        await SuresiDolanIndirimleriTemizleAsync(); // 🌟 Kampanyalı ürünleri listelerken temizliği yap
+
         return await _db.Urunler
             .Where(u => u.IndirimliFiyat != null)
             .Include(u => u.Kategori)
@@ -90,8 +125,11 @@ public class UrunService : IUrunService
         await _db.SaveChangesAsync();
         return (true, "Oylama başarılı.");
     }
+    
     public async Task<object> BenzerUrunleriGetirAsync(int urunId, int kategoriId)
     {
+        await SuresiDolanIndirimleriTemizleAsync(); // 🌟 Benzer ürünlerde de süresi dolanları temizle
+
         return await _db.Urunler
             .Include(u => u.Magaza)
             .Where(u => u.KategoriId == kategoriId 

@@ -22,12 +22,12 @@ export default function SaticiAnasayfa() {
   const router = useRouter();
   const [urunler, setUrunler] = useState<any[]>([]);
   const [siparisler, setSiparisler] = useState<any[]>([]);
+  const [magazaBilgisi, setMagazaBilgisi] = useState<any>(null);
   const [bekleyenSoruSayisi, setBekleyenSoruSayisi] = useState(0); 
   const [bekleyenSiparisSayisi, setBekleyenSiparisSayisi] = useState(0); 
   const [bekleyenDestekSayisi, setBekleyenDestekSayisi] = useState(0); 
   const [loading, setLoading] = useState(true);
 
-  // 🌟 YENİ: Grafik gizle/göster state'i
   const [grafikGoster, setGrafikGoster] = useState(false);
 
   useFocusEffect(
@@ -43,15 +43,17 @@ export default function SaticiAnasayfa() {
 
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [urunResponse, siparisResponse, soruResponse, destekResponse] = await Promise.all([
+      const [urunResponse, siparisResponse, soruResponse, destekResponse, profilResponse] = await Promise.all([
         axios.get(`${API_CONFIG.BASE_URL}/satici/urunlerim`, { headers }),
         axios.get(`${API_CONFIG.BASE_URL}/satici/siparislerim`, { headers }),
         axios.get(`${API_CONFIG.BASE_URL}/urunsoru/satici-sorulari`, { headers }).catch(() => ({ data: [] })),
-        axios.get(`${API_CONFIG.BASE_URL}/destek/kullanici`, { headers }).catch(() => ({ data: [] }))
+        axios.get(`${API_CONFIG.BASE_URL}/destek/kullanici`, { headers }).catch(() => ({ data: [] })),
+        axios.get(`${API_CONFIG.BASE_URL}/satici/profil`, { headers }).catch(() => ({ data: null }))
       ]);
 
       setUrunler(urunResponse.data);
       setSiparisler(siparisResponse.data);
+      if (profilResponse.data) setMagazaBilgisi(profilResponse.data);
 
       if (soruResponse.data && Array.isArray(soruResponse.data)) {
         const bekleyenler = soruResponse.data.filter((soru: any) => !soru.cevaplandiMi);
@@ -139,7 +141,6 @@ export default function SaticiAnasayfa() {
     });
   });
 
-  // 🌟 YENİ: Son 6 Ayın Cirosunu Dinamik Hesaplayan Algoritma
   const grafikVerisi = useMemo(() => {
     const aylar = [];
     const cirolar = [0, 0, 0, 0, 0, 0];
@@ -173,10 +174,22 @@ export default function SaticiAnasayfa() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F8F9FA' }}>
+      
       <View style={styles.header}>
-        <View>
-          <Text style={styles.baslik}>Satıcı Paneli</Text>
-          <Text style={styles.altMetin}>Hoş geldiniz, mağazanızı yönetin.</Text>
+        <View style={styles.profilSol}>
+          <View style={styles.avatarKutusu}>
+            <Text style={styles.avatarHarf}>
+              {magazaBilgisi?.magazaAdi ? magazaBilgisi.magazaAdi.charAt(0).toUpperCase() : 'M'}
+            </Text>
+          </View>
+          <View style={styles.profilBilgi}>
+            <Text style={styles.magazaAdi} numberOfLines={1}>
+              {magazaBilgisi?.magazaAdi || 'Yükleniyor...'}
+            </Text>
+            <Text style={styles.saticiAdi}>
+              Hoş geldin, {magazaBilgisi?.saticiAdSoyad?.split(' ')[0] || 'Satıcı'}
+            </Text>
+          </View>
         </View>
         
         <View style={styles.headerAksiyonGrup}>
@@ -206,7 +219,6 @@ export default function SaticiAnasayfa() {
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
           
-          {/* 🌟 YENİ: GRAFİK AÇMA/KAPAMA BUTONU VE BAŞLIK */}
           <View style={styles.grafikToggleSatiri}>
             <Text style={styles.bolumBaslik}>Genel Bakış</Text>
             <TouchableOpacity 
@@ -219,7 +231,6 @@ export default function SaticiAnasayfa() {
             </TouchableOpacity>
           </View>
 
-          {/* 🌟 YENİ: GRAFİK BİLEŞENİ (Sadece butona basılınca görünür) */}
           {grafikGoster && (
             <View style={{ paddingHorizontal: 15 }}>
               <SaticiGrafikler aylar={grafikVerisi.aylar} cirolar={grafikVerisi.cirolar} />
@@ -279,6 +290,13 @@ export default function SaticiAnasayfa() {
                 <Text style={styles.islemKartYazi}>Siparişler</Text>
               </TouchableOpacity>
 
+              <TouchableOpacity style={styles.islemKart} activeOpacity={0.8} onPress={() => router.push('/(satici)/satici-iadeler' as any)}>
+                <View style={[styles.islemIkonKutu, { backgroundColor: '#FFEBEE' }]}>
+                  <Ionicons name="return-down-back" size={26} color="#E53935" />
+                </View>
+                <Text style={styles.islemKartYazi}>İade Talepleri</Text>
+              </TouchableOpacity>
+
               <TouchableOpacity style={styles.islemKart} activeOpacity={0.8} onPress={() => router.push('/(satici)/satici-sorulari' as any)}>
                 <View style={[styles.islemIkonKutu, { backgroundColor: '#F3E5F5', position: 'relative' }]}>
                   <Ionicons name="chatbubbles" size={26} color="#9C27B0" />
@@ -294,6 +312,14 @@ export default function SaticiAnasayfa() {
                 <Text style={styles.islemKartYazi}>Mağaza Kuponları</Text>
               </TouchableOpacity>
 
+              {/* 🌟 YENİ EKLENEN ŞİFRE DEĞİŞTİR BUTONU */}
+              <TouchableOpacity style={styles.islemKart} activeOpacity={0.8} onPress={() => router.push('/sifre-degistir' as any)}>
+                <View style={[styles.islemIkonKutu, { backgroundColor: '#f6f4f7' }]}>
+                  <Ionicons name="lock-closed" size={26} color="#dd92c4" />
+                </View>
+                <Text style={styles.islemKartYazi}>Şifre Değiştir</Text>
+              </TouchableOpacity>
+
             </View>
           </View>
         </ScrollView>
@@ -304,8 +330,12 @@ export default function SaticiAnasayfa() {
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 15, paddingBottom: 15, backgroundColor: '#F8F9FA' },
-  baslik: { fontSize: 24, fontWeight: '800', color: '#1C1C1E' },
-  altMetin: { fontSize: 14, color: '#8E8E93', marginTop: 4, fontWeight: '500' },
+  profilSol: { flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 10 },
+  avatarKutusu: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#FFF4E5', justifyContent: 'center', alignItems: 'center', marginRight: 12, borderWidth: 1, borderColor: '#FFE0B2' },
+  avatarHarf: { fontSize: 24, fontWeight: 'bold', color: '#FF9F00' },
+  profilBilgi: { flex: 1, justifyContent: 'center' },
+  magazaAdi: { fontSize: 19, fontWeight: '800', color: '#1C1C1E', marginBottom: 2, letterSpacing: -0.5 },
+  saticiAdi: { fontSize: 13, color: '#8E8E93', fontWeight: '500' },
   
   headerAksiyonGrup: { flexDirection: 'row', alignItems: 'center' },
   
@@ -315,7 +345,6 @@ const styles = StyleSheet.create({
   
   cikisButon: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFF0F0', justifyContent: 'center', alignItems: 'center', shadowColor: '#FF3B30', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4 },
   
-  // 🌟 YENİ GRAFİK ALANI STİLLERİ
   grafikToggleSatiri: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginTop: 10, marginBottom: 15 },
   grafikBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF4E5', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   grafikBadgeYazi: { color: '#FF9F00', fontWeight: '600', fontSize: 12, marginLeft: 4 },
@@ -329,7 +358,7 @@ const styles = StyleSheet.create({
 
   yonetimAraclariKutusu: { paddingHorizontal: 20 },
   islemGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 15 },
-  islemKart: { width: '48%', backgroundColor: '#fff', paddingVertical: 22, borderRadius: 16, alignItems: 'center', marginBottom: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 },
+  islemKart: { width: '48%', backgroundColor: '#fff', paddingVertical: 22, borderRadius: 16, alignItems: 'center', marginBottom: 15, shadowColor: '#pi', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 },
   islemIkonKutu: { padding: 16, borderRadius: 14, marginBottom: 12 },
   islemKartYazi: { fontSize: 14, fontWeight: '700', color: '#333', textAlign: 'center' },
 

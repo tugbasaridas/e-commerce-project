@@ -1,30 +1,47 @@
 import { API_CONFIG } from '@/config/api';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-export default function SifremiUnuttum() {
+export default function YeniSifre() {
   const router = useRouter();
+  const { email, kod } = useLocalSearchParams<{ email: string, kod: string }>();
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState('');
+  const [yeniSifre, setYeniSifre] = useState('');
+  const [sifreTekrar, setSifreTekrar] = useState('');
 
-  const kodGonder = async () => {
-    if (!email || !email.includes('@')) {
-      return Alert.alert("Hata", "Lütfen geçerli bir e-posta adresi girin.");
+  const sifreSifirla = async () => {
+    if (!yeniSifre || !sifreTekrar) {
+      return Alert.alert("Hata", "Lütfen tüm alanları doldurun.");
+    }
+    if (yeniSifre !== sifreTekrar) {
+      return Alert.alert("Hata", "Şifreler birbiriyle eşleşmiyor.");
+    }
+    if (yeniSifre.length < 6) {
+      return Alert.alert("Hata", "Şifreniz en az 6 karakter olmalıdır.");
+    }
+    
+    const guvenliSifreKurali = /^(?=.*[A-Z])(?=.*\d).+$/;
+    if (!guvenliSifreKurali.test(yeniSifre)) {
+      return Alert.alert("Hata", "Şifreniz daha güvenli olması için en az bir büyük harf ve bir rakam içermelidir.");
     }
 
     setLoading(true);
     try {
-      const response = await axios.post(`${API_CONFIG.BASE_URL}/Kullanicilar/sifremi-unuttum`, { email: email.trim().toLowerCase() });
-      Alert.alert("Başarılı", response.data.mesaj || "Sıfırlama kodu gönderildi. Lütfen konsolu kontrol edin.");
-      
-      // E-posta bilgisini sonraki sayfaya taşıyoruz
-      router.push({ pathname: '/sifre-dogrulama' as any, params: { email: email.trim().toLowerCase() } });
+      await axios.post(`${API_CONFIG.BASE_URL}/Kullanicilar/sifre-sifirla`, {
+        email: email,
+        kod: kod,
+        yeniSifre: yeniSifre
+      });
+
+      Alert.alert("Başarılı", "Şifreniz başarıyla yenilendi!", [
+        { text: "Giriş Yap", onPress: () => router.replace('/giris' as any) } 
+      ]);
     } catch (error: any) {
-      Alert.alert("Hata", error.response?.data?.mesaj || "Bir hata oluştu.");
+      Alert.alert("Hata", error.response?.data?.mesaj || "Şifre sıfırlanamadı. Kod hatalı veya süresi geçmiş olabilir.");
     } finally {
       setLoading(false);
     }
@@ -41,27 +58,38 @@ export default function SifremiUnuttum() {
 
         <ScrollView contentContainerStyle={styles.icerik} showsVerticalScrollIndicator={false}>
           <View style={styles.ikonKutusu}>
-            <Ionicons name="mail-unread-outline" size={50} color="orange" />
+            <Ionicons name="lock-closed-outline" size={50} color="orange" />
           </View>
-          <Text style={styles.baslik}>Şifrenizi mi Unuttunuz?</Text>
-          <Text style={styles.altBaslik}>Hesabınıza bağlı e-posta adresinizi girin. Size şifrenizi sıfırlamanız için bir kod göndereceğiz.</Text>
+          <Text style={styles.baslik}>Yeni Şifre Belirle</Text>
+          <Text style={styles.altBaslik}>Güvenliğiniz için büyük harf ve rakam içeren güçlü bir şifre oluşturun.</Text>
 
           <View style={styles.form}>
             <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color="#8E8E93" style={styles.inputIcon} />
+              <Ionicons name="lock-closed-outline" size={20} color="#8E8E93" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="E-Posta Adresiniz"
+                placeholder="Yeni Şifre"
                 placeholderTextColor="#A1A1A1"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={email}
-                onChangeText={setEmail}
+                secureTextEntry={false} // Sunum için false bırakıldı, istersen true yapabilirsin
+                value={yeniSifre}
+                onChangeText={setYeniSifre}
               />
             </View>
 
-            <TouchableOpacity style={styles.btn} onPress={kodGonder} disabled={loading}>
-              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Sıfırlama Kodu Gönder</Text>}
+            <View style={styles.inputContainer}>
+              <Ionicons name="lock-closed-outline" size={20} color="#8E8E93" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Yeni Şifre (Tekrar)"
+                placeholderTextColor="#A1A1A1"
+                secureTextEntry={false}
+                value={sifreTekrar}
+                onChangeText={setSifreTekrar}
+              />
+            </View>
+
+            <TouchableOpacity style={styles.btn} onPress={sifreSifirla} disabled={loading}>
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Şifremi Yenile</Text>}
             </TouchableOpacity>
           </View>
         </ScrollView>

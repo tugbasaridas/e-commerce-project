@@ -76,20 +76,37 @@ export const useOdeme = (dogrulandi?: string, kuponId?: string) => {
     setIsFlipped(false);
   };
 
+  // 🌟 YENİ: Akıllı Kart Numarası Formatlayıcı
   const handleKartNoChange = (text: string) => {
-    const cleaned = text.replace(/\D/g, '');
+    const cleaned = text.replace(/\D/g, ''); // Sadece rakam
     const match = cleaned.match(/.{1,4}/g);
     setKartNo(match ? match.join(' ').substring(0, 19) : cleaned);
   };
 
+  // 🌟 YENİ: Akıllı Son Kullanma Tarihi Formatlayıcı (Max 12 Ay)
   const handleSktChange = (text: string) => {
-    let cleaned = text.replace(/\D/g, '');
-    if (cleaned.length >= 2) {
-      let ay = parseInt(cleaned.substring(0, 2), 10);
-      if (ay > 12) ay = 12;
-      if (ay === 0) ay = 1;
-      let ayString = ay < 10 ? `0${ay}` : `${ay}`;
-      setSkt(`${ayString}/${cleaned.substring(2, 4)}`);
+    let cleaned = text.replace(/\D/g, ''); // Sadece rakam
+    
+    if (cleaned.length > 0) {
+      // Eğer ilk rakam 2 ile 9 arasındaysa, otomatik başına 0 koy (Örn: 5 yazınca 05 yapar)
+      if (cleaned.length === 1 && parseInt(cleaned[0]) > 1) {
+        cleaned = '0' + cleaned;
+      }
+      
+      // Ay kısmını kontrol et (12'den büyük olamaz, 00 olamaz)
+      if (cleaned.length >= 2) {
+        let ay = parseInt(cleaned.substring(0, 2), 10);
+        if (ay > 12) {
+          cleaned = '12' + cleaned.substring(2);
+        } else if (ay === 0) {
+          cleaned = '01' + cleaned.substring(2);
+        }
+      }
+    }
+
+    // 3. karakter girildiğinde araya slash (/) koy
+    if (cleaned.length >= 3) {
+      setSkt(`${cleaned.substring(0, 2)}/${cleaned.substring(2, 4)}`);
     } else {
       setSkt(cleaned);
     }
@@ -153,7 +170,6 @@ export const useOdeme = (dogrulandi?: string, kuponId?: string) => {
         }
       }
 
-      // --- KUPON ID GÜVENLİ PARSE İŞLEMİ ---
       let gidenKuponId = null;
       if (gecici.kuponId && gecici.kuponId !== 'null' && gecici.kuponId !== 'undefined') {
           const parsed = parseInt(gecici.kuponId, 10);
@@ -166,7 +182,7 @@ export const useOdeme = (dogrulandi?: string, kuponId?: string) => {
         odemeYontemi: gecici.odemeYontemi,
         teslimatAdresi: `${gecici.adresBaslik} - ${gecici.acikAdres}, ${gecici.ilce}/${gecici.il}`,
         telefon: gecici.telefon,
-        kuponId: gidenKuponId // Güvenli ID gönderiliyor
+        kuponId: gidenKuponId 
       }, { headers: { Authorization: `Bearer ${await AsyncStorage.getItem('userToken')}` } });
 
       await AsyncStorage.removeItem('@geciciSiparis');

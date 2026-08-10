@@ -1,33 +1,20 @@
-import { API_CONFIG } from '@/config/api';
 import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-export default function SifremiUnuttum() {
+export default function SifreDogrulama() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState('');
+  const { email } = useLocalSearchParams<{ email: string }>();
+  const [kod, setKod] = useState('');
 
-  const kodGonder = async () => {
-    if (!email || !email.includes('@')) {
-      return Alert.alert("Hata", "Lütfen geçerli bir e-posta adresi girin.");
+  const dogrulaVeDevamEt = () => {
+    if (!kod || kod.length !== 6) {
+      return Alert.alert("Hata", "Lütfen 6 haneli doğrulama kodunu eksiksiz girin.");
     }
-
-    setLoading(true);
-    try {
-      const response = await axios.post(`${API_CONFIG.BASE_URL}/Kullanicilar/sifremi-unuttum`, { email: email.trim().toLowerCase() });
-      Alert.alert("Başarılı", response.data.mesaj || "Sıfırlama kodu gönderildi. Lütfen konsolu kontrol edin.");
-      
-      // E-posta bilgisini sonraki sayfaya taşıyoruz
-      router.push({ pathname: '/sifre-dogrulama' as any, params: { email: email.trim().toLowerCase() } });
-    } catch (error: any) {
-      Alert.alert("Hata", error.response?.data?.mesaj || "Bir hata oluştu.");
-    } finally {
-      setLoading(false);
-    }
+    // E-posta ve Kodu son aşamaya taşıyoruz
+    router.push({ pathname: '/yeni-sifre' as any, params: { email, kod } });
   };
 
   return (
@@ -41,27 +28,28 @@ export default function SifremiUnuttum() {
 
         <ScrollView contentContainerStyle={styles.icerik} showsVerticalScrollIndicator={false}>
           <View style={styles.ikonKutusu}>
-            <Ionicons name="mail-unread-outline" size={50} color="orange" />
+            <Ionicons name="keypad-outline" size={50} color="orange" />
           </View>
-          <Text style={styles.baslik}>Şifrenizi mi Unuttunuz?</Text>
-          <Text style={styles.altBaslik}>Hesabınıza bağlı e-posta adresinizi girin. Size şifrenizi sıfırlamanız için bir kod göndereceğiz.</Text>
+          <Text style={styles.baslik}>Kodu Doğrulayın</Text>
+          <Text style={styles.altBaslik}><Text style={{fontWeight: 'bold', color: '#333'}}>{email}</Text> adresine gönderilen 6 haneli kodu girin.</Text>
 
           <View style={styles.form}>
             <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color="#8E8E93" style={styles.inputIcon} />
+              <Ionicons name="shield-checkmark-outline" size={20} color="#8E8E93" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="E-Posta Adresiniz"
+                placeholder="6 Haneli Kod"
                 placeholderTextColor="#A1A1A1"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={email}
-                onChangeText={setEmail}
+                keyboardType="number-pad"
+                maxLength={6}
+                value={kod}
+                onChangeText={setKod}
+                autoFocus
               />
             </View>
 
-            <TouchableOpacity style={styles.btn} onPress={kodGonder} disabled={loading}>
-              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Sıfırlama Kodu Gönder</Text>}
+            <TouchableOpacity style={styles.btn} onPress={dogrulaVeDevamEt}>
+              <Text style={styles.btnText}>Doğrula ve İlerle</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -81,7 +69,7 @@ const styles = StyleSheet.create({
   form: { width: '100%' },
   inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9F9F9', borderWidth: 1, borderColor: '#E5E5EA', borderRadius: 12, paddingHorizontal: 15, height: 55, marginBottom: 15 },
   inputIcon: { marginRight: 10 },
-  input: { flex: 1, fontSize: 15, color: '#1C1C1E' },
+  input: { flex: 1, fontSize: 18, color: '#1C1C1E', letterSpacing: 5, textAlign: 'center' },
   btn: { backgroundColor: 'orange', borderRadius: 12, height: 55, justifyContent: 'center', alignItems: 'center', marginTop: 10, shadowColor: 'orange', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
   btnText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' }
 });

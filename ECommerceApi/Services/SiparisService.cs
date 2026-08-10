@@ -3,6 +3,10 @@ using ECommerceApi.Entities;
 using ECommerceApi.DTOs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace ECommerceApi.Services;
 
@@ -37,7 +41,7 @@ public class SiparisService : ISiparisService
             
             decimal indirimTutari = 0;
             int? gecerliKuponId = null;
-            bool adminKuponuMu = false; // YENİ: Kuponun kimin olduğunu anlamak için bayrak
+            bool adminKuponuMu = false;
 
             if (dto.KuponId.HasValue)
             {
@@ -73,7 +77,7 @@ public class SiparisService : ISiparisService
                         }
                         
                         gecerliKuponId = kupon.Id;
-                        adminKuponuMu = kupon.MagazaId == null; // YENİ: Eğer MağazaId null ise bu bir Admin kuponudur!
+                        adminKuponuMu = kupon.MagazaId == null;
                     }
                 }
             }
@@ -101,23 +105,16 @@ public class SiparisService : ISiparisService
                 decimal platformKomisyonu = 0;
                 decimal saticiKazanci = 0;
 
-                // ============================================================
-                // YENİ FİNANSAL ZEKA: KUPON KİMİNSE PARAYI O ÖDER
-                // ============================================================
                 if (adminKuponuMu)
                 {
-                    // ADMİN KUPONU: Satıcı indirimi hissetmez, TAM FİYAT üzerinden parasını alır!
-                    // İndirim, Admin'in cebinden (Platform Komisyonundan) düşülür.
                     saticiKazanci = hamSatirTutari - (hamSatirTutari * PLATFORM_KOMISYON_ORANI);
                     platformKomisyonu = (hamSatirTutari * PLATFORM_KOMISYON_ORANI) - indirilenTutar; 
                 }
                 else
                 {
-                    // SATICI KUPONU: Satıcı indirimli satış yapmış olur.
                     platformKomisyonu = netSatirTutari * PLATFORM_KOMISYON_ORANI; 
-                    saticiKazanci = netSatirTutari - platformKomisyonu;           
+                    saticiKazanci = netSatirTutari - platformKomisyonu;            
                 }
-                // ============================================================
 
                 odenecekSonTutar += netSatirTutari; 
                 urun.Stok -= sepetItem.Miktar;
@@ -194,6 +191,77 @@ public class SiparisService : ISiparisService
                     kargoFirma = d.KargoFirma, 
                     kargoTakipNo = d.KargoTakipNo 
                 }).ToList()
+            })
+            .ToListAsync();
+    }
+
+    // ==========================================
+    // 🌟 YENİ: İADE TALEBİ OLUŞTURMA METODU
+    // ==========================================
+   public async Task<(bool Basarili, string Mesaj)> IadeTalepEtAsync(int userId, IadeTalepDto dto)
+    {
+        var siparisDetay = await _db.Set<SiparisDetay>()
+            .Include(sd => sd.Siparis)
+            .Include(sd => sd.Urunler)
+            .FirstOrDefaultAsync(sd => sd.Id == dto.SiparisDetayId && sd.Siparis!.KullaniciId == userId);
+
+        if (siparisDetay == null)
+            return (false, "Sipariş kalemi bulunamadı veya bu işlem için yetkiniz yok.");
+
+        if (siparisDetay.Durum != "Tamamlandı" && siparisDetay.Durum != "Teslim Edildi")
+            return (false, "Sadece 'Tamamlandı' veya 'Teslim Edildi' durumundaki ürünler için iade talebi oluşturabilirsiniz.");
+
+        var mevcutTalep = await _db.Set<IadeTalebi>().AnyAsync(i => i.SiparisDetayId == dto.SiparisDetayId);
+        if (mevcutTalep)
+            return (false, "Bu ürün için zaten bir iade veya iptal talebiniz bulunuyor.");
+
+        // Gerçek dünyada kargo firmasının API'sine istek atılıp barkod alınır. 
+        // Biz burada profesyonel bir simülasyon (mock) yapıyoruz.
+        string kargoKodu = "RET-" + new Random().Next(10000000, 99999999).ToString();
+
+        var yeniIade = new IadeTalebi
+        {
+            KullaniciId = userId,
+            SiparisDetayId = dto.SiparisDetayId,
+            MagazaId = siparisDetay.Urunler!.MagazaId,
+            IadeSebebi = dto.IadeSebebi,
+            Durum = "İade Kodu Oluşturuldu",
+            IadeKargoFirma = "Yurtiçi Kargo", // Örnek varsayılan firma
+            IadeKargoKodu = kargoKodu,
+            OlusturulmaTarihi = DateTime.UtcNow
+        };
+
+        _db.Set<IadeTalebi>().Add(yeniIade);
+        siparisDetay.Durum = "İade Bekliyor";
+
+        await _db.SaveChangesAsync();
+        return (true, "İade talebiniz oluşturuldu. Kargo kodunuz üretildi.");
+    }
+
+    // ==========================================
+    // 🌟 YENİ: İADE TALEPLERİMİ GETİRME METODU
+    // ==========================================
+    public async Task<object> IadeTaleplerimiGetirAsync(int userId)
+    {
+        return await _db.Set<IadeTalebi>()
+            .Include(i => i.SiparisDetay)
+                .ThenInclude(sd => sd!.Urunler)
+            .Include(i => i.Magaza)
+            .Where(i => i.KullaniciId == userId)
+            .OrderByDescending(i => i.OlusturulmaTarihi)
+            .Select(i => new {
+                iadeId = i.Id,
+                siparisId = i.SiparisDetay!.SiparisId,
+                urunAdi = i.SiparisDetay.Urunler != null ? i.SiparisDetay.Urunler.Ad : "Silinmiş Ürün",
+                resimUrl = i.SiparisDetay.Urunler != null ? i.SiparisDetay.Urunler.ResimUrl : "",
+                magazaAdi = i.Magaza != null ? i.Magaza.MagazaAdi : "Bilinmiyor",
+                iadeSebebi = i.IadeSebebi,
+                durum = i.Durum,
+                redSebebi = i.RedSebebi,
+                kargoFirma = i.IadeKargoFirma,
+                kargoKodu = i.IadeKargoKodu,
+                tarih = i.OlusturulmaTarihi,
+                iadeTutari = (i.SiparisDetay.BirimFiyat * i.SiparisDetay.Adet)
             })
             .ToListAsync();
     }

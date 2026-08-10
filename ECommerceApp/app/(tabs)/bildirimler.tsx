@@ -52,7 +52,7 @@ export default function Bildirimler() {
     }
   };
 
-  const bildirimeTikla = async (item: any) => {
+const bildirimeTikla = async (item: any) => {
     if (!item.okunduMu) {
       try {
         const token = await AsyncStorage.getItem('userToken');
@@ -67,10 +67,19 @@ export default function Bildirimler() {
     }
 
     if (item.yonlendirmeLinki) {
-      router.push(item.yonlendirmeLinki as any);
+      // 1. Veritabanından gelen linki bir değişkene al
+      let gidilecekLink = item.yonlendirmeLinki;
+
+      // 2. 🌟 SİHİRLİ DOKUNUŞ: Eğer linkin içinde "kuponlarim" kelimesi geçiyorsa, 
+      // eski hatalı kısımları at ve sadece doğru olan rotayı yaz!
+      if (gidilecekLink.includes('kuponlarim')) {
+        gidilecekLink = '/kuponlarim'; 
+      }
+
+      // 3. Şimdi temizlenmiş ve kesinlikle çalışan linke git
+      router.push(gidilecekLink as any);
     }
   };
-
   const getIconInfo = (tip: string) => {
     switch (tip) {
       case 'Siparis': return { name: 'cube-outline', color: '#007AFF', bg: '#E5F1FF' };

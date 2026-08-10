@@ -24,11 +24,12 @@ public class BildirimService : IBildirimService
         await _db.SaveChangesAsync();
     }
 
-    public async Task<object> KullaniciBildirimleriniGetirAsync(int kullaniciId)
+   public async Task<object> KullaniciBildirimleriniGetirAsync(int kullaniciId)
     {
         return await _db.Bildirimler
             .Where(b => b.KullaniciId == kullaniciId)
             .OrderByDescending(b => b.Tarih)
+            .Take(50) 
             .Select(b => new {
                 id = b.Id,
                 baslik = b.Baslik,

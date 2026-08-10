@@ -3,6 +3,7 @@ using System;
 using ECommerceApi.DataAccess;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ECommerceApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260807115918_IadeTalebiEklendi")]
+    partial class IadeTalebiEklendi
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -126,54 +129,6 @@ namespace ECommerceApi.Migrations
                     b.HasIndex("UrunId");
 
                     b.ToTable("Favoriler");
-                });
-
-            modelBuilder.Entity("ECommerceApi.Entities.IadeTalebi", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Durum")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("IadeKargoFirma")
-                        .HasColumnType("text");
-
-                    b.Property<string>("IadeKargoKodu")
-                        .HasColumnType("text");
-
-                    b.Property<string>("IadeSebebi")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("KullaniciId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("MagazaId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("OlusturulmaTarihi")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("RedSebebi")
-                        .HasColumnType("text");
-
-                    b.Property<int>("SiparisDetayId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("KullaniciId");
-
-                    b.HasIndex("MagazaId");
-
-                    b.HasIndex("SiparisDetayId");
-
-                    b.ToTable("IadeTalepleri");
                 });
 
             modelBuilder.Entity("ECommerceApi.Entities.Karturun", b =>
@@ -693,33 +648,6 @@ namespace ECommerceApi.Migrations
                     b.Navigation("Kullanicilar");
 
                     b.Navigation("Urunler");
-                });
-
-            modelBuilder.Entity("ECommerceApi.Entities.IadeTalebi", b =>
-                {
-                    b.HasOne("ECommerceApi.Entities.Kullanicilar", "Kullanici")
-                        .WithMany()
-                        .HasForeignKey("KullaniciId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("ECommerceApi.Entities.Magaza", "Magaza")
-                        .WithMany()
-                        .HasForeignKey("MagazaId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("ECommerceApi.Entities.SiparisDetay", "SiparisDetay")
-                        .WithMany()
-                        .HasForeignKey("SiparisDetayId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Kullanici");
-
-                    b.Navigation("Magaza");
-
-                    b.Navigation("SiparisDetay");
                 });
 
             modelBuilder.Entity("ECommerceApi.Entities.Karturun", b =>

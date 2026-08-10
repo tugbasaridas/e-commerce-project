@@ -6,8 +6,7 @@ import axios from 'axios';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface KullaniciBilgileri {
   adSoyad: string; 
@@ -77,7 +76,7 @@ export default function Profil() {
   // --- 1. DURUM: GİRİŞ YAPMAMIŞSA (MİSAFİR) ---
   if (!token) {
     return (
-      <SafeAreaView style={[styles.containerMerkez, { backgroundColor: colors.background }]}>
+      <View style={[styles.containerMerkez, { backgroundColor: colors.background }]}>
         <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
         <View style={styles.misafirIkonAlan}>
           <Ionicons name="person-outline" size={60} color="#FFB800" />
@@ -87,140 +86,157 @@ export default function Profil() {
         <TouchableOpacity style={styles.girisButon} onPress={() => router.push('/(auth)/giris' as any)}>
           <Text style={styles.girisButonYazi}>Giriş Yap / Kayıt Ol</Text>
         </TouchableOpacity>
-      </SafeAreaView>
+      </View>
     );
   }
 
   // --- 2. DURUM: GİRİŞ YAPMIŞSA (KULLANICI) ---
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
       
-      <Text style={[styles.sayfaBasligi, { color: colors.text }]}>Profilim</Text>
-      
-      {/* PROFİL KARTI */}
-      <View style={[styles.profilKart, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={styles.profilAvatar}>
-          <Text style={styles.avatarHarf}>
-            {kullanici?.adSoyad ? kullanici.adSoyad.charAt(0).toUpperCase() : 'U'}
-          </Text>
-        </View>
+      {/* 🌟 SCROLLVIEW Kapsayıcısı: Üst boşluk düzeltildi, alt kısımlar Navbar altında kalmayacak */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollIcerik}>
         
-        <View style={styles.profilDetay}>
-          <Text style={[styles.kullaniciBaslik, { color: colors.text }]}>
-            {kullanici ? kullanici.adSoyad : 'Yükleniyor...'}
-          </Text>
-          
-          <View style={styles.bilgiSatiri}>
-            <Ionicons name="mail-outline" size={14} color={colors.textMuted} />
-            <Text style={[styles.mailMetni, { color: colors.textMuted }]}>{kullanici?.email || 'Bilgi Yok'}</Text>
-          </View>
-
-          <View style={[styles.rolRozet, role === 'Admin' ? styles.rolAdmin : styles.rolKullanici]}>
-            <Ionicons name={role === 'Admin' ? "shield-checkmark" : "person"} size={12} color={role === 'Admin' ? "#fff" : "#FFB800"} />
-            <Text style={[styles.rolRozetYazi, role === 'Admin' && {color: '#fff'}]}>
-              {role === 'Admin' ? 'Yönetici' : 'Standart Üye'}
+        <Text style={[styles.sayfaBasligi, { color: colors.text }]}>Profilim</Text>
+        
+        {/* PROFİL KARTI */}
+        <View style={[styles.profilKart, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.profilAvatar}>
+            <Text style={styles.avatarHarf}>
+              {kullanici?.adSoyad ? kullanici.adSoyad.charAt(0).toUpperCase() : 'U'}
             </Text>
           </View>
-        </View>
-
-        {/* ÇIKIŞ YAP BUTONU */}
-        <TouchableOpacity style={[styles.kartIciCikisButon, { backgroundColor: theme === 'dark' ? '#3A1A1A' : '#FFF0F0', borderColor: theme === 'dark' ? '#5A2A2A' : '#FFE0E0' }]} onPress={cikisYap}>
-          <Ionicons name="log-out-outline" size={24} color="#FF4757" />
-        </TouchableOpacity>
-      </View>
-
-      {/* MENÜ ALANI */}
-      <View style={styles.menuAlani}>
-        
-        {/* 🌟 BAŞLIK VE TEK TUŞLA TEMA DEĞİŞTİRİCİ (SAĞ TARAF) */}
-        <View style={styles.menuHeaderSatiri}>
-          <Text style={[styles.menuBaslik, { color: colors.text }]}>Hesap Ayarları</Text>
           
-          <TouchableOpacity 
-            onPress={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            style={[styles.tekliTemaButon, { backgroundColor: theme === 'dark' ? '#2C2C2E' : '#FFF3E0', borderColor: colors.border }]}
-            activeOpacity={0.7}
-          >
-            <Ionicons 
-              name={theme === 'dark' ? 'moon' : 'sunny'} 
-              size={18} 
-              color={theme === 'dark' ? '#0A84FF' : '#FFB800'} 
-            />
-            <Text style={[styles.tekliTemaYazi, { color: theme === 'dark' ? '#0A84FF' : '#FFB800' }]}>
-              {theme === 'dark' ? 'Gece' : 'Gündüz'}
+          <View style={styles.profilDetay}>
+            <Text style={[styles.kullaniciBaslik, { color: colors.text }]}>
+              {kullanici ? kullanici.adSoyad : 'Yükleniyor...'}
             </Text>
+            
+            <View style={styles.bilgiSatiri}>
+              <Ionicons name="mail-outline" size={14} color={colors.textMuted} />
+              <Text style={[styles.mailMetni, { color: colors.textMuted }]}>{kullanici?.email || 'Bilgi Yok'}</Text>
+            </View>
+
+            <View style={[styles.rolRozet, role === 'Admin' ? styles.rolAdmin : styles.rolKullanici]}>
+              <Ionicons name={role === 'Admin' ? "shield-checkmark" : "person"} size={12} color={role === 'Admin' ? "#fff" : "#FFB800"} />
+              <Text style={[styles.rolRozetYazi, role === 'Admin' && {color: '#fff'}]}>
+                {role === 'Admin' ? 'Yönetici' : 'Standart Üye'}
+              </Text>
+            </View>
+          </View>
+
+          {/* ÇIKIŞ YAP BUTONU */}
+          <TouchableOpacity style={[styles.kartIciCikisButon, { backgroundColor: theme === 'dark' ? '#3A1A1A' : '#FFF0F0', borderColor: theme === 'dark' ? '#5A2A2A' : '#FFE0E0' }]} onPress={cikisYap}>
+            <Ionicons name="log-out-outline" size={24} color="#FF4757" />
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={[styles.menuButon, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => router.push('/(tabs)/siparislerim' as any)}>
-          <View style={styles.menuSol}>
-            <View style={[styles.menuIkonKutu, {backgroundColor: '#FFF3E0'}]}>
-              <Ionicons name="cube-outline" size={20} color="#FFB800" />
-            </View>
-            <Text style={[styles.menuYazi, { color: colors.text }]}>Siparişlerim</Text>
+        {/* MENÜ ALANI */}
+        <View style={styles.menuAlani}>
+          
+          {/* BAŞLIK VE TEK TUŞLA TEMA DEĞİŞTİRİCİ */}
+          <View style={styles.menuHeaderSatiri}>
+            <Text style={[styles.menuBaslik, { color: colors.text }]}>Hesap Ayarları</Text>
+            
+            <TouchableOpacity 
+              onPress={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              style={[styles.tekliTemaButon, { backgroundColor: theme === 'dark' ? '#2C2C2E' : '#FFF3E0', borderColor: colors.border }]}
+              activeOpacity={0.7}
+            >
+              <Ionicons 
+                name={theme === 'dark' ? 'moon' : 'sunny'} 
+                size={18} 
+                color={theme === 'dark' ? '#0A84FF' : '#FFB800'} 
+              />
+              <Text style={[styles.tekliTemaYazi, { color: theme === 'dark' ? '#0A84FF' : '#FFB800' }]}>
+                {theme === 'dark' ? 'Gece' : 'Gündüz'}
+              </Text>
+            </TouchableOpacity>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-        </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.menuButon, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => router.push('/(tabs)/kuponlarim' as any)}>
-          <View style={styles.menuSol}>
-            <View style={[styles.menuIkonKutu, {backgroundColor: '#FFF8E1'}]}>
-              <Ionicons name="ticket-outline" size={20} color="#F57C00" />
-            </View>
-            <Text style={[styles.menuYazi, { color: colors.text }]}>Kuponlarım</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.menuButon, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => router.push('/favoriler' as any)}>
-          <View style={styles.menuSol}>
-            <View style={[styles.menuIkonKutu, {backgroundColor: '#E3F2FD'}]}>
-              <Ionicons name="heart-outline" size={20} color="#1565C0" />
-            </View>
-            <Text style={[styles.menuYazi, { color: colors.text }]}>Favorilerim</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.menuButon, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => router.push('/kayitliBilgilerim' as any)}>
-          <View style={styles.menuSol}>
-            <View style={[styles.menuIkonKutu, {backgroundColor: '#EFEBE9'}]}>
-              <Ionicons name="card-outline" size={20} color="#5D4037" />
-            </View>
-            <Text style={[styles.menuYazi, { color: colors.text }]}>Kayıtlı Kart & Adreslerim</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.menuButon, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => router.push('/destek' as any)}>
-          <View style={styles.menuSol}>
-            <View style={[styles.menuIkonKutu, {backgroundColor: '#F3E5F5'}]}>
-              <Ionicons name="headset-outline" size={20} color="#7B1FA2" />
-            </View>
-            <Text style={[styles.menuYazi, { color: colors.text }]}>Yardım ve Destek</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-        </TouchableOpacity>
-
-        {role === 'Admin' && (
-          <TouchableOpacity style={[styles.menuButon, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => router.push('/(admin)' as any)}>
+          <TouchableOpacity style={[styles.menuButon, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => router.push('/(tabs)/siparislerim' as any)}>
             <View style={styles.menuSol}>
-              <View style={[styles.menuIkonKutu, {backgroundColor: '#E8F5E9'}]}>
-                <Ionicons name="settings-outline" size={20} color="#2E7D32" />
+              <View style={[styles.menuIkonKutu, {backgroundColor: '#FFF3E0'}]}>
+                <Ionicons name="cube-outline" size={20} color="#FFB800" />
               </View>
-              <Text style={[styles.menuYazi, { color: colors.text }]}>Admin Paneli</Text>
+              <Text style={[styles.menuYazi, { color: colors.text }]}>Siparişlerim</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
           </TouchableOpacity>
-        )}
-      </View>
-    </SafeAreaView>
+
+          <TouchableOpacity style={[styles.menuButon, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => router.push('/(tabs)/kuponlarim' as any)}>
+            <View style={styles.menuSol}>
+              <View style={[styles.menuIkonKutu, {backgroundColor: '#FFF8E1'}]}>
+                <Ionicons name="ticket-outline" size={20} color="#F57C00" />
+              </View>
+              <Text style={[styles.menuYazi, { color: colors.text }]}>Kuponlarım</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.menuButon, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => router.push('/iade-taleplerim' as any)}>
+            <View style={styles.menuSol}>
+              <View style={[styles.menuIkonKutu, { backgroundColor: '#E3F2FD' }]}>
+                <Ionicons name="return-down-back" size={20} color="#1565C0" />
+              </View>
+              <Text style={[styles.menuYazi, { color: colors.text }]}>İade Taleplerim</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.menuButon, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => router.push('/kayitliBilgilerim' as any)}>
+            <View style={styles.menuSol}>
+              <View style={[styles.menuIkonKutu, {backgroundColor: '#EFEBE9'}]}>
+                <Ionicons name="card-outline" size={20} color="#5D4037" />
+              </View>
+              <Text style={[styles.menuYazi, { color: colors.text }]}>Kayıtlı Kart & Adreslerim</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          {/* ŞİFRE DEĞİŞTİR BUTONU */}
+          <TouchableOpacity style={[styles.menuButon, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => router.push('/sifre-degistir' as any)}>
+            <View style={styles.menuSol}>
+              <View style={[styles.menuIkonKutu, {backgroundColor: '#FFF4E5'}]}>
+                <Ionicons name="lock-closed-outline" size={20} color="#FF9F00" />
+              </View>
+              <Text style={[styles.menuYazi, { color: colors.text }]}>Şifre Değiştir</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.menuButon, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => router.push('/destek' as any)}>
+            <View style={styles.menuSol}>
+              <View style={[styles.menuIkonKutu, {backgroundColor: '#F3E5F5'}]}>
+                <Ionicons name="headset-outline" size={20} color="#7B1FA2" />
+              </View>
+              <Text style={[styles.menuYazi, { color: colors.text }]}>Yardım ve Destek</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          {role === 'Admin' && (
+            <TouchableOpacity style={[styles.menuButon, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => router.push('/(admin)' as any)}>
+              <View style={styles.menuSol}>
+                <View style={[styles.menuIkonKutu, {backgroundColor: '#E8F5E9'}]}>
+                  <Ionicons name="settings-outline" size={20} color="#2E7D32" />
+                </View>
+                <Text style={[styles.menuYazi, { color: colors.text }]}>Admin Paneli</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 20, paddingTop: 10 },
+  container: { flex: 1 },
+  scrollIcerik: { paddingHorizontal: 20, paddingTop: 50, paddingBottom: 110 }, // 🌟 Üstten ideal boşluk, alttan navbar payı bırakıldı
   containerMerkez: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
   
   misafirIkonAlan: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#FFF3E0', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
@@ -255,7 +271,7 @@ const styles = StyleSheet.create({
   
   kartIciCikisButon: { padding: 10, borderRadius: 12, borderWidth: 1, justifyContent: 'center', alignItems: 'center', marginLeft: 10 },
 
-  menuAlani: { flex: 1 },
+  menuAlani: { width: '100%' },
   
   menuHeaderSatiri: { 
     flexDirection: 'row', 
@@ -266,7 +282,6 @@ const styles = StyleSheet.create({
   },
   menuBaslik: { fontSize: 16, fontWeight: 'bold' },
   
-  // KÜÇÜK TEKLİ TEMA BUTONU STİLLERİ
   tekliTemaButon: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -239,8 +239,7 @@ export default function SaticiSiparisler() {
                       const mevcutDurum = urun.durum || urun.Durum;
                       const urunDurumStil = getDurumStili(mevcutDurum);
                       
-                      // 🌟 Bitiş statülerinden biriyse buton kilitlenecek
-                      const islemBittiMi = ['Tamamlandı', 'Teslim Edildi', 'İptal', 'İptal Edildi'].includes(mevcutDurum);
+                      const islemBittiMi = ['Tamamlandı', 'Teslim Edildi', 'İptal', 'İptal Edildi', 'İade Bekliyor', 'İncelemede', 'İade Edildi'].includes(mevcutDurum);
 
                       return (
                         <View key={index} style={styles.urunSatiriKapsayici}>
@@ -267,7 +266,7 @@ export default function SaticiSiparisler() {
                           ) : (
                             <View style={[styles.guncelleButon, { backgroundColor: '#F2F2F7', elevation: 0, shadowOpacity: 0 }]}>
                               <Ionicons name="lock-closed-outline" size={16} color="#8E8E93" style={{marginRight: 4}}/>
-                              <Text style={[styles.guncelleButonYazi, { color: '#8E8E93' }]}>İşlem Tamamlandı</Text>
+                              <Text style={[styles.guncelleButonYazi, { color: '#8E8E93' }]}>İşlem Tamamlandı / Kilitli</Text>
                             </View>
                           )}
                         </View>
@@ -312,8 +311,11 @@ export default function SaticiSiparisler() {
             <Text style={styles.modalBaslik}>Sipariş Durumu Güncelle</Text>
             <Text style={styles.modalUrunAd} numberOfLines={2}>{seciliUrun?.ad || seciliUrun?.Ad}</Text>
             
+            {/* 🌟 DİNAMİK MODAL BUTONLARI (Hazırlanıyorsa farklı, Kargodaysa farklı) */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 15, maxHeight: 40 }}>
-              {['Hazırlanıyor', 'Kargoya Verildi', 'Tamamlandı', 'İptal Edildi'].map((d) => (
+              {(seciliUrun?.durum === 'Hazırlanıyor' || seciliUrun?.Durum === 'Hazırlanıyor' 
+                ? ['Hazırlanıyor', 'Kargoya Verildi', 'İptal Edildi'] 
+                : ['Kargoya Verildi', 'Tamamlandı']).map((d) => (
                 <TouchableOpacity 
                   key={d} 
                   style={[styles.modalDurumChip, yeniDurum === d && styles.modalDurumChipAktif]}
