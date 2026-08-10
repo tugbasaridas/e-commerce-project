@@ -4,13 +4,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, LayoutAnimation, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function IadeTaleplerim() {
   const router = useRouter();
   const [iadeler, setIadeler] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // 🌟 Arama için state'ler
+  const [aramaAktif, setAramaAktif] = useState(false);
+  const [aramaMetni, setAramaMetni] = useState('');
 
   useEffect(() => {
     iadeleriGetir();
@@ -39,6 +43,21 @@ export default function IadeTaleplerim() {
       default: return { bg: '#F5F5F5', text: '#9E9E9E', ikon: 'help-circle-outline' };
     }
   };
+
+  // 🌟 Arama butonuna tıklandığında çalışacak animasyonlu açma/kapama fonksiyonu
+  const toggleArama = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setAramaAktif(!aramaAktif);
+    if (aramaAktif) setAramaMetni(''); // Kapatılırsa metni temizle
+  };
+
+  const filtrelenmisIadeler = iadeler.filter(iade => {
+    const arama = aramaMetni.toLowerCase();
+    const urunEslesiyor = iade.urunAdi?.toLowerCase().includes(arama);
+    const magazaEslesiyor = iade.magazaAdi?.toLowerCase().includes(arama);
+    const siparisEslesiyor = iade.siparisId?.toString().includes(arama);
+    return urunEslesiyor || magazaEslesiyor || siparisEslesiyor;
+  });
 
   const renderIadeKart = ({ item }: { item: any }) => {
     const durumStil = getDurumStili(item.durum);
@@ -73,27 +92,53 @@ export default function IadeTaleplerim() {
   };
 
   return (
-    // 🌟 SafeAreaView edges eklenerek üst çentik ve saat alanı korumaya alındı
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.geriButon} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
+        
         <Text style={styles.headerBaslik}>İade Taleplerim</Text>
-        <View style={{width: 24}} />
+        
+        {/* 🌟 Sağ üst köşedeki animasyonlu arama ikonu */}
+        {iadeler.length > 0 ? (
+          <TouchableOpacity onPress={toggleArama} style={styles.aramaIkonButon}>
+            <Ionicons name={aramaAktif ? "close" : "search"} size={22} color="#1C1C1E" />
+          </TouchableOpacity>
+        ) : (
+          <View style={{width: 38}} /> /* Hizalamayı korumak için boş kutu */
+        )}
       </View>
+
+      {/* 🌟 Arama aktif edildiğinde açılan giriş kutusu */}
+      {aramaAktif && (
+        <View style={styles.aramaKutusu}>
+          <TextInput
+            style={styles.aramaInput}
+            placeholder="Ürün adı, mağaza veya sipariş no ara..."
+            placeholderTextColor="#8E8E93"
+            value={aramaMetni}
+            onChangeText={setAramaMetni}
+            autoFocus={true} // Açıldığı gibi klavyeyi getirir
+            autoCorrect={false}
+          />
+        </View>
+      )}
 
       {loading ? (
         <ActivityIndicator size="large" color="#FF9F00" style={{ marginTop: 50 }} />
       ) : (
         <FlatList
-          data={iadeler}
+          data={filtrelenmisIadeler}
           renderItem={renderIadeKart}
           keyExtractor={(item) => item.iadeId.toString()}
           contentContainerStyle={{ padding: 15 }}
           ListEmptyComponent={
             <View style={styles.bosKutu}>
-              <Text style={styles.bosMetin}>Henüz bir iade talebiniz yok.</Text>
+              <Ionicons name="document-text-outline" size={60} color="#ccc" style={{ marginBottom: 15 }} />
+              <Text style={styles.bosMetin}>
+                {aramaAktif && aramaMetni ? "Aramanıza uygun iade talebi bulunamadı." : "Henüz bir iade talebiniz yok."}
+              </Text>
             </View>
           }
         />
@@ -104,7 +149,6 @@ export default function IadeTaleplerim() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FAFAFA' },
-  // 🌟 Header kısmına güvenli bir alt çizgi ve ferahlık eklendi
   header: { 
     flexDirection: 'row', 
     alignItems: 'center', 
@@ -117,6 +161,20 @@ const styles = StyleSheet.create({
   },
   geriButon: { padding: 4 },
   headerBaslik: { fontSize: 18, fontWeight: 'bold' },
+  
+  // 🌟 Arama Butonu ve Kutusu Stilleri
+  aramaIkonButon: { padding: 8, backgroundColor: '#F2F2F7', borderRadius: 20 },
+  aramaKutusu: { 
+    flexDirection: 'row', 
+    backgroundColor: '#F0F0F5', 
+    padding: 12, 
+    marginHorizontal: 15, 
+    borderRadius: 12, 
+    marginTop: 15, // Header ile arasına boşluk bırakıldı
+    marginBottom: 5 
+  },
+  aramaInput: { flex: 1, fontSize: 15, color: '#1C1C1E' },
+
   iadeKart: { backgroundColor: '#fff', padding: 15, borderRadius: 16, marginBottom: 15, borderWidth: 1, borderColor: '#eee' },
   kartUst: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
   siparisNo: { fontWeight: 'bold' },
@@ -126,12 +184,13 @@ const styles = StyleSheet.create({
   urunResim: { width: 60, height: 60, borderRadius: 8, backgroundColor: '#f0f0f0' },
   urunBilgi: { marginLeft: 15, flex: 1 },
   urunAdi: { fontWeight: '600' },
-  magazaAdi: { fontSize: 12, color: '#888' },
+  magazaAdi: { fontSize: 12, color: '#888', marginTop: 2 },
   iadeTutari: { fontWeight: 'bold', color: '#FF9F00', marginTop: 5 },
   kartAlt: { backgroundColor: '#f9f9f9', padding: 10, borderRadius: 8 },
   sebepBaslik: { fontSize: 11, fontWeight: 'bold', color: '#666' },
-  sebepMetin: { fontSize: 13 },
-  redSebebi: { color: 'red', fontSize: 12, marginTop: 5 },
-  bosKutu: { alignItems: 'center', marginTop: 100 },
-  bosMetin: { color: '#888' }
+  sebepMetin: { fontSize: 13, marginTop: 4 },
+  redSebebi: { color: 'red', fontSize: 12, marginTop: 5, fontWeight: '500' },
+  
+  bosKutu: { alignItems: 'center', marginTop: 80 },
+  bosMetin: { color: '#888', fontSize: 15, textAlign: 'center' }
 });
