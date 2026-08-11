@@ -20,7 +20,6 @@ const BildirimRozeti = ({ sayi }: { sayi: number }) => {
 
 export default function AdminIslemler() {
   const router = useRouter();
-  // YENİ: Backend'deki istatistik (ve bildirim) sayılarını çeken hook'umuzu dahil ettik
   const { stats } = useAdminDashboard();
 
   const cikisYap = async () => {
@@ -137,7 +136,7 @@ export default function AdminIslemler() {
           <Text style={styles.cardDesc}>Gelen soruları ve talepleri anında yanıtla</Text>
         </TouchableOpacity>
 
-        {/* KUPON YÖNETİMİ (YENİ EKLENEN) */}
+        {/* KUPON YÖNETİMİ */}
         <TouchableOpacity style={styles.card} activeOpacity={0.7} onPress={() => router.push('/admin-kupon' as any)}>
           <View style={styles.cardTop}>
             <View style={[styles.iconBox, { backgroundColor: '#FFF3E0' }]}>
@@ -147,6 +146,18 @@ export default function AdminIslemler() {
           </View>
           <Text style={styles.cardTitle}>Kupon Yönetimi</Text>
           <Text style={styles.cardDesc}>Sisteme özel indirim kuponları oluştur ve yönet</Text>
+        </TouchableOpacity>
+
+        {/* 🌟 VİTRİN YÖNETİMİ (YENİ KART) */}
+        <TouchableOpacity style={styles.card} activeOpacity={0.7} onPress={() => router.push('/admin-vitrin' as any)}>
+          <View style={styles.cardTop}>
+            <View style={[styles.iconBox, { backgroundColor: '#EDE7F6' }]}>
+              <Ionicons name="images" size={26} color="#673AB7" />
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#D1D1D6" />
+          </View>
+          <Text style={styles.cardTitle}>Vitrin Yönetimi</Text>
+          <Text style={styles.cardDesc}>Ana sayfa banner ve afişlerini düzenle</Text>
         </TouchableOpacity>
 
       </View>
@@ -170,7 +181,6 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 16, fontWeight: '700', color: '#1C1C1E', marginBottom: 6 },
   cardDesc: { fontSize: 12, color: '#8E8E93', lineHeight: 18 },
   
-  // YENİ EKLENEN BİLDİRİM (BADGE) STİLLERİ
   badgeContainer: {
     backgroundColor: '#FF3B30',
     minWidth: 24,

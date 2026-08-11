@@ -8,9 +8,8 @@ namespace ECommerceApi.Services;
 public class AdminService : IAdminService
 {
     private readonly AppDbContext _db;
-    private readonly IBildirimService _bildirimService; // 🌟 YENİ EKLENDİ: Bildirim Servisi
+    private readonly IBildirimService _bildirimService; 
 
-    // 🌟 Constructor'a IBildirimService eklendi
     public AdminService(AppDbContext db, IBildirimService bildirimService)
     {
         _db = db;
@@ -60,7 +59,6 @@ public class AdminService : IAdminService
         var simdikiYil = DateTime.UtcNow.Year;
         var simdikiAy = DateTime.UtcNow.Month;
 
-        // 🌟 ÇÖZÜM BURADA: Siparişleri önce HAM haliyle C# tarafına çekiyoruz!
         var basariliSiparisler = await _db.Siparisler
             .Include(s => s.Detaylar!)
                 .ThenInclude(d => d.Urunler)
@@ -68,17 +66,30 @@ public class AdminService : IAdminService
             .Where(s => s.Durum == "Tamamlandı" || s.Durum == "Teslim Edildi")
             .ToListAsync(); 
 
-        // 🌟 Bütün matematiksel işlemleri RAM üzerinde (güvenli bir şekilde) yapıyoruz
-        var toplamCiro = Math.Round(basariliSiparisler.Sum(s => s.ToplamTutar), 2);
+        // 🌟 YENİ: İptal ve İade edilen ürünleri cirodan net bir şekilde düşüren hesaplama aracı
+        var netCiroHesapla = (Siparis s) => {
+            decimal iptalVeIadeTutari = s.Detaylar!
+                .Where(d => d.Durum == "İptal" || d.Durum == "İptal Edildi" || d.Durum == "İade Edildi")
+                .Sum(d => d.Adet * d.BirimFiyat);
+                
+            decimal hamToplam = s.Detaylar!.Sum(d => d.Adet * d.BirimFiyat);
+            decimal gecerliOran = hamToplam > 0 ? (hamToplam - iptalVeIadeTutari) / hamToplam : 0;
+            return s.ToplamTutar * gecerliOran;
+        };
+
+        // 🌟 DÜZELTİLDİ: Net Ciro üzerinden toplamı buluyoruz
+        var toplamCiro = Math.Round(basariliSiparisler.Sum(s => netCiroHesapla(s)), 2);
         var platformKazanci = Math.Round(toplamCiro * 0.10m, 2);
         var basariliSiparisSayisi = basariliSiparisler.Count;
 
         var aylikCiro = Math.Round(basariliSiparisler
             .Where(s => s.SiparisTarihi.Year == simdikiYil && s.SiparisTarihi.Month == simdikiAy)
-            .Sum(s => s.ToplamTutar), 2);
+            .Sum(s => netCiroHesapla(s)), 2);
 
+        // 🌟 DÜZELTİLDİ: En çok satanlarda İptal ve İade edilen ürünler sayılmaz
         var enCokSatanlar = basariliSiparisler
             .SelectMany(s => s.Detaylar!) 
+            .Where(d => d.Durum != "İptal" && d.Durum != "İptal Edildi" && d.Durum != "İade Edildi")
             .GroupBy(d => new { 
                 d.UrunId, 
                 UrunAdi = d.Urunler != null ? d.Urunler.Ad : "Silinmiş Ürün",
@@ -118,6 +129,7 @@ public class AdminService : IAdminService
             bekleyenDestek = bekleyenDestekSayisi
         };
     }
+    
     public async Task<object> TumSiparisleriGetirAsync()
     {
         var siparisler = await _db.Siparisler
@@ -134,8 +146,9 @@ public class AdminService : IAdminService
 
         return siparisler.Select(x => 
         {
+            // 🌟 DÜZELTİLDİ: İade Edildi durumunu da cirodan düşme mantığına ekledik
             decimal iptalOlanTutar = x.Siparis.Detaylar!
-                .Where(d => d.Durum == "İptal" || d.Durum == "İptal Edildi")
+                .Where(d => d.Durum == "İptal" || d.Durum == "İptal Edildi" || d.Durum == "İade Edildi")
                 .Sum(d => d.Adet * d.BirimFiyat);
                 
             decimal hamToplam = x.Siparis.Detaylar!.Sum(d => d.Adet * d.BirimFiyat);
@@ -201,11 +214,13 @@ public class AdminService : IAdminService
         if (siparis != null && siparis.Detaylar != null)
         {
             var tumDurumlar = siparis.Detaylar.Select(d => d.Durum ?? "").ToList();
-            var gecerliDurumlar = tumDurumlar.Where(d => d != "İptal" && d != "İptal Edildi").ToList();
+            
+            // 🌟 DÜZELTİLDİ: "İade Edildi" durumu da ana siparişin genel durumunu olumsuz etkilememeli
+            var gecerliDurumlar = tumDurumlar.Where(d => d != "İptal" && d != "İptal Edildi" && d != "İade Edildi").ToList();
 
             if (gecerliDurumlar.Count == 0)
             {
-                // 1. KURAL: Bütün ürünler iptal edilmişse
+                // 1. KURAL: Bütün ürünler iptal/iade edilmişse
                 siparis.Durum = "İptal Edildi";
             }
             else if (gecerliDurumlar.Any(d => d == "Hazırlanıyor"))

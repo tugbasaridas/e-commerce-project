@@ -1,11 +1,12 @@
 import BildirimZili from '@/components/BildirimZili';
-import { useTheme } from '@/context/ThemeContext'; // 🌟 1. TEMA HOOK'U EKLENDİ
+import VitrinPopup from '@/components/VitrinPopup'; // 🌟 AÇILIŞ KAMPANYASI
+import { useTheme } from '@/context/ThemeContext';
 import { kategorileriGetir } from '@/services/KategoriService';
 import { urunleriGetir } from '@/services/UrunService';
 import { Kategori, Urun } from '@/types/Urun';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar'; // 🌟 Durum çubuğu için eklendi
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'; // 🌟 YENİ: useLocalSearchParams EKLENDİ
+import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,7 +15,8 @@ type SiralamaTipi = 'fiyatArtan' | 'fiyatAzalan' | 'puanYuksek' | null;
 
 export default function Anasayfa() {
   const router = useRouter();
-  const { theme, colors, setTheme } = useTheme(); // 🌟 2. TEMA DEĞİŞKENLERİ
+  const { kategoriId } = useLocalSearchParams(); // 🌟 YENİ: Dışarıdan gelen kategori parametresi
+  const { theme, colors, setTheme } = useTheme(); 
   
   const [tumUrunler, setTumUrunler] = useState<Urun[]>([]);
   const [gorunenUrunler, setGorunenUrunler] = useState<Urun[]>([]);
@@ -36,6 +38,7 @@ export default function Anasayfa() {
         .then(([urunData, kategoriData]) => {
           if (urunData) {
             setTumUrunler(urunData);
+            // Sadece normal güncellemeler için (İlk açılışta parametre varsa useEffect ezecek)
             filtreleriUygula(urunData, aramaMetni, seciliAltKategoriId, seciliAnaKategori?.id || null, siralama, sadeceIndirimli);
           }
           if (kategoriData) {
@@ -50,6 +53,40 @@ export default function Anasayfa() {
         });
     }, [aramaMetni, seciliAltKategoriId, seciliAnaKategori, siralama, sadeceIndirimli]) 
   );
+
+  // 🌟 YENİ: Popup'tan bir kategori yönlendirmesi geldiyse otomatik seç
+  React.useEffect(() => {
+    if (kategoriId && kategoriler.length > 0 && tumUrunler.length > 0) {
+      const kId = Number(kategoriId);
+      let anaKatObj = null;
+      let altKatId = null;
+
+      // 1. Gelen ID bir Ana Kategori mi diye bakıyoruz
+      const isAnaKat = kategoriler.find(k => k.id === kId);
+      
+      if (isAnaKat) {
+        anaKatObj = isAnaKat;
+      } else {
+        // 2. Ana kategori değilse, Alt Kategorilerin içinde arıyoruz
+        for (const kat of kategoriler) {
+          const isAltKat = kat.altKategoriler?.find((ak: any) => ak.id === kId);
+          if (isAltKat) {
+            anaKatObj = kat; // Üst kategoriyi seçili yap
+            altKatId = kId;  // Alt kategoriyi de seçili yap
+            break;
+          }
+        }
+      }
+
+      // Bulduğumuz kategorileri State'e ve Filtreye uyguluyoruz
+      setSeciliAnaKategori(anaKatObj);
+      setSeciliAltKategoriId(altKatId);
+      filtreleriUygula(tumUrunler, aramaMetni, altKatId, anaKatObj?.id || null, siralama, sadeceIndirimli);
+
+      // Müşteri sayfayı gezerken takılı kalmasın diye URL parametresini sıfırla
+      router.setParams({ kategoriId: '' });
+    }
+  }, [kategoriId, kategoriler, tumUrunler]);
 
   const filtreleriUygula = (liste: Urun[], aranan: string, altKategoriId: number | null, anaKategoriId: number | null, seciliSiralama: SiralamaTipi, indirimliMi: boolean) => {
     let sonuc = [...liste]; 
@@ -134,6 +171,11 @@ export default function Anasayfa() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+      
+      {/* ======================================================== */}
+      {/* 🌟 VİTRİN POPUP KAMPANYASI (Sayfa açılınca otomatik gelir) */}
+      {/* ======================================================== */}
+      <VitrinPopup />
       
       <View style={styles.ustAlan}>
         {/* 🌟 BAŞLIK, TEMA BUTONU VE BİLDİRİM ZİLİ YAN YANA */}
@@ -332,7 +374,6 @@ const styles = StyleSheet.create({
   },
   hosgeldinYazi: { fontSize: 26, fontWeight: 'bold' },
   
-  // TEKLİ TEMA BUTONU STİLİ
   tekliTemaButon: {
     flexDirection: 'row',
     alignItems: 'center',

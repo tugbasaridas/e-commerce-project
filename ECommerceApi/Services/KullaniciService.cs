@@ -225,4 +225,38 @@ public class KullaniciService : IKullaniciService
         rng.GetBytes(randomNumber);
         return Convert.ToBase64String(randomNumber);
     }
+
+    public async Task<(bool Basarili, string Mesaj)> SifreDegistirAsync(int kullaniciId, SifreDegistirDTO dto)
+    {
+        if (dto.YeniSifre != dto.YeniSifreTekrar)
+            return (false, "Yeni şifreler birbiriyle uyuşmuyor.");
+
+        if (dto.YeniSifre.Length < 6)
+            return (false, "Yeni şifreniz en az 6 karakter olmalıdır.");
+
+        // 🌟 YENİ EKLENEN KONTROL: En az 1 büyük harf zorunluluğu
+        if (!dto.YeniSifre.Any(char.IsUpper))
+            return (false, "Yeni şifreniz en az 1 büyük harf içermelidir.");
+
+        var kullanici = await _db.Kullanicilar.FindAsync(kullaniciId);
+        if (kullanici == null)
+            return (false, "Kullanıcı bulunamadı.");
+
+        // KURAL 1: Eski şifre doğru mu?
+        bool eskiSifreDogruMu = BCrypt.Net.BCrypt.Verify(dto.EskiSifre, kullanici.SifreHash);
+        if (!eskiSifreDogruMu)
+            return (false, "Mevcut şifrenizi yanlış girdiniz. Lütfen tekrar deneyin.");
+
+        // KURAL 2: Yeni şifre, eski şifreyle aynı olmamalı!
+        bool sifreAyniMi = BCrypt.Net.BCrypt.Verify(dto.YeniSifre, kullanici.SifreHash);
+        if (sifreAyniMi)
+            return (false, "Güvenliğiniz için yeni şifreniz, mevcut şifrenizle aynı olamaz.");
+
+        // Kurallardan geçildi, şifreyi güncelle ve veritabanına kaydet
+        kullanici.SifreHash = BCrypt.Net.BCrypt.HashPassword(dto.YeniSifre);
+        
+        await _db.SaveChangesAsync();
+
+        return (true, "Şifreniz başarıyla güncellendi.");
+    }
 }

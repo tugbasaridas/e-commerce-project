@@ -105,4 +105,27 @@ public class KullanicilarController : ControllerBase
 
         return Ok(new { Mesaj = sonuc.Mesaj });
     }
+
+    [HttpPut("sifre-degistir")]
+    [Authorize] // Sadece giriş yapmış, geçerli token'ı olanlar erişebilir
+    public async Task<IActionResult> SifreDegistir([FromBody] SifreDegistirDTO dto)
+    {
+        // 🌟 KRİTİK: Token içerisinden Kullanıcı ID'sini iki farklı standartla (NameIdentifier veya Sub) okumayı dener.
+        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                        ?? User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+
+        if (string.IsNullOrEmpty(userIdString) || !int.TryParse(userIdString, out int userId))
+        {
+            return Unauthorized(new { Mesaj = "Kullanıcı kimliği doğrulanamadı. Lütfen uygulamadan çıkış yapıp tekrar girin." });
+        }
+
+        var sonuc = await _kullaniciService.SifreDegistirAsync(userId, dto);
+
+        if (!sonuc.Basarili)
+        {
+            return BadRequest(new { Mesaj = sonuc.Mesaj });
+        }
+
+        return Ok(new { Mesaj = sonuc.Mesaj });
+    }
 }

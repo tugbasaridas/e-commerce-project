@@ -1,11 +1,11 @@
-import { useTheme } from '@/context/ThemeContext'; // 🌟 TEMA HOOK'U EKLENDİ
+import { useTheme } from '@/context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Tabs, usePathname } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 
 export default function TabLayout() {
-  const { colors } = useTheme(); // 🌟 TEMA DEĞİŞKENLERİ ÇAĞRILDI
+  const { colors } = useTheme(); 
   const [girisYapildiMi, setGirisYapildiMi] = useState(false);
   const pathname = usePathname();
 
@@ -24,12 +24,12 @@ export default function TabLayout() {
   return (
     <Tabs 
       screenOptions={{ 
-        tabBarActiveTintColor: colors.primary, // 🌟 Aktif ikon rengi temadan gelir
-        tabBarInactiveTintColor: colors.textMuted, // 🌟 Pasif ikon rengi
+        tabBarActiveTintColor: colors.primary, 
+        tabBarInactiveTintColor: colors.textMuted, 
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: colors.card, // 🌟 Alt menü arkaplanı temaya göre değişir
-          borderTopColor: colors.border, // 🌟 Üst çizgi rengi
+          backgroundColor: colors.card, 
+          borderTopColor: colors.border, 
         }
       }}
     >
@@ -63,23 +63,23 @@ export default function TabLayout() {
         }} 
       />
 
-      {/* 4. SİPARİŞLERİM (Sadece giriş yapıldığında aktif link) */}
+      {/* 4. SİPARİŞLERİM (Navbar'dan tamamen gizlendi) */}
       <Tabs.Screen
         name="siparislerim"
         options={{
           title: 'Siparişlerim',
           tabBarIcon: ({ color }) => <Ionicons name="receipt-outline" size={24} color={color} />,
-          href: girisYapildiMi ? '/(tabs)/siparislerim' : null,
+          href: null, // 🌟 Her durumda gizlendi
         }}
       />
 
-      {/* 5. KUPONLARIM (Sadece giriş yapıldığında aktif link) */}
+      {/* 5. KUPONLARIM (Navbar'dan tamamen gizlendi) */}
       <Tabs.Screen
         name="kuponlarim"
         options={{
           title: 'Kuponlarım',
           tabBarIcon: ({ color }) => <Ionicons name="ticket-outline" size={24} color={color} />,
-          href: girisYapildiMi ? '/(tabs)/kuponlarim' : null,
+          href: null, // 🌟 Her durumda gizlendi
         }}
       />
       
@@ -92,10 +92,11 @@ export default function TabLayout() {
         }}
       />
 
+      {/* 7. BİLDİRİMLER (Navbar'dan tamamen gizlendi) */}
       <Tabs.Screen
         name="bildirimler"
         options={{
-          href: null, // Bu özellik sayesinde alt menüde ASLA görünmez
+          href: null, 
         }}
       />
       

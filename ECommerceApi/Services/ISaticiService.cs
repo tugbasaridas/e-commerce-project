@@ -14,4 +14,8 @@ public interface ISaticiService
     Task<(bool Basarili, string Mesaj)> SiparisDetayDurumGuncelleAsync(int kullaniciId, int detayId, SiparisDetayGuncelleDTO dto);
     Task<(bool Basarili, string Mesaj)> IndirimYapAsync(int kullaniciId, int urunId, decimal yeniFiyat, int saat);
     Task<(bool Basarili, string Mesaj)> IndirimiKaldirAsync(int kullaniciId, int urunId);
+    Task<object> SaticiProfilBilgisiGetirAsync(int kullaniciId);
+    Task<(bool Basarili, string Mesaj)> SaticiIadeDurumGuncelleAsync(int kullaniciId, IadeDurumGuncelleDto dto);
+    Task<object> SaticiIadeTalepleriniGetirAsync(int kullaniciId);
+
 }

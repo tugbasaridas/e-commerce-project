@@ -13,12 +13,12 @@ namespace ECommerceApi.Controllers;
 public class SaticiController : ControllerBase
 {
     private readonly ISaticiService _saticiService;
-    private readonly AppDbContext _context; // YENİ: Context eklendi
+    private readonly AppDbContext _context; 
 
     public SaticiController(ISaticiService saticiService, AppDbContext context)
     {
         _saticiService = saticiService;
-        _context = context; // YENİ: Dependency injection ile bağlandı
+        _context = context; 
     }
 
     [HttpPost("basvuru")]
@@ -128,6 +128,35 @@ public class SaticiController : ControllerBase
         return Ok(sonuc.Mesaj);
     }
 
+    // ==========================================
+    // 🌟 YENİ EKLENEN SATICI İADE ENDPOINT'LERİ
+    // ==========================================
+
+    [HttpGet("iadeler")]
+    [Authorize(Roles = "Satici")]
+    public async Task<IActionResult> SaticiIadeleriGetir()
+    {
+        int saticiId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        try
+        {
+            var iadeler = await _saticiService.SaticiIadeTalepleriniGetirAsync(saticiId);
+            return Ok(iadeler);
+        }
+        catch (Exception ex) { return BadRequest(ex.Message); }
+    }
+
+    [HttpPost("iade-durum")]
+    [Authorize(Roles = "Satici")]
+    public async Task<IActionResult> SaticiIadeDurumGuncelle([FromBody] IadeDurumGuncelleDto dto)
+    {
+        int saticiId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var sonuc = await _saticiService.SaticiIadeDurumGuncelleAsync(saticiId, dto);
+        if (!sonuc.Basarili) return BadRequest(sonuc.Mesaj);
+        return Ok(sonuc.Mesaj);
+    }
+
+    // ==========================================
+
     [HttpGet("yonetim/takipcilerim")]
     [Authorize(Roles = "Satici")]
     public async Task<IActionResult> TakipcilerimiGetir()
@@ -149,5 +178,18 @@ public class SaticiController : ControllerBase
             .ToListAsync();
 
         return Ok(takipciler);
+    }
+    
+    [HttpGet("profil")]
+    [Authorize(Roles = "Satici")]
+    public async Task<IActionResult> SaticiProfil()
+    {
+        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
+                        ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+        
+        if (userIdClaim == null) return Unauthorized();
+        
+        var sonuc = await _saticiService.SaticiProfilBilgisiGetirAsync(int.Parse(userIdClaim));
+        return Ok(sonuc);
     }
 }

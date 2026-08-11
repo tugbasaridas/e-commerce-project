@@ -18,4 +18,5 @@ public interface IKullaniciService
     // --- YENİ EKLENEN METOTLAR ---
     Task<(bool Basarili, string Mesaj)> SifremiUnuttumAsync(string email);
     Task<(bool Basarili, string Mesaj)> SifreSifirlaAsync(string email, string kod, string yeniSifre);
+    Task<(bool Basarili, string Mesaj)> SifreDegistirAsync(int kullaniciId, SifreDegistirDTO dto);
 }

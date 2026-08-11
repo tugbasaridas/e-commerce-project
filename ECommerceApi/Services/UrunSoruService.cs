@@ -105,7 +105,7 @@ public class UrunSoruService : IUrunSoruService
             .ToListAsync();
     }
 
-    public async Task<(bool Basarili, string Mesaj)> SoruCevaplaAsync(int saticiKullaniciId, int soruId, SoruCevaplaDTO dto)
+   public async Task<(bool Basarili, string Mesaj)> SoruCevaplaAsync(int saticiKullaniciId, int soruId, SoruCevaplaDTO dto)
     {
         var soru = await _db.UrunSorulari
             .Include(s => s.Urun)
@@ -122,20 +122,24 @@ public class UrunSoruService : IUrunSoruService
         soru.CevapTarihi = DateTime.UtcNow;
         soru.CevaplandiMi = true;
 
-   
         var yeniBildirim = new Bildirim
         {
             KullaniciId = soru.KullaniciId, // Soruyu soran müşterinin ID'si
             Baslik = "Ürün Sorunuza Cevap Verildi!",
             Icerik = $"{soru.Urun.Ad} ürününüz için sorduğunuz soru satıcı tarafından yanıtlandı.",
             Tarih = DateTime.UtcNow,
-            OkunduMu = false // Bu sayede zil kırmızı yanacak!
+            OkunduMu = false, // Bu sayede zil kırmızı yanacak!
+            
+            // ==========================================================
+            // 🌟 YENİ EKLENEN KRİTİK ALANLAR
+            // ==========================================================
+            BildirimTipi = "SoruCevap", // Frontend'deki mor mesaj baloncuğu ikonu için
+            YonlendirmeLinki = $"/detay?id={soru.UrunId}" // Tıklayınca ürünün detay sayfasına gitmesi için
         };
 
         _db.Bildirimler.Add(yeniBildirim);
-    
-
         await _db.SaveChangesAsync();
+        
         return (true, "Cevabınız başarıyla yayınlandı.");
     }
 }

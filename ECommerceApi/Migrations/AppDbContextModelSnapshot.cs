@@ -128,6 +128,54 @@ namespace ECommerceApi.Migrations
                     b.ToTable("Favoriler");
                 });
 
+            modelBuilder.Entity("ECommerceApi.Entities.IadeTalebi", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Durum")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("IadeKargoFirma")
+                        .HasColumnType("text");
+
+                    b.Property<string>("IadeKargoKodu")
+                        .HasColumnType("text");
+
+                    b.Property<string>("IadeSebebi")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("KullaniciId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MagazaId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("OlusturulmaTarihi")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RedSebebi")
+                        .HasColumnType("text");
+
+                    b.Property<int>("SiparisDetayId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KullaniciId");
+
+                    b.HasIndex("MagazaId");
+
+                    b.HasIndex("SiparisDetayId");
+
+                    b.ToTable("IadeTalepleri");
+                });
+
             modelBuilder.Entity("ECommerceApi.Entities.Karturun", b =>
                 {
                     b.Property<int>("Id")
@@ -606,6 +654,43 @@ namespace ECommerceApi.Migrations
                     b.ToTable("Urunler");
                 });
 
+            modelBuilder.Entity("ECommerceApi.Entities.VitrinBanner", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AktifMi")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Baslik")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("HedefId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("OlusturulmaTarihi")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ResimUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SiraNo")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("YonlendirmeTuru")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("VitrinBannerlar");
+                });
+
             modelBuilder.Entity("ECommerceApi.Entities.Bildirim", b =>
                 {
                     b.HasOne("ECommerceApi.Entities.Kullanicilar", "Kullanici")
@@ -645,6 +730,33 @@ namespace ECommerceApi.Migrations
                     b.Navigation("Kullanicilar");
 
                     b.Navigation("Urunler");
+                });
+
+            modelBuilder.Entity("ECommerceApi.Entities.IadeTalebi", b =>
+                {
+                    b.HasOne("ECommerceApi.Entities.Kullanicilar", "Kullanici")
+                        .WithMany()
+                        .HasForeignKey("KullaniciId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ECommerceApi.Entities.Magaza", "Magaza")
+                        .WithMany()
+                        .HasForeignKey("MagazaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ECommerceApi.Entities.SiparisDetay", "SiparisDetay")
+                        .WithMany()
+                        .HasForeignKey("SiparisDetayId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Kullanici");
+
+                    b.Navigation("Magaza");
+
+                    b.Navigation("SiparisDetay");
                 });
 
             modelBuilder.Entity("ECommerceApi.Entities.Karturun", b =>

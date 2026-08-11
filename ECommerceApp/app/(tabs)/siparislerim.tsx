@@ -7,7 +7,6 @@ import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, LayoutAnimation, Linking, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// YENİ EKLENEN İMPORT: Sipariş Durum Çubuğu Bileşeni
 import SiparisDurumCubugu from '@/components/SiparisDurumCubugu';
 
 export default function Siparislerim() {
@@ -77,6 +76,20 @@ export default function Siparislerim() {
     } as any);
   };
 
+  // 🌟 YENİ: MODAL YERİNE DİREKT SAYFAYA YÖNLENDİRME
+  const iadeSayfasinaGit = (urun: any, siparisId: string) => {
+    router.push({
+      pathname: '/iade-talep-olustur' as any,
+      params: {
+        detayId: String(urun.detayId),
+        urunAd: urun.ad,
+        resimUrl: urun.resimUrl || '',
+        fiyat: String(urun.satinAlinanFiyat),
+        siparisId: siparisId
+      }
+    });
+  };
+
   const tarihFormatla = (tarihString: string) => {
     const tarih = new Date(tarihString);
     return tarih.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -88,6 +101,7 @@ export default function Siparislerim() {
       case 'Kargoya Verildi': return { color: '#1E90FF', bgColor: '#E6F2FF', icon: 'cube-outline' };
       case 'Tamamlandı':
       case 'Teslim Edildi': return { color: '#28A745', bgColor: '#E8F5E9', icon: 'checkmark-circle-outline' };
+      case 'İade Bekliyor': return { color: '#FF9800', bgColor: '#FFF3E0', icon: 'return-down-back' };
       case 'İptal':
       case 'İptal Edildi': return { color: '#EF233C', bgColor: '#FFEBEA', icon: 'close-circle-outline' };
       default: return { color: '#6C757D', bgColor: '#F8F9FA', icon: 'information-circle-outline' };
@@ -137,7 +151,6 @@ export default function Siparislerim() {
           </View>
         </View>
 
-        {/* YENİ EKLENEN: SİPARİŞ DURUM ÇUBUĞU (TIMELINE) BURADA ÇAĞRILIYOR */}
         <SiparisDurumCubugu durum={item.durum} />
 
         <View style={styles.urunlerAlani}>
@@ -167,12 +180,21 @@ export default function Siparislerim() {
                   </TouchableOpacity>
                 )}
 
-                {urun.durum === 'Tamamlandı' && (
-                  <TouchableOpacity style={styles.degerlendirButon} onPress={() => urunDegerlendir(urun)}>
-                    <Ionicons name="star" size={16} color="#FF9F00" style={{marginRight: 6}}/>
-                    <Text style={styles.degerlendirButonYazi}>Ürünü Değerlendir / İncele</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#FF9F00" />
-                  </TouchableOpacity>
+                {(urun.durum === 'Tamamlandı' || urun.durum === 'Teslim Edildi') && (
+                  <View style={styles.aksiyonButonlariSira}>
+                    
+                    {/* 🌟 YENİ: ARTIK DİREKT SAYFAYA YÖNLENDİRİYOR */}
+                    <TouchableOpacity style={styles.iadeEtButon} onPress={() => iadeSayfasinaGit(urun, item.id)}>
+                      <Ionicons name="return-down-back" size={16} color="#E53935" style={{marginRight: 4}}/>
+                      <Text style={styles.iadeEtButonYazi}>İade Et</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.degerlendirButon} onPress={() => urunDegerlendir(urun)}>
+                      <Ionicons name="star" size={16} color="#FF9F00" style={{marginRight: 4}}/>
+                      <Text style={styles.degerlendirButonYazi}>Değerlendir</Text>
+                    </TouchableOpacity>
+
+                  </View>
                 )}
               </View>
             );
@@ -186,7 +208,6 @@ export default function Siparislerim() {
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             
-            {/* KUPON BİLGİSİ */}
             {item.kullanilanKuponKodu && (
               <View style={{alignItems: 'flex-end', marginBottom: 4}}>
                  <Text style={{fontSize: 11, color: '#28A745', fontWeight: 'bold'}}>
@@ -271,8 +292,11 @@ const styles = StyleSheet.create({
   adresYazi: { fontSize: 11, color: '#888', fontStyle: 'italic', marginTop: 4 },
   kargoButon: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E1F5FE', padding: 12, borderRadius: 10, marginTop: 10 },
   kargoButonYazi: { flex: 1, marginLeft: 6, fontWeight: 'bold', color: '#00529B', fontSize: 13 },
-  degerlendirButon: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF4E5', padding: 12, borderRadius: 10, marginTop: 10 },
-  degerlendirButonYazi: { flex: 1, fontWeight: 'bold', color: '#FF9F00', fontSize: 13 },
+  aksiyonButonlariSira: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, gap: 10 },
+  degerlendirButon: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF4E5', padding: 10, borderRadius: 10 },
+  degerlendirButonYazi: { fontWeight: 'bold', color: '#FF9F00', fontSize: 13 },
+  iadeEtButon: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFEBEE', padding: 10, borderRadius: 10 },
+  iadeEtButonYazi: { fontWeight: 'bold', color: '#E53935', fontSize: 13 },
   girisButon: { backgroundColor: 'orange', padding: 15, borderRadius: 10, marginTop: 20 },
   girisButonYazi: { color: '#fff', fontWeight: 'bold' },
   altMetin: { fontSize: 16, color: '#888' },

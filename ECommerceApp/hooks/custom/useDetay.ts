@@ -22,6 +22,36 @@ export const useDetay = (id: string | string[]) => {
   const [yorumMetni, setYorumMetni] = useState(''); 
   const [oyGonderiliyor, setOyGonderiliyor] = useState(false);
 
+  // 🌟 GÜNCELLENDİ: Orijinal fiyat ve indirimli fiyat doğru kaydediliyor
+  const sonGezilenlereEkle = async (aktifUrun: Urun) => {
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      const storageKey = userId ? `sonGezilenler_${userId}` : 'sonGezilenler_misafir';
+
+      const mevcutGecmis = await AsyncStorage.getItem(storageKey);
+      let liste = mevcutGecmis ? JSON.parse(mevcutGecmis) : [];
+
+      liste = liste.filter((item: any) => item.id !== aktifUrun.id);
+
+      liste.unshift({
+        id: aktifUrun.id,
+        ad: aktifUrun.ad,
+        // Eğer indirimli fiyat varsa güncel fiyat indirimliFiyat olur, orijinalFiyat ise normal fiyat olur
+        fiyat: aktifUrun.indirimliFiyat ?? aktifUrun.fiyat,
+        orijinalFiyat: aktifUrun.indirimliFiyat ? aktifUrun.fiyat : null, 
+        resimUrl: aktifUrun.resimUrl 
+      });
+
+      if (liste.length > 10) {
+        liste.pop(); 
+      }
+
+      await AsyncStorage.setItem(storageKey, JSON.stringify(liste));
+    } catch (error) {
+      console.log("Geçmişe eklerken hata:", error);
+    }
+  };
+
   useEffect(() => {
     const girisKontrol = async () => {
       const token = await AsyncStorage.getItem('userToken');
@@ -29,11 +59,11 @@ export const useDetay = (id: string | string[]) => {
     };
     girisKontrol();
 
-    // ROTA DÜZELTİLDİ: /urunler yerine /urun
     axios.get(`${API_CONFIG.BASE_URL}/urun/${id}`)
       .then((res) => {
         setUrun(res.data);
         setLoading(false);
+        sonGezilenlereEkle(res.data);
       })
       .catch((err) => {
         console.error("Detay yüklenemedi:", err);
@@ -57,7 +87,6 @@ export const useDetay = (id: string | string[]) => {
     } 
     try {
       const token = await AsyncStorage.getItem('userToken');
-      // Favori controllerının yolu aynı kaldıysa burası değişmiyor, değiştiyse /favori yapman gerekebilir
       await axios.post(`${API_CONFIG.BASE_URL}/favoriler`, { urunId: Number(id) }, { headers: { Authorization: `Bearer ${token}` } });
       basariliMesajGoster("Favorilere eklendi! ❤️");
     } catch (error: any) {
@@ -72,7 +101,6 @@ export const useDetay = (id: string | string[]) => {
     }
     try {
       const token = await AsyncStorage.getItem('userToken');
-      // Sepet controllerının yolu aynı kaldıysa burası değişmiyor
       await axios.post(`${API_CONFIG.BASE_URL}/sepet`, { urunId: Number(id), miktar: miktar }, { headers: { Authorization: `Bearer ${token}` } });
       basariliMesajGoster(`${miktar} adet sepete eklendi!`);
       router.push('/(tabs)/sepet');
@@ -107,7 +135,6 @@ export const useDetay = (id: string | string[]) => {
       setSecilenPuan(0);
       setYorumMetni(''); 
       
-      // Güncel ürünü tekrar çek
       const guncelUrun = await axios.get(`${API_CONFIG.BASE_URL}/urun/${id}`);
       setUrun(guncelUrun.data);
     } catch (error: any) {
