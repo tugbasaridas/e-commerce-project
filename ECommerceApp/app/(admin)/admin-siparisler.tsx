@@ -28,7 +28,7 @@ export default function AdminSiparisler() {
   
   const [modalGorunur, setModalGorunur] = useState(false);
   const [seciliUrun, setSeciliUrun] = useState<any | null>(null);
-  const [yeniDurum, setYeniDurum] = useState('Hazırlanıyor');
+  const [yeniDurum, setYeniDurum] = useState('');
   const [kargoFirma, setKargoFirma] = useState('');
   const [kargoTakipNo, setKargoTakipNo] = useState('');
 
@@ -59,11 +59,30 @@ export default function AdminSiparisler() {
     }
   };
 
+  // 🌟 YENİ: STATE MACHINE (DURUM MAKİNESİ) KONTROLCÜSÜ
+  // Ürünün mevcut durumuna göre HANGİ seçeneklerin gösterileceğini belirler.
+  const getGecerliSecenekler = (mevcutDurum: string) => {
+    if (mevcutDurum === 'Hazırlanıyor') {
+      return ['Kargoya Verildi', 'İptal Edildi'];
+    }
+    if (mevcutDurum === 'Kargoya Verildi') {
+      return ['Tamamlandı', 'Teslim Edildi', 'İptal Edildi'];
+    }
+    if (mevcutDurum === 'Tamamlandı' || mevcutDurum === 'Teslim Edildi') {
+      return ['İade Edildi']; // Tamamlanan siparişe yapılabilecek tek müdahale iadedir
+    }
+    return []; // Kilitli durumlar için boş döner
+  };
+
   const durumGuncellemeModalAc = (urun: any) => {
     setSeciliUrun(urun);
-    setYeniDurum(urun.durum || 'Hazırlanıyor');
     setKargoFirma(urun.kargoFirma || '');
     setKargoTakipNo(urun.kargoTakipNo || '');
+    
+    // Geçerli ilk seçeneği otomatik seçili yap
+    const gecerliSecenekler = getGecerliSecenekler(urun.durum || 'Hazırlanıyor');
+    setYeniDurum(gecerliSecenekler.length > 0 ? gecerliSecenekler[0] : urun.durum);
+    
     setModalGorunur(true);
   };
 
@@ -84,12 +103,12 @@ export default function AdminSiparisler() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      Alert.alert("Başarılı", "Ürün durumu başarıyla güncellendi.");
+      Alert.alert("Başarılı", "Ürün durumu kurallara uygun şekilde başarıyla güncellendi.");
       setModalGorunur(false);
       siparisleriGetir(); 
     } catch (error: any) {
       const guncellemeHatasi = error.response?.data || error.message;
-      Alert.alert("Hata", `Güncelleme başarısız: ${JSON.stringify(guncellemeHatasi)}`);
+      Alert.alert("Hata", `Güncelleme reddedildi: ${JSON.stringify(guncellemeHatasi)}`);
     }
   };
 
@@ -105,6 +124,7 @@ export default function AdminSiparisler() {
       case 'Kargoya Verildi': return { color: '#1E90FF', bgColor: '#E6F2FF', icon: 'cube-outline' };
       case 'Tamamlandı':
       case 'Teslim Edildi': return { color: '#28A745', bgColor: '#E8F5E9', icon: 'checkmark-circle-outline' };
+      case 'İade Edildi': return { color: '#9C27B0', bgColor: '#F3E5F5', icon: 'return-down-back-outline' };
       case 'İptal':
       case 'İptal Edildi': return { color: '#EF233C', bgColor: '#FFEBEA', icon: 'close-circle-outline' };
       default: return { color: '#6C757D', bgColor: '#F8F9FA', icon: 'information-circle-outline' };
@@ -125,7 +145,7 @@ export default function AdminSiparisler() {
     });
   }, [siparisler, aramaMetni, seciliDurum]);
 
-  const durumSecenekleri = ['Tümü', 'Hazırlanıyor', 'Kargoya Verildi', 'Tamamlandı', 'İptal Edildi'];
+  const durumSecenekleri = ['Tümü', 'Hazırlanıyor', 'Kargoya Verildi', 'Tamamlandı', 'İptal Edildi', 'İade Edildi'];
 
   if (loading) return <View style={styles.merkez}><ActivityIndicator size="large" color="#007AFF" /></View>;
 
@@ -175,6 +195,7 @@ export default function AdminSiparisler() {
           <Text style={styles.bosListeMetni}>Aradığınız kriterlere uygun sipariş bulunamadı.</Text>
         }
         renderItem={({ item }) => {
+          // Backend'den Ciro Net Şekilde Geliyor (İptaller/İadeler düşülmüş haliyle)
           const toplam = item.toplamTutar ?? item.ToplamTutar ?? 0;
           const saticiKazanc = item.saticiKazanci ?? item.SaticiKazanci ?? (toplam * 0.90);
           const adminKazanc = item.adminKazanci ?? item.AdminKazanci ?? (toplam * 0.10);
@@ -207,8 +228,9 @@ export default function AdminSiparisler() {
                     const mevcutDurum = urun.durum || urun.Durum;
                     const dStil = getDurumStili(mevcutDurum);
                     
-                    // 🌟 ADMİN İÇİN DE BİTİŞ KİLİDİ EKLENDİ
-                    const islemBittiMi = ['Tamamlandı', 'Teslim Edildi', 'İptal', 'İptal Edildi'].includes(mevcutDurum);
+                    // 🌟 KİLİT KONTROLÜ: Yalnızca tamamen iptal/iade edilenler kilitlenir. 
+                    // Tamamlandı olanlar kilitlenmez, iade'ye çekilebilir.
+                    const kilitliMi = ['İptal', 'İptal Edildi', 'İade Edildi'].includes(mevcutDurum);
 
                     return (
                       <View key={index} style={styles.urunSatiriKapsayici}>
@@ -226,7 +248,7 @@ export default function AdminSiparisler() {
                         </View>
                         
                         {/* 🌟 ADMİN KİLİTLİ BUTON MANTIĞI */}
-                        {!islemBittiMi ? (
+                        {!kilitliMi ? (
                           <TouchableOpacity style={styles.guncelleButon} onPress={() => durumGuncellemeModalAc(urun)}>
                             <Ionicons name="create-outline" size={16} color="#fff" style={{marginRight: 4}}/>
                             <Text style={styles.guncelleButonYazi}>Durum Güncelle</Text>
@@ -234,7 +256,7 @@ export default function AdminSiparisler() {
                         ) : (
                           <View style={[styles.guncelleButon, { backgroundColor: '#F2F2F7', elevation: 0, shadowOpacity: 0 }]}>
                             <Ionicons name="lock-closed-outline" size={16} color="#8E8E93" style={{marginRight: 4}}/>
-                            <Text style={[styles.guncelleButonYazi, { color: '#8E8E93' }]}>İşlem Tamamlandı</Text>
+                            <Text style={[styles.guncelleButonYazi, { color: '#8E8E93' }]}>Süreç Kilitlendi</Text>
                           </View>
                         )}
                       </View>
@@ -243,11 +265,11 @@ export default function AdminSiparisler() {
                 </View>
               </View>
 
-              {/* FİNANS BİLGİSİ (Admin'e Özel) */}
+              {/* 🌟 FİNANS BİLGİSİ (Net Komisyon Koruması) */}
               <View style={styles.adminPanelKutu}>
                 <View style={styles.adminPanelHeader}>
                   <Ionicons name="shield-checkmark" size={16} color="#007AFF" />
-                  <Text style={styles.adminPanelBaslik}>Admin Yetkileri & Finans</Text>
+                  <Text style={styles.adminPanelBaslik}>Admin Finans Özeti (İptal/İadeler Düşülmüş)</Text>
                 </View>
 
                 {(item.kullanilanKuponKodu || item.KullanilanKuponKodu) && (
@@ -265,18 +287,24 @@ export default function AdminSiparisler() {
                 )}
 
                 <View style={styles.finansSatir}>
-                  <Text style={styles.finansEtiket}>Müşteri Ödediği (Net):</Text>
+                  <Text style={styles.finansEtiket}>Geçerli Müşteri Ödemesi:</Text>
                   <Text style={styles.finansTutarMusteri}>{toplam.toFixed(2)} ₺</Text>
                 </View>
                 <View style={styles.finansAyrac} />
                 <View style={styles.finansSatir}>
-                  <Text style={styles.finansEtiket}>Satıcı Kazancı (%90):</Text>
+                  <Text style={styles.finansEtiket}>Geçerli Satıcı Kazancı (Net %90):</Text>
                   <Text style={styles.finansTutarSatici}>{saticiKazanc.toFixed(2)} ₺</Text>
                 </View>
                 <View style={styles.finansSatir}>
-                  <Text style={styles.finansEtiket}>Admin Kazancı (%10):</Text>
+                  <Text style={styles.finansEtiket}>Geçerli Platform Komisyonu (Net %10):</Text>
                   <Text style={styles.finansTutarAdmin}>{adminKazanc.toFixed(2)} ₺</Text>
                 </View>
+                
+                {toplam === 0 && (
+                  <Text style={{fontSize: 11, color: '#EF233C', fontStyle: 'italic', marginTop: 10, textAlign: 'center'}}>
+                    Tüm ürünler iptal/iade edildiği için kazanç sıfırlanmıştır.
+                  </Text>
+                )}
               </View>
             </View>
           );
@@ -291,7 +319,8 @@ export default function AdminSiparisler() {
             <Text style={styles.modalUrunAd} numberOfLines={2}>{seciliUrun?.ad}</Text>
             
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 15, maxHeight: 40 }}>
-              {['Hazırlanıyor', 'Kargoya Verildi', 'Tamamlandı', 'İptal Edildi'].map((d) => (
+              {/* 🌟 YENİ: Sadece Ürünün Mevcut Durumuna Göre Mantıklı Olan Butonlar Listelenir */}
+              {getGecerliSecenekler(seciliUrun?.durum).map((d) => (
                 <TouchableOpacity 
                   key={d} 
                   style={[styles.modalDurumChip, yeniDurum === d && styles.modalDurumChipAktif]}
@@ -327,7 +356,7 @@ export default function AdminSiparisler() {
                 <Text style={styles.modalIptalYazi}>Vazgeç</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.modalKaydetButon} onPress={guncelleApi}>
-                <Text style={styles.modalKaydetYazi}>Kaydet</Text>
+                <Text style={styles.modalKaydetYazi}>Değişikliği Kaydet</Text>
               </TouchableOpacity>
             </View>
           </View>

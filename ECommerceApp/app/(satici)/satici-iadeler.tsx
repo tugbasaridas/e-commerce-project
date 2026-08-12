@@ -14,6 +14,10 @@ export default function SaticiIadeler() {
   const [redSebebiInput, setRedSebebiInput] = useState('');
   const [secilenIadeId, setSecilenIadeId] = useState<number | null>(null);
 
+  // 🌟 YENİ: Arama çubuğu için durum (state) değişkenleri
+  const [aramaAcik, setAramaAcik] = useState(false);
+  const [aramaMetni, setAramaMetni] = useState('');
+
   useEffect(() => {
     iadeleriYukle();
   }, []);
@@ -53,6 +57,23 @@ export default function SaticiIadeler() {
     }
   };
 
+  // 🌟 YENİ: Arama metnine göre listeyi filtreleyen fonksiyon
+  const filtrelenmisListeyiGetir = () => {
+    if (!aramaMetni) return iadeler;
+
+    const kucukHarfArama = aramaMetni.toLowerCase();
+    
+    return iadeler.filter(item => {
+      const urun = item.urunAdi?.toLowerCase() || '';
+      const musteri = item.musteriAdi?.toLowerCase() || '';
+      const siparisNo = item.siparisId?.toString() || '';
+      
+      return urun.includes(kucukHarfArama) || 
+             musteri.includes(kucukHarfArama) || 
+             siparisNo.includes(kucukHarfArama);
+    });
+  };
+
   const getDurumStili = (durum: string) => {
     switch (durum) {
       case 'İade Kodu Oluşturuldu': return { bg: '#E3F2FD', text: '#2196F3', icon: 'barcode-outline' };
@@ -65,14 +86,43 @@ export default function SaticiIadeler() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      {/* 🌟 YENİ: Geri Butonlu Şık Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.geriButon} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#111" />
         </TouchableOpacity>
         <Text style={styles.baslik}>Müşteri İade Talepleri</Text>
-        <View style={{ width: 40 }} />
+        
+        {/* 🌟 YENİ: Gizli Arama Butonu */}
+        <TouchableOpacity 
+          style={styles.aramaIkon} 
+          onPress={() => {
+            setAramaAcik(!aramaAcik);
+            if (aramaAcik) setAramaMetni(''); // Arama kapanıyorsa metni sıfırla
+          }}
+        >
+          <Ionicons name="search" size={24} color={aramaAcik ? "#FF9F00" : "#111"} />
+        </TouchableOpacity>
       </View>
+
+      {/* 🌟 YENİ: Açılıp Kapanabilen Arama Çubuğu */}
+      {aramaAcik && (
+        <View style={styles.aramaKutusu}>
+          <Ionicons name="search" size={20} color="#8E8E93" style={{ marginRight: 8 }} />
+          <TextInput 
+            style={styles.aramaInput}
+            placeholder="Sipariş No, Ürün veya Müşteri Ara..."
+            placeholderTextColor="#8E8E93"
+            value={aramaMetni}
+            onChangeText={setAramaMetni}
+            autoFocus
+          />
+          {aramaMetni.length > 0 && (
+            <TouchableOpacity onPress={() => setAramaMetni('')}>
+              <Ionicons name="close-circle" size={20} color="#8E8E93" />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {loading ? (
         <View style={styles.merkez}>
@@ -80,7 +130,7 @@ export default function SaticiIadeler() {
         </View>
       ) : (
         <FlatList
-          data={iadeler}
+          data={filtrelenmisListeyiGetir()} // 🌟 LİSTE VERİSİ GÜNCELLENDİ
           keyExtractor={(item) => item.iadeId.toString()}
           contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
@@ -153,7 +203,7 @@ export default function SaticiIadeler() {
                       onChangeText={setRedSebebiInput} 
                       multiline
                     />
-                    <TouchableOpacity style={styles.redGonderButon} onPress={() => durumGuncelle(item.iadeId, 'Reddedildi', redSebebiInput)}>
+                    <TouchableOpacity style={styles.redGonderButon} onPress={() => durumGuncelle(item.iadeId, 'Reddet', redSebebiInput)}>
                       <Text style={styles.butonYazi}>Reddi Kesinleştir</Text>
                       <Ionicons name="send" size={16} color="#fff" style={{ marginLeft: 6 }} />
                     </TouchableOpacity>
@@ -165,8 +215,12 @@ export default function SaticiIadeler() {
           ListEmptyComponent={
             <View style={styles.bosListe}>
               <Ionicons name="folder-open-outline" size={60} color="#D1D1D6" />
-              <Text style={styles.bosListeBaslik}>İade Talebi Yok</Text>
-              <Text style={styles.bosListeMetin}>Şu anda mağazanızda bekleyen veya işlem gören bir iade talebi bulunmuyor.</Text>
+              <Text style={styles.bosListeBaslik}>{aramaAcik && aramaMetni ? "Sonuç Bulunamadı" : "İade Talebi Yok"}</Text>
+              <Text style={styles.bosListeMetin}>
+                {aramaAcik && aramaMetni 
+                  ? "Aradığınız kriterlere uygun bir iade talebi eşleşmedi." 
+                  : "Şu anda mağazanızda bekleyen veya işlem gören bir iade talebi bulunmuyor."}
+              </Text>
             </View>
           }
         />
@@ -180,8 +234,33 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
   geriButon: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
   baslik: { fontSize: 18, fontWeight: 'bold', color: '#111' },
+  aramaIkon: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-end' }, // 🌟 YENİ
   merkez: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   
+  // 🌟 YENİ: Arama Kutusu Stilleri
+  aramaKutusu: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  aramaInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#333',
+  },
+
   kart: { backgroundColor: '#fff', padding: 16, borderRadius: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 3, borderWidth: 1, borderColor: '#F0F0F0' },
   kartUst: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
   siparisNoKutu: { flexDirection: 'row', alignItems: 'center' },

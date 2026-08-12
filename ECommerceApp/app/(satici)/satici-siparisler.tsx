@@ -21,7 +21,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import SiparisDurumCubugu from '../../components/SiparisDurumCubugu';
 
-type SiparisKategori = 'Tümü' | 'Hazırlanıyor' | 'Kargoya Verildi' | 'Tamamlandı' | 'İptal Edildi';
+
+type SiparisKategori = 'Tümü' | 'Hazırlanıyor' | 'Kargoya Verildi' | 'Tamamlandı' | 'İptal Edildi' | 'İade Edildi';
 
 export default function SaticiSiparisler() {
   const router = useRouter();
@@ -32,7 +33,7 @@ export default function SaticiSiparisler() {
   const [aramaMetni, setAramaMetni] = useState('');
   const [aktifKategori, setAktifKategori] = useState<SiparisKategori>('Tümü');
 
-  // MODAL STATE'LERİ (Satıcıya Özel Kargo Girişli)
+  // MODAL STATE'LERİ
   const [modalGorunur, setModalGorunur] = useState(false);
   const [seciliUrun, setSeciliUrun] = useState<any | null>(null);
   const [yeniDurum, setYeniDurum] = useState('Hazırlanıyor');
@@ -61,7 +62,6 @@ export default function SaticiSiparisler() {
     } catch (error: any) {
       const gercekHata = error.response?.data?.message || error.response?.data || error.message || "Bilinmeyen Hata";
       const statusCode = error.response?.status || "Ağ Hatası";
-      console.log("🚨 SATICI API ÇÖKME DETAYI:", error);
       Alert.alert(`Hata Kodu: ${statusCode}`, `Siparişler yüklenemedi: ${JSON.stringify(gercekHata)}`);
     } finally {
       setLoading(false);
@@ -83,11 +83,25 @@ export default function SaticiSiparisler() {
     setFiltrelenmisSiparisler(sonuc);
   };
 
+  const getGecerliSecenekler = (mevcutDurum: string) => {
+    if (mevcutDurum === 'Hazırlanıyor') {
+      return ['Kargoya Verildi', 'İptal Edildi'];
+    }
+    if (mevcutDurum === 'Kargoya Verildi') {
+      return ['Tamamlandı', 'İptal Edildi']; 
+    }
+    return []; // İşlem bitmişse kilitlidir
+  };
+
   const durumGuncellemeModalAc = (urun: any) => {
     setSeciliUrun(urun);
-    setYeniDurum(urun.durum || urun.Durum || 'Hazırlanıyor');
     setKargoFirma(urun.kargoFirma || urun.KargoFirma || '');
     setKargoTakipNo(urun.kargoTakipNo || urun.KargoTakipNo || '');
+
+    const mevcutDurum = urun.durum || urun.Durum || 'Hazırlanıyor';
+    const gecerliSecenekler = getGecerliSecenekler(mevcutDurum);
+    setYeniDurum(gecerliSecenekler.length > 0 ? gecerliSecenekler[0] : mevcutDurum);
+    
     setModalGorunur(true);
   };
 
@@ -129,13 +143,15 @@ export default function SaticiSiparisler() {
       case 'Kargoya Verildi': return { color: '#1E90FF', bgColor: '#E6F2FF', icon: 'cube-outline' };
       case 'Tamamlandı':
       case 'Teslim Edildi': return { color: '#28A745', bgColor: '#E8F5E9', icon: 'checkmark-circle-outline' };
+      case 'İade Edildi': return { color: '#9C27B0', bgColor: '#F3E5F5', icon: 'return-down-back-outline' };
       case 'İptal':
       case 'İptal Edildi': return { color: '#EF233C', bgColor: '#FFEBEA', icon: 'close-circle-outline' };
       default: return { color: '#6C757D', bgColor: '#F8F9FA', icon: 'information-circle-outline' };
     }
   };
 
-  const kategoriler: SiparisKategori[] = ['Tümü', 'Hazırlanıyor', 'Kargoya Verildi', 'Tamamlandı', 'İptal Edildi'];
+  
+  const kategoriler: SiparisKategori[] = ['Tümü', 'Hazırlanıyor', 'Kargoya Verildi', 'Tamamlandı', 'İptal Edildi', 'İade Edildi'];
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -212,7 +228,6 @@ export default function SaticiSiparisler() {
             return (
               <View style={styles.siparisKapsayici}>
                 <View style={styles.kart}>
-                  {/* Kart Üst */}
                   <View style={styles.kartUst}>
                     <View>
                       <Text style={styles.siparisNo}>Sipariş No: #{siparisId}</Text>
@@ -223,17 +238,14 @@ export default function SaticiSiparisler() {
                     </View>
                   </View>
 
-                  {/* SİPARİŞ DURUM ÇUBUĞU ENTEGRESİ */}
                   <SiparisDurumCubugu durum={item.durum} />
 
-                  {/* Müşteri Bilgileri */}
                   <View style={styles.kullaniciBilgiKutusu}>
                     <Text style={styles.kullaniciAd}><Ionicons name="person" size={14}/> {musteriAd}</Text>
                     <Text style={styles.kullaniciDetay}><Ionicons name="call" size={14}/> {telefon}</Text>
                     <Text style={styles.kullaniciDetay}><Ionicons name="location" size={14}/> {teslimatAdresi}</Text>
                   </View>
 
-                  {/* Ürünler Listesi */}
                   <View style={styles.urunlerAlani}>
                     {urunler.map((urun: any, index: number) => {
                       const mevcutDurum = urun.durum || urun.Durum;
@@ -257,7 +269,6 @@ export default function SaticiSiparisler() {
                             </View>
                           </View>
                           
-                          {/* 🌟 Kilitli Buton Mantığı */}
                           {!islemBittiMi ? (
                             <TouchableOpacity style={styles.guncelleButon} onPress={() => durumGuncellemeModalAc(urun)}>
                               <Ionicons name="cube-outline" size={16} color="#fff" style={{marginRight: 4}}/>
@@ -275,7 +286,6 @@ export default function SaticiSiparisler() {
                   </View>
                 </View>
 
-                {/* SATICI FİNANS BİLGİSİ (Yeşil Kutu) */}
                 <View style={styles.finansPanelKutu}>
                   <View style={styles.finansPanelHeader}>
                     <Ionicons name="wallet-outline" size={16} color="#28A745" />
@@ -311,11 +321,8 @@ export default function SaticiSiparisler() {
             <Text style={styles.modalBaslik}>Sipariş Durumu Güncelle</Text>
             <Text style={styles.modalUrunAd} numberOfLines={2}>{seciliUrun?.ad || seciliUrun?.Ad}</Text>
             
-            {/* 🌟 DİNAMİK MODAL BUTONLARI (Hazırlanıyorsa farklı, Kargodaysa farklı) */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 15, maxHeight: 40 }}>
-              {(seciliUrun?.durum === 'Hazırlanıyor' || seciliUrun?.Durum === 'Hazırlanıyor' 
-                ? ['Hazırlanıyor', 'Kargoya Verildi', 'İptal Edildi'] 
-                : ['Kargoya Verildi', 'Tamamlandı']).map((d) => (
+              {getGecerliSecenekler(seciliUrun?.durum || seciliUrun?.Durum).map((d) => (
                 <TouchableOpacity 
                   key={d} 
                   style={[styles.modalDurumChip, yeniDurum === d && styles.modalDurumChipAktif]}

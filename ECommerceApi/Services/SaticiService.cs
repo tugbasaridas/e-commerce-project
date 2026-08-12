@@ -340,7 +340,7 @@ public class SaticiService : ISaticiService
         return sonuc;
     }
     
-   public async Task<(bool Basarili, string Mesaj)> SiparisDetayDurumGuncelleAsync(int kullaniciId, int detayId, SiparisDetayGuncelleDTO dto)
+public async Task<(bool Basarili, string Mesaj)> SiparisDetayDurumGuncelleAsync(int kullaniciId, int detayId, SiparisDetayGuncelleDTO dto)
     {
         var magaza = await _context.Magazalar.FirstOrDefaultAsync(m => m.KullaniciId == kullaniciId);
         if (magaza == null) return (false, "Mağaza bulunamadı.");
@@ -356,10 +356,10 @@ public class SaticiService : ISaticiService
         if (detay.Urunler == null || detay.Urunler!.MagazaId != magaza!.Id)
             return (false, "Bu sipariş kalemi sizin mağazanıza ait değil!");
 
-        // 🌟 1. KORUMA: Kilitli statülerde değişiklik yapılamaz! (İade/İptal ezilmesini engeller)
-        if (detay.Durum == "İptal" || detay.Durum == "İptal Edildi" || detay.Durum == "İade Edildi" || detay.Durum == "İade Bekliyor" || detay.Durum == "Tamamlandı" || detay.Durum == "Teslim Edildi")
+        // 🌟 1. KORUMA: Kilitli statülerde değişiklik yapılamaz!
+        if (detay.Durum == "İptal" || detay.Durum == "İptal Edildi" || detay.Durum == "İade Edildi")
         {
-            return (false, $"Bu ürün '{detay.Durum}' statüsünde olduğu için manuel olarak geri alınamaz veya değiştirilemez.");
+            return (false, $"Bu ürün '{detay.Durum}' statüsünde olduğu için kilitlenmiştir ve üzerinde değişiklik yapılamaz.");
         }
 
         // 🌟 2. KORUMA: Müşteri iade/iptal talebi açtıysa satıcı siparişi kurcalayamaz!
@@ -375,6 +375,16 @@ public class SaticiService : ISaticiService
             if (dto.YeniDurum != "Kargoya Verildi" && dto.YeniDurum != "İptal" && dto.YeniDurum != "İptal Edildi")
                 return (false, "Hazırlanıyor aşamasındaki bir sipariş doğrudan Tamamlandı yapılamaz! Önce 'Kargoya Verildi' olarak işaretlemelisiniz.");
         }
+        else if (detay.Durum == "Kargoya Verildi")
+        {
+            if (dto.YeniDurum != "Tamamlandı" && dto.YeniDurum != "Teslim Edildi" && dto.YeniDurum != "İptal" && dto.YeniDurum != "İptal Edildi")
+                return (false, "Kargoya verilmiş bir sipariş sadece 'Tamamlandı' veya 'İptal Edildi' statüsüne alınabilir.");
+        }
+        else if (detay.Durum == "Tamamlandı" || detay.Durum == "Teslim Edildi")
+        {
+            if (dto.YeniDurum != "İade Edildi")
+                return (false, "Tamamlanmış siparişlere yalnızca iade süreçleri için müdahale edilebilir.");
+        }
 
         // Tüm güvenlik testlerinden geçildiyse durumu güncelle
         detay.Durum = dto.YeniDurum;
@@ -385,36 +395,40 @@ public class SaticiService : ISaticiService
             detay.KargoTakipNo = dto.KargoTakipNo;
         }
 
-        // 🌟 4. KORUMA: Akıllı Ana Sipariş (Parent Order) Dış Kutu Durumu
+        // =========================================================================
+        // 🌟 4. KORUMA: Akıllı Ana Sipariş Durumu (Görseldeki Bug'ın Çözümü)
+        // =========================================================================
         var siparis = detay.Siparis; 
         if (siparis != null && siparis.Detaylar != null)
         {
             var tumDurumlar = siparis.Detaylar.Select(d => d.Durum ?? "").ToList();
             
-            // Aktif olan, yoldaki ürünlere odaklanıyoruz
+            // İptal ve İade edilenleri yok sayıp sadece 'geçerli' ürünleri listele
             var gecerliDurumlar = tumDurumlar.Where(d => d != "İptal" && d != "İptal Edildi" && d != "İade Edildi" && d != "İade Bekliyor").ToList();
 
             if (gecerliDurumlar.Count == 0)
             {
-                // İçeride geçerli ürün kalmadıysa, duruma göre dış kutuyu adlandır
-                siparis.Durum = tumDurumlar.Any(d => d == "İade Edildi" || d == "İade Bekliyor") ? "İade Edildi" : "İptal Edildi";
+                // Sepette geçerli hiçbir ürün kalmadı (Hepsi iptal veya iade).
+                bool iadeVarMi = tumDurumlar.Any(d => d == "İade Edildi" || d == "İade Bekliyor");
+                siparis.Durum = iadeVarMi ? "İade Edildi" : "İptal Edildi";
             }
             else if (gecerliDurumlar.Any(d => d == "Hazırlanıyor"))
             {
-                // Bir tane bile hazırlanan varsa dış paket hazırlanıyordur
+                // İçeride 1 tane bile "Hazırlanıyor" varsa, paket hala hazırlanıyordur.
                 siparis.Durum = "Hazırlanıyor";
             }
             else if (gecerliDurumlar.Any(d => d == "Kargoya Verildi"))
             {
-                // Hazırlanan yok, kargoya verilen varsa paket kargodadır
+                // Hazırlanan kalmadıysa ama "Kargoya Verildi" varsa, paket yoldadır.
                 siparis.Durum = "Kargoya Verildi";
             }
             else if (gecerliDurumlar.All(d => d == "Tamamlandı" || d == "Teslim Edildi"))
             {
-                // Kalan tüm ürünler ulaştıysa sipariş bitmiştir
+                // Geriye kalan tüm geçerli ürünler tamamlandıysa, ana sipariş de BİTMİŞTİR!
                 siparis.Durum = "Tamamlandı";
             }
         }
+        // =========================================================================
 
         await _context.SaveChangesAsync();
 
@@ -490,11 +504,10 @@ public class SaticiService : ISaticiService
         if (magaza == null)
             return (false, "Mağaza bulunamadı.");
 
-        // 🌟 2. KRİTİK DÜZELTME: İadeyi çekerken sadece ürünü değil, ana Siparişi ve diğer kardeş ürünleri de Include ediyoruz!
         var iade = await _context.Set<IadeTalebi>()
             .Include(i => i.SiparisDetay)
-                .ThenInclude(sd => sd!.Siparis)       // Ana sipariş dış kutusunu getir
-                    .ThenInclude(s => s!.Detaylar)    // O kutunun içindeki diğer tüm ürünleri getir
+                .ThenInclude(sd => sd!.Siparis)       
+                    .ThenInclude(s => s!.Detaylar)    
             .FirstOrDefaultAsync(i => i.Id == dto.IadeId && i.MagazaId == magaza.Id);
 
         if (iade == null)
@@ -517,19 +530,19 @@ public class SaticiService : ISaticiService
             
             if (iade.SiparisDetay != null) 
             {
-                // Ürün iade edildiği için kazançları sıfırlıyoruz (Cirodan düşmesi için)
+                // Ürün iade edildiği için kazançları sıfırlıyoruz 
                 iade.SiparisDetay.Durum = "İade Edildi";
                 iade.SiparisDetay.SaticiKazanci = 0;
                 iade.SiparisDetay.PlatformKomisyonu = 0;
 
-                // 🌟 AKILLI ANA SİPARİŞ KONTROLÜ: Eğer sepetteki geçerli olan her şey iade edildiyse, ana siparişi de İade Edildi yap
+                //  Eğer sepetteki geçerli olan her şey iade edildiyse, ana siparişi de İade Edildi yap
                 var siparis = iade.SiparisDetay.Siparis;
                 if (siparis != null && siparis.Detaylar != null)
                 {
                     // İptal ve İade edilenler dışındaki aktif ürünlere bakıyoruz
                     var gecerliDurumlar = siparis.Detaylar.Where(d => d.Durum != "İptal" && d.Durum != "İptal Edildi" && d.Durum != "İade Edildi").ToList();
                     
-                    // Geçerli (sağlam) ürün kalmadıysa, demek ki hepsi iptal veya iade olmuş
+                    // Geçerli  ürün kalmadıysa, demek ki hepsi iptal veya iade olmuş
                     if (gecerliDurumlar.Count == 0) 
                     {
                         siparis.Durum = "İade Edildi";

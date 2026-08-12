@@ -215,7 +215,7 @@ public class AdminService : IAdminService
         {
             var tumDurumlar = siparis.Detaylar.Select(d => d.Durum ?? "").ToList();
             
-            // 🌟 DÜZELTİLDİ: "İade Edildi" durumu da ana siparişin genel durumunu olumsuz etkilememeli
+            //  "İade Edildi" durumu da ana siparişin genel durumunu olumsuz etkilememeli
             var gecerliDurumlar = tumDurumlar.Where(d => d != "İptal" && d != "İptal Edildi" && d != "İade Edildi").ToList();
 
             if (gecerliDurumlar.Count == 0)
