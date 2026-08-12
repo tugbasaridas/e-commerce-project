@@ -52,12 +52,10 @@ export default function SifreDegistir() {
         { text: "Tamam", onPress: () => router.back() }
       ]);
    } catch (error: any) {
-      // 🌟 Backend'den gelen hatayı güvenli bir şekilde metne dönüştürüyoruz
       let hataMesaji = "Şifre değiştirme işlemi başarısız oldu.";
 
       if (error.response?.data) {
         const data = error.response.data;
-        // C# tarafındaki büyük/küçük harf ihtimallerine karşı kontrol ediyoruz
         hataMesaji = data.Mesaj || data.mesaj || (typeof data === 'string' ? data : "Bir hata oluştu.");
       }
 
@@ -68,18 +66,9 @@ export default function SifreDegistir() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         
-        {/* Modern Header */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.geriButon} onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={28} color="#333" />
-          </TouchableOpacity>
-          <Text style={styles.baslik}>Şifre İşlemleri</Text>
-          <View style={{ width: 40 }} />
-        </View>
-
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollIcerik}>
           
           {/* Tatlı Karşılama Alanı (Hero) */}
@@ -150,7 +139,6 @@ export default function SifreDegistir() {
               </View>
             </View>
 
-            {/* 🌟 Butonu yukarı, doğrudan formun bitimine aldık */}
             <TouchableOpacity 
               style={[styles.kaydetButon, loading && styles.kaydetButonPasif]} 
               onPress={sifreKaydetApi}
@@ -169,7 +157,6 @@ export default function SifreDegistir() {
 
           </View>
         </ScrollView>
-
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -177,10 +164,6 @@ export default function SifreDegistir() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 15 },
-  geriButon: { width: 44, height: 44, justifyContent: 'center', alignItems: 'flex-start' },
-  baslik: { fontSize: 18, fontWeight: '800', color: '#1C1C1E' },
-  
   scrollIcerik: { paddingHorizontal: 20, paddingBottom: 40 },
   
   heroKutusu: { alignItems: 'center', marginTop: 20, marginBottom: 25 },
@@ -193,7 +176,6 @@ const styles = StyleSheet.create({
   inputGrubu: { marginBottom: 20 },
   etiket: { fontSize: 14, fontWeight: '700', color: '#3A3A3C', marginBottom: 8, marginLeft: 4 },
   
-  // 🌟 Inputlar artık bembeyaz, belirgin çizgili ve hafif derinlikli
   inputSatiri: { 
     flexDirection: 'row', 
     alignItems: 'center', 

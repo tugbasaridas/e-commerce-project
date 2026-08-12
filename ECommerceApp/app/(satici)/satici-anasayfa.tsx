@@ -26,8 +26,11 @@ export default function SaticiAnasayfa() {
   const [bekleyenSoruSayisi, setBekleyenSoruSayisi] = useState(0); 
   const [bekleyenSiparisSayisi, setBekleyenSiparisSayisi] = useState(0); 
   const [bekleyenDestekSayisi, setBekleyenDestekSayisi] = useState(0); 
+  
+ 
+  const [bekleyenIadeSayisi, setBekleyenIadeSayisi] = useState(0); 
+  
   const [loading, setLoading] = useState(true);
-
   const [grafikGoster, setGrafikGoster] = useState(false);
 
   useFocusEffect(
@@ -43,23 +46,27 @@ export default function SaticiAnasayfa() {
 
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [urunResponse, siparisResponse, soruResponse, destekResponse, profilResponse] = await Promise.all([
+      
+      const [urunResponse, siparisResponse, soruResponse, destekResponse, profilResponse, iadeResponse] = await Promise.all([
         axios.get(`${API_CONFIG.BASE_URL}/satici/urunlerim`, { headers }),
         axios.get(`${API_CONFIG.BASE_URL}/satici/siparislerim`, { headers }),
         axios.get(`${API_CONFIG.BASE_URL}/urunsoru/satici-sorulari`, { headers }).catch(() => ({ data: [] })),
         axios.get(`${API_CONFIG.BASE_URL}/destek/kullanici`, { headers }).catch(() => ({ data: [] })),
-        axios.get(`${API_CONFIG.BASE_URL}/satici/profil`, { headers }).catch(() => ({ data: null }))
+        axios.get(`${API_CONFIG.BASE_URL}/satici/profil`, { headers }).catch(() => ({ data: null })),
+        axios.get(`${API_CONFIG.BASE_URL}/satici/iadeler`, { headers }).catch(() => ({ data: [] }))
       ]);
 
       setUrunler(urunResponse.data);
       setSiparisler(siparisResponse.data);
       if (profilResponse.data) setMagazaBilgisi(profilResponse.data);
 
+      // SORU BİLDİRİMİ
       if (soruResponse.data && Array.isArray(soruResponse.data)) {
         const bekleyenler = soruResponse.data.filter((soru: any) => !soru.cevaplandiMi);
         setBekleyenSoruSayisi(bekleyenler.length);
       }
 
+      // DESTEK BİLDİRİMİ
       if (destekResponse.data && Array.isArray(destekResponse.data)) {
         const cevaplananlar = destekResponse.data.filter((d: any) => 
           d.cevaplandiMi === true || d.CevaplandiMi === true || d.durum === 'Cevaplandı' || (d.adminCevabi && d.adminCevabi.length > 0)
@@ -76,6 +83,7 @@ export default function SaticiAnasayfa() {
         setBekleyenDestekSayisi(yeniCevaplar.length);
       }
 
+      // SİPARİŞ BİLDİRİMİ
       if (siparisResponse.data && Array.isArray(siparisResponse.data)) {
         let hazirlanacakSiparisAdedi = 0;
         siparisResponse.data.forEach((siparis: any) => {
@@ -86,6 +94,15 @@ export default function SaticiAnasayfa() {
           }
         });
         setBekleyenSiparisSayisi(hazirlanacakSiparisAdedi);
+      }
+
+      // 🌟 YENİ: İADE BİLDİRİMİ HESAPLAMASI
+      if (iadeResponse.data && Array.isArray(iadeResponse.data)) {
+        // Yalnızca satıcının ilgilenmesi gereken (onay/red veya teslim alma bekleyen) iadeler
+        const islemBekleyenIadeler = iadeResponse.data.filter((iade: any) => 
+          iade.durum === 'İade Kodu Oluşturuldu' || iade.durum === 'İncelemede'
+        );
+        setBekleyenIadeSayisi(islemBekleyenIadeler.length);
       }
 
     } catch (error) {
@@ -290,9 +307,11 @@ export default function SaticiAnasayfa() {
                 <Text style={styles.islemKartYazi}>Siparişler</Text>
               </TouchableOpacity>
 
+              {/* İADE TALEPLERİNE BİLDİRİM ROZETİ EKLENDİ */}
               <TouchableOpacity style={styles.islemKart} activeOpacity={0.8} onPress={() => router.push('/(satici)/satici-iadeler' as any)}>
-                <View style={[styles.islemIkonKutu, { backgroundColor: '#FFEBEE' }]}>
+                <View style={[styles.islemIkonKutu, { backgroundColor: '#FFEBEE', position: 'relative' }]}>
                   <Ionicons name="return-down-back" size={26} color="#E53935" />
+                  <BildirimRozeti sayi={bekleyenIadeSayisi} />
                 </View>
                 <Text style={styles.islemKartYazi}>İade Talepleri</Text>
               </TouchableOpacity>
@@ -312,7 +331,6 @@ export default function SaticiAnasayfa() {
                 <Text style={styles.islemKartYazi}>Mağaza Kuponları</Text>
               </TouchableOpacity>
 
-              {/* 🌟 YENİ EKLENEN ŞİFRE DEĞİŞTİR BUTONU */}
               <TouchableOpacity style={styles.islemKart} activeOpacity={0.8} onPress={() => router.push('/sifre-degistir' as any)}>
                 <View style={[styles.islemIkonKutu, { backgroundColor: '#f6f4f7' }]}>
                   <Ionicons name="lock-closed" size={26} color="#dd92c4" />
