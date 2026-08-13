@@ -89,3 +89,4 @@ npx expo start
 ## Notlar
 - Backend için veritabanı bağlantısı appsettings.json dosyasından ayarlanır.
 - Frontend tarafında API adresi config/api.ts dosyasında düzenlenebilir.
+- Uploads klasöründe uygulama fotoğrafları mevcuttur.
